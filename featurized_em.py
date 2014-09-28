@@ -24,10 +24,22 @@ possible_obs = defaultdict(set)
 normalizing_decision_map = {}
 
 
+def populate_arcs_to_features(co_occurance):
+    for type, d, c in co_occurance:
+        fired_features = get_features_fired(type=type, decision=d, context=c)
+        fs = conditional_arcs_to_features.get((type, d, c), set([]))
+        fs = fs.union(fired_features)
+        conditional_arcs_to_features[type, d, c] = fs
+        for ff in fired_features:
+            cs = features_to_conditional_arcs.get(ff, set([]))
+            cs.add((type, d, c))
+            features_to_conditional_arcs[ff] = cs
+
+
 def accumulate_fractional_counts(fc):
     global fractional_counts
-    for f in fc:
-        fractional_counts[f] = utils.logadd(fc[f], fractional_counts.get(f, float('-Inf')))
+    for type, d, c in fc:
+        fractional_counts[type, d, c] = utils.logadd(fc[type, d, c], fractional_counts.get((type, d, c), float('-Inf')))
 
 
 def populate_normalizing_terms(co_occurance=None):
@@ -44,22 +56,22 @@ def populate_normalizing_terms(co_occurance=None):
             normalizing_decision_map[type, f2] = n
 
 
-def get_features_fired(type, state=None, prev_state=None, obs=None, prev_obs=None):
+def get_features_fired(type, decision, context):
     if type == E_TYPE:
         # suffix feature, prefix feature
-        return [(E_TYPE_SUF, obs[-4:], state), (E_TYPE_PRE, obs[:4], state), (E_TYPE, obs, state)]
+        return [(E_TYPE_SUF, decision[-4:], context), (E_TYPE_PRE, decision[:4], context), (E_TYPE, decision, context)]
     elif type == T_TYPE:
-        return [(T_TYPE, state, prev_state)]
+        return [(T_TYPE, decision, context)]
 
 
 def get_emission(obs, state):
     global normalizing_decision_map
-    fired_features = get_features_fired(type=E_TYPE, state=state, obs=obs)
+    fired_features = get_features_fired(type=E_TYPE, context=state, decision=obs)
     theta_dot_features = sum([theta.get(f, 0.0) for f in fired_features])
     normalizing_decisions = normalizing_decision_map[E_TYPE, state]
     theta_dot_normalizing_features = 0.0
     for d in normalizing_decisions:
-        d_features = get_features_fired(type=E_TYPE, state=state, obs=d)
+        d_features = get_features_fired(type=E_TYPE, context=state, decision=d)
         theta_dot_normalizing_features += exp(sum([theta.get(f, 0.0) for f in d_features]))
     log_prob = theta_dot_features - theta_dot_normalizing_features
     return log_prob
@@ -67,12 +79,12 @@ def get_emission(obs, state):
 
 def get_transition(state, prev_state):
     global normalizing_decision_map
-    fired_features = get_features_fired(type=T_TYPE, state=state, prev_state=prev_state)
+    fired_features = get_features_fired(type=T_TYPE, decision=state, context=prev_state)
     theta_dot_features = sum([theta.get(f, 0.0) for f in fired_features])
     normalizing_decisions = normalizing_decision_map[T_TYPE, prev_state]
     theta_dot_normalizing_features = 0.0
     for d in normalizing_decisions:
-        d_features = get_features_fired(type=T_TYPE, state=d, prev_state=prev_state)
+        d_features = get_features_fired(type=T_TYPE, decision=d, context=prev_state)
         theta_dot_normalizing_features += exp(sum([theta.get(f, 0.0) for f in d_features]))
     log_prob = theta_dot_features - theta_dot_normalizing_features
     return log_prob
@@ -213,9 +225,10 @@ if __name__ == "__main__":
                 co_occurance[E_TYPE, obs, state] = None
                 co_occurance[T_TYPE, state, prev_state] = None
     populate_normalizing_terms(co_occurance)
+    populate_arcs_to_features(co_occurance)
     possible_states[ALL].remove(BOUNDARY_STATE)
 
-    for idx, t in enumerate(open(options.initial_train, 'r').read().split(SPLIT)[:10]):
+    for idx, t in enumerate(open(options.initial_train, 'r').read().split(SPLIT)[:4]):
         if t.strip() != '':
             obs_state = [tuple(x.split('/')) for x in t.split('\n') if x.strip() != '']
             obs, state = zip(*obs_state)
