@@ -2,11 +2,14 @@ __author__ = 'arenduchintala'
 
 from optparse import OptionParser
 from math import exp, log
+import pdb
 import utils
 from pprint import pprint
 from collections import defaultdict
 
 global BOUNDARY_STATE, END_STATE, SPLIT, E_TYPE, T_TYPE, theta, possible_states, normalizing_decision_map
+global cache_conditoinal_probs, features_to_conditional_arcs, conditional_arcs_to_features
+cache_conditoinal_probs = {}
 BOUNDARY_STATE = "###"
 SPLIT = "###/###"
 E_TYPE = "emission"
@@ -25,6 +28,7 @@ normalizing_decision_map = {}
 
 
 def populate_arcs_to_features(co_occurance):
+    global features_to_conditional_arcs, conditional_arcs_to_features
     for type, d, c in co_occurance:
         fired_features = get_features_fired(type=type, decision=d, context=c)
         fs = conditional_arcs_to_features.get((type, d, c), set([]))
@@ -64,30 +68,21 @@ def get_features_fired(type, decision, context):
         return [(T_TYPE, decision, context)]
 
 
-def get_emission(obs, state):
-    global normalizing_decision_map
-    fired_features = get_features_fired(type=E_TYPE, context=state, decision=obs)
-    theta_dot_features = sum([theta.get(f, 0.0) for f in fired_features])
-    normalizing_decisions = normalizing_decision_map[E_TYPE, state]
-    theta_dot_normalizing_features = 0.0
-    for d in normalizing_decisions:
-        d_features = get_features_fired(type=E_TYPE, context=state, decision=d)
-        theta_dot_normalizing_features += exp(sum([theta.get(f, 0.0) for f in d_features]))
-    log_prob = theta_dot_features - theta_dot_normalizing_features
-    return log_prob
-
-
-def get_transition(state, prev_state):
-    global normalizing_decision_map
-    fired_features = get_features_fired(type=T_TYPE, decision=state, context=prev_state)
-    theta_dot_features = sum([theta.get(f, 0.0) for f in fired_features])
-    normalizing_decisions = normalizing_decision_map[T_TYPE, prev_state]
-    theta_dot_normalizing_features = 0.0
-    for d in normalizing_decisions:
-        d_features = get_features_fired(type=T_TYPE, decision=d, context=prev_state)
-        theta_dot_normalizing_features += exp(sum([theta.get(f, 0.0) for f in d_features]))
-    log_prob = theta_dot_features - theta_dot_normalizing_features
-    return log_prob
+def get_decision_given_context(type, decision, context):
+    if (type, decision, context) in cache_conditoinal_probs:
+        return cache_conditoinal_probs[type, decision, context]
+    else:
+        global normalizing_decision_map
+        fired_features = get_features_fired(type=type, context=context, decision=decision)
+        theta_dot_features = sum([theta.get(f, 0.0) for f in fired_features])
+        normalizing_decisions = normalizing_decision_map[E_TYPE, context]
+        theta_dot_normalizing_features = 0.0
+        for d in normalizing_decisions:
+            d_features = get_features_fired(type=type, context=context, decision=d)
+            theta_dot_normalizing_features += exp(sum([theta.get(f, 0.0) for f in d_features]))
+        log_prob = theta_dot_features - theta_dot_normalizing_features
+        cache_conditoinal_probs[E_TYPE, decision, context] = log_prob
+        return log_prob
 
 
 def get_possible_states(o):
@@ -106,11 +101,11 @@ def get_backwards(raw_words, alpha_pi):
     S = alpha_pi[(n, BOUNDARY_STATE)]  # from line 13 in pseudo code
     for k in range(n, 0, -1):
         for v in get_possible_states(words[k]):
-            e = get_emission(words[k], v)
+            e = get_decision_given_context(E_TYPE, words[k], v)
             pb = beta_pi[(k, v)]
 
             for u in get_possible_states(words[k - 1]):
-                q = get_transition(v, u)
+                q = get_decision_given_context(T_TYPE, v, u)
                 p = q + e
                 beta_p = pb + p
                 new_pi_key = (k - 1, u)
@@ -119,12 +114,6 @@ def get_backwards(raw_words, alpha_pi):
                 else:
                     beta_pi[new_pi_key] = utils.logadd(beta_pi[new_pi_key], beta_p)
                     # print 'beta     ', new_pi_key, '=', beta_pi[new_pi_key], exp(beta_pi[new_pi_key])
-                '''
-                if k not in posterior_bigrams:
-                    posterior_bigrams[k] = [((u, v), posterior_bigram_val)]
-                else:
-                    posterior_bigrams[k].append(((u, v), posterior_bigram_val))
-                '''
 
     return S, beta_pi
 
@@ -140,8 +129,8 @@ def get_viterbi_and_forward(raw_words):
             max_prob_to_bt = {}
             sum_prob_to_bt = []
             for u in get_possible_states(words[k - 1]):  # [1]:
-                q = get_transition(v, u)
-                e = get_emission(words[k], v)
+                q = get_decision_given_context(T_TYPE, v, u)
+                e = get_decision_given_context(E_TYPE, words[k], v)
                 # p = pi[(k - 1, u)] * q * e
                 # alpha_p = alpha_pi[(k - 1, u)] * q * e
                 p = pi[(k - 1, u)] + q + e
@@ -194,14 +183,32 @@ def get_fractional_counts(alpha_pi, beta_pi, raw_words):
             acc = fc.get((E_TYPE, obs, n), float('-Inf'))
             fc[E_TYPE, obs, n] = utils.logadd(acc, update)
             beta_t1n = beta_pi[t, n]
-            ne = get_emission(words[t], n)
+            ne = get_decision_given_context(E_TYPE, words[t], n)
             for pn in time2nodes[t - 1]:
                 alpha_t0pn = alpha_pi[t - 1, pn]
-                pn2n = get_transition(n, pn)
+                pn2n = get_decision_given_context(T_TYPE, n, pn)
                 update = (beta_t1n + alpha_t0pn + pn2n + ne) - (alpha_beta_t[t])
                 acc = fc.get((T_TYPE, n, pn), float('-Inf'))
                 fc[T_TYPE, n, pn] = utils.logadd(acc, update)
     return fc
+
+
+def get_gradient():
+    grad = {}
+    for f in features_to_conditional_arcs:
+        sum_p_kl = float('-inf')
+        for type, f1, f2 in features_to_conditional_arcs[f]:
+            p_kl = get_decision_given_context(type, f1, f2)
+            sum_p_kl = utils.logadd(sum_p_kl, p_kl)
+
+        for akl_key in features_to_conditional_arcs[f]:
+            # pdb.set_trace()
+            Akl = fractional_counts[akl_key]
+            grad_f = exp(Akl) - exp(sum_p_kl)  # TODO: should the gradient be in log-space??
+            sum_grad_f = grad.get(f, 0.0)
+            sum_grad_f += grad_f
+            grad[f] = sum_grad_f
+    return grad
 
 
 if __name__ == "__main__":
@@ -211,7 +218,7 @@ if __name__ == "__main__":
     (options, _) = opt.parse_args()
     possible_states[ALL] = set([])
     co_occurance = {}
-    for t in open(options.initial_train, 'r').read().split(SPLIT):
+    for t in open(options.initial_train, 'r').read().split(SPLIT)[:100]:
         if t.strip() != '':
             obs_state = [tuple(x.split('/')) for x in t.split('\n') if x.strip() != '']
             obs_state.append((BOUNDARY_STATE, BOUNDARY_STATE))
@@ -228,7 +235,7 @@ if __name__ == "__main__":
     populate_arcs_to_features(co_occurance)
     possible_states[ALL].remove(BOUNDARY_STATE)
 
-    for idx, t in enumerate(open(options.initial_train, 'r').read().split(SPLIT)[:4]):
+    for idx, t in enumerate(open(options.initial_train, 'r').read().split(SPLIT)[:100]):
         if t.strip() != '':
             obs_state = [tuple(x.split('/')) for x in t.split('\n') if x.strip() != '']
             obs, state = zip(*obs_state)
@@ -242,12 +249,13 @@ if __name__ == "__main__":
             fc = get_fractional_counts(alpha_pi, beta_pi, obs)
             # pprint(fc)
             accumulate_fractional_counts(fc)
-            print 'accumulating', idx
+            print 'accumulating', idx, len(fractional_counts)
 
     print ''
     pprint(fractional_counts)
     print 'arcs', len(conditional_arcs_to_features), 'features', len(features_to_conditional_arcs)
     pprint(features_to_conditional_arcs)
+    pprint(get_gradient())
 
 
 
