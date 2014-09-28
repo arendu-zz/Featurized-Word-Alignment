@@ -246,6 +246,8 @@ if __name__ == "__main__":
 
     print ''
     pprint(fractional_counts)
+    print 'arcs', len(conditional_arcs_to_features), 'features', len(features_to_conditional_arcs)
+    pprint(features_to_conditional_arcs)
 
 
 
