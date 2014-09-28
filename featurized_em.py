@@ -6,7 +6,7 @@ import utils
 from pprint import pprint
 from collections import defaultdict
 
-global BOUNDARY_STATE, END_STATE, SPLIT, mle_count, mle_probs, E_TYPE, T_TYPE, theta, possible_states
+global BOUNDARY_STATE, END_STATE, SPLIT, E_TYPE, T_TYPE, theta, possible_states, normalizing_decision_map
 BOUNDARY_STATE = "###"
 SPLIT = "###/###"
 E_TYPE = "emission"
@@ -15,12 +15,13 @@ E_TYPE_SUF = "suffix_feature"
 T_TYPE = "transition"
 S_TYPE = "state"
 ALL = "ALL_STATES"
-mle_count = {}
 fractional_counts = {}
-probs = {}
+conditional_arcs_to_features = {}
+features_to_conditional_arcs = {}
 theta = {}
 possible_states = defaultdict(set)
-features_all = {}
+possible_obs = defaultdict(set)
+normalizing_decision_map = {}
 
 
 def accumulate_fractional_counts(fc):
@@ -29,16 +30,21 @@ def accumulate_fractional_counts(fc):
         fractional_counts[f] = utils.logadd(fc[f], fractional_counts.get(f, float('-Inf')))
 
 
-def populate_features(mle):
-    for type, f1, f2 in mle:
-        # f1 is the decision variable
-        # f2 is the context variable
-        n = features_all.get((type, f2), set([]))
-        n.add(f1)
-        features_all[type, f2] = n
+def populate_normalizing_terms(co_occurance=None):
+    if co_occurance is None:
+        for s in possible_states[ALL]:
+            normalizing_decision_map[E_TYPE, s] = possible_obs[ALL]
+            normalizing_decision_map[T_TYPE, s] = possible_states[ALL]
+    else:
+        for type, f1, f2 in co_occurance:
+            # f1 is the decision variable
+            # f2 is the context variable
+            n = normalizing_decision_map.get((type, f2), set([]))
+            n.add(f1)
+            normalizing_decision_map[type, f2] = n
 
 
-def extract_features(type, state=None, prev_state=None, obs=None, prev_obs=None):
+def get_features_fired(type, state=None, prev_state=None, obs=None, prev_obs=None):
     if type == E_TYPE:
         # suffix feature, prefix feature
         return [(E_TYPE_SUF, obs[-4:], state), (E_TYPE_PRE, obs[:4], state), (E_TYPE, obs, state)]
@@ -47,26 +53,26 @@ def extract_features(type, state=None, prev_state=None, obs=None, prev_obs=None)
 
 
 def get_emission(obs, state):
-    global features_all
-    fired_features = extract_features(type=E_TYPE, state=state, obs=obs)
+    global normalizing_decision_map
+    fired_features = get_features_fired(type=E_TYPE, state=state, obs=obs)
     theta_dot_features = sum([theta.get(f, 0.0) for f in fired_features])
-    normalizing_decisions = features_all[E_TYPE, state]
+    normalizing_decisions = normalizing_decision_map[E_TYPE, state]
     theta_dot_normalizing_features = 0.0
     for d in normalizing_decisions:
-        d_features = extract_features(type=E_TYPE, state=state, obs=d)
+        d_features = get_features_fired(type=E_TYPE, state=state, obs=d)
         theta_dot_normalizing_features += exp(sum([theta.get(f, 0.0) for f in d_features]))
     log_prob = theta_dot_features - theta_dot_normalizing_features
     return log_prob
 
 
 def get_transition(state, prev_state):
-    global features_all
-    fired_features = extract_features(type=T_TYPE, state=state, prev_state=prev_state)
+    global normalizing_decision_map
+    fired_features = get_features_fired(type=T_TYPE, state=state, prev_state=prev_state)
     theta_dot_features = sum([theta.get(f, 0.0) for f in fired_features])
-    normalizing_decisions = features_all[T_TYPE, prev_state]
+    normalizing_decisions = normalizing_decision_map[T_TYPE, prev_state]
     theta_dot_normalizing_features = 0.0
     for d in normalizing_decisions:
-        d_features = extract_features(type=T_TYPE, state=d, prev_state=prev_state)
+        d_features = get_features_fired(type=T_TYPE, state=d, prev_state=prev_state)
         theta_dot_normalizing_features += exp(sum([theta.get(f, 0.0) for f in d_features]))
     log_prob = theta_dot_features - theta_dot_normalizing_features
     return log_prob
@@ -76,7 +82,7 @@ def get_possible_states(o):
     if o == BOUNDARY_STATE:
         return [BOUNDARY_STATE]
     elif o in possible_states:
-        return list(possible_states[o])
+        return list(possible_states[ALL])
     else:
         return list(possible_states[ALL])
 
@@ -85,20 +91,13 @@ def get_backwards(raw_words, alpha_pi):
     words = [BOUNDARY_STATE] + raw_words + [BOUNDARY_STATE]
     n = len(words) - 1  # index of last word
     beta_pi = {(n, BOUNDARY_STATE): 0.0}
-    posterior_unigrams = {}
-    posterior_obs_accumilation = {}
-    posterior_bigrams_accumilation = {}
     S = alpha_pi[(n, BOUNDARY_STATE)]  # from line 13 in pseudo code
     for k in range(n, 0, -1):
         for v in get_possible_states(words[k]):
             e = get_emission(words[k], v)
             pb = beta_pi[(k, v)]
-            posterior_unigram_val = beta_pi[(k, v)] + alpha_pi[(k, v)] - S
-            # posterior_obs_accumilation = do_accumilate_posterior_obs(posterior_obs_accumilation, words[k], v, posterior_unigram_val)
-            # posterior_unigrams = do_append_posterior_unigrams(posterior_unigrams, k, v, posterior_unigram_val)
 
             for u in get_possible_states(words[k - 1]):
-                # print 'reverse transition', 'k', k, 'u', u, '->', 'v', v
                 q = get_transition(v, u)
                 p = q + e
                 beta_p = pb + p
@@ -108,9 +107,6 @@ def get_backwards(raw_words, alpha_pi):
                 else:
                     beta_pi[new_pi_key] = utils.logadd(beta_pi[new_pi_key], beta_p)
                     # print 'beta     ', new_pi_key, '=', beta_pi[new_pi_key], exp(beta_pi[new_pi_key])
-                posterior_bigram_val = alpha_pi[(k - 1, u)] + p + beta_pi[(k, v)] - S
-                # posterior_bigram_val = "%.3f" % (exp(alpha_pi[(k - 1, u)] + p + beta_pi[(k, v)] - S))
-                # posterior_bigrams_accumilation = do_accumilate_posterior_bigrams(posterior_bigrams_accumilation, v, u, posterior_bigram_val)
                 '''
                 if k not in posterior_bigrams:
                     posterior_bigrams[k] = [((u, v), posterior_bigram_val)]
@@ -202,6 +198,7 @@ if __name__ == "__main__":
     opt.add_option("-t", dest="raw", default="data/enraw")
     (options, _) = opt.parse_args()
     possible_states[ALL] = set([])
+    co_occurance = {}
     for t in open(options.initial_train, 'r').read().split(SPLIT):
         if t.strip() != '':
             obs_state = [tuple(x.split('/')) for x in t.split('\n') if x.strip() != '']
@@ -211,20 +208,31 @@ if __name__ == "__main__":
                 possible_states[obs].add(state)
                 possible_states[ALL].add(state)
                 prev_obs, prev_state = obs_state[idx - 1]
-                mle_count[T_TYPE, state, prev_state] = mle_count.get((T_TYPE, state, prev_state), 0) + 1.0
-                mle_count[E_TYPE, obs, state] = mle_count.get((E_TYPE, obs, state), 0) + 1.0
-                mle_count[S_TYPE, prev_state, None] = mle_count.get((S_TYPE, prev_state), 0) + 1.0
-                # TODO: why do i need the values of the counts? Im just using the keys...!
-    populate_features(mle_count)
+                possible_obs[state].add(obs)
+                possible_obs[ALL].add(obs)
+                co_occurance[E_TYPE, obs, state] = None
+                co_occurance[T_TYPE, state, prev_state] = None
+    populate_normalizing_terms(co_occurance)
     possible_states[ALL].remove(BOUNDARY_STATE)
-    s = "this is big .".split()
-    max_bt, max_p, alpha_pi = get_viterbi_and_forward(s)
-    # print(max_bt)
-    # pprint(alpha_pi)
-    S, beta_pi = get_backwards(s, alpha_pi)
-    # pprint(beta_pi)
-    fc = get_fractional_counts(alpha_pi, beta_pi, s)
-    accumulate_fractional_counts(fc)
+
+    for idx, t in enumerate(open(options.initial_train, 'r').read().split(SPLIT)[:10]):
+        if t.strip() != '':
+            obs_state = [tuple(x.split('/')) for x in t.split('\n') if x.strip() != '']
+            obs, state = zip(*obs_state)
+            obs = list(obs)
+            # obs = "this is big .".split()
+            max_bt, max_p, alpha_pi = get_viterbi_and_forward(obs)
+            # print(max_bt)
+            # pprint(alpha_pi)
+            S, beta_pi = get_backwards(obs, alpha_pi)
+            # pprint(beta_pi)
+            fc = get_fractional_counts(alpha_pi, beta_pi, obs)
+            # pprint(fc)
+            accumulate_fractional_counts(fc)
+            print 'accumulating', idx
+
+    print ''
+    pprint(fractional_counts)
 
 
 
