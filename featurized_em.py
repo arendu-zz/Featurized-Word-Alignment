@@ -9,6 +9,8 @@ from collections import defaultdict
 
 global BOUNDARY_STATE, END_STATE, SPLIT, E_TYPE, T_TYPE, theta, possible_states, normalizing_decision_map
 global cache_normalizing_decision, features_to_conditional_arcs, conditional_arcs_to_features, data_likelihood
+global observations
+observations = []
 cache_normalizing_decision = {}
 BOUNDARY_STATE = "###"
 SPLIT = "###/###"
@@ -39,19 +41,6 @@ def populate_arcs_to_features(co_occurance):
             cs = features_to_conditional_arcs.get(ff, set([]))
             cs.add((type, d, c))
             features_to_conditional_arcs[ff] = cs
-
-
-def accumulate_data_likelihood(S):
-    global data_likelihood
-    data_likelihood += S  # this is not log add because its the product of sentence probability under current theta
-
-
-def accumulate_fractional_counts(fc, S):
-    global fractional_counts
-    for type, d, c in fc:
-        unnormalized = fc[type, d, c]
-        normalized = unnormalized  # TODO: eq 5 and 6 in the write up say Akl should be normalized
-        fractional_counts[type, d, c] = utils.logadd(normalized, fractional_counts.get((type, d, c), float('-Inf')))
 
 
 def populate_normalizing_terms(co_occurance=None):
@@ -209,7 +198,42 @@ def get_fractional_counts(alpha_pi, beta_pi, raw_words):
     return fc
 
 
+def reset_fractional_counts():
+    global fractional_counts
+    fractional_counts = {}
+
+
+def accumulate_fractional_counts(fc, S):
+    global fractional_counts
+    for type, d, c in fc:
+        unnormalized = fc[type, d, c]
+        normalized = unnormalized  # TODO: eq 5 and 6 in the write up say Akl should be normalized
+        fractional_counts[type, d, c] = utils.logadd(normalized, fractional_counts.get((type, d, c), float('-Inf')))
+
+
+def get_likelihood():
+    global observations
+    reset_fractional_counts()
+    data_likelihood = 0.0
+    for idx, obs in enumerate(observations):
+        # obs = "this is big .".split()
+        max_bt, max_p, alpha_pi = get_viterbi_and_forward(obs)
+        # print(max_bt)
+        # pprint(alpha_pi)
+        S, beta_pi = get_backwards(obs, alpha_pi)
+        # pprint(beta_pi)
+        if S > 0:
+            pass  # pdb.set_trace()
+        fc = get_fractional_counts(alpha_pi, beta_pi, obs)
+        # pprint(fc)
+        accumulate_fractional_counts(fc, S)
+        data_likelihood += S  # TODO: should this be log add or just add?
+        print 'accumulating', idx, len(fractional_counts), S, data_likelihood  # , ' '.join(obs)
+    return data_likelihood
+
+
 def get_gradient():
+    global fractional_counts, features_to_conditional_arcs
     grad = {}
     for f in features_to_conditional_arcs:
         sum_p_kl = float('-inf')
@@ -228,6 +252,7 @@ def get_gradient():
 
 
 if __name__ == "__main__":
+    global observations
     opt = OptionParser()
     opt.add_option("-i", dest="initial_train", default="data/entrain4k")
     opt.add_option("-t", dest="raw", default="data/enraw")
@@ -239,6 +264,8 @@ if __name__ == "__main__":
             obs_state = [tuple(x.split('/')) for x in t.split('\n') if x.strip() != '']
             obs_state.append((BOUNDARY_STATE, BOUNDARY_STATE))
             obs_state.insert(0, (BOUNDARY_STATE, BOUNDARY_STATE))
+            obs_tup, state_tup = zip(*obs_state)
+            observations.append(list(obs_tup))
             for idx, (obs, state) in enumerate(obs_state[1:]):
                 possible_states[obs].add(state)
                 possible_states[ALL].add(state)
@@ -251,24 +278,7 @@ if __name__ == "__main__":
     populate_arcs_to_features(co_occurance)
     possible_states[ALL].remove(BOUNDARY_STATE)
 
-    for idx, t in enumerate(open(options.initial_train, 'r').read().split(SPLIT)):
-        if t.strip() != '':
-            obs_state = [tuple(x.split('/')) for x in t.split('\n') if x.strip() != '']
-            obs, state = zip(*obs_state)
-            obs = list(obs)
-            # obs = "this is big .".split()
-            max_bt, max_p, alpha_pi = get_viterbi_and_forward(obs)
-            # print(max_bt)
-            # pprint(alpha_pi)
-            S, beta_pi = get_backwards(obs, alpha_pi)
-            # pprint(beta_pi)
-            if S > 0:
-                pass  # pdb.set_trace()
-            fc = get_fractional_counts(alpha_pi, beta_pi, obs)
-            # pprint(fc)
-            accumulate_fractional_counts(fc, S)
-            accumulate_data_likelihood(S)
-            print 'accumulating', idx, len(fractional_counts), S, data_likelihood  # , ' '.join(obs)
+    get_likelihood()
     # pprint(fractional_counts)
     pprint(get_gradient())
     """
