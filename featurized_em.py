@@ -46,10 +46,12 @@ def accumulate_data_likelihood(S):
     data_likelihood += S  # this is not log add because its the product of sentence probability under current theta
 
 
-def accumulate_fractional_counts(fc):
+def accumulate_fractional_counts(fc, S):
     global fractional_counts
     for type, d, c in fc:
-        fractional_counts[type, d, c] = utils.logadd(fc[type, d, c], fractional_counts.get((type, d, c), float('-Inf')))
+        unnormalized = fc[type, d, c]
+        normalized = unnormalized  # TODO: eq 5 and 6 in the write up say Akl should be normalized
+        fractional_counts[type, d, c] = utils.logadd(normalized, fractional_counts.get((type, d, c), float('-Inf')))
 
 
 def populate_normalizing_terms(co_occurance=None):
@@ -171,7 +173,6 @@ def get_viterbi_and_forward(raw_words):
 
 
 def get_fractional_counts(alpha_pi, beta_pi, raw_words):
-    # TODO: I am not dividing by P(X|Theta) like in eq. 5 and 6 from my writeup
     words = [BOUNDARY_STATE] + raw_words + [BOUNDARY_STATE]
     trellis_states = alpha_pi.keys()
     trellis_states.sort()
@@ -265,15 +266,15 @@ if __name__ == "__main__":
                 pass  # pdb.set_trace()
             fc = get_fractional_counts(alpha_pi, beta_pi, obs)
             # pprint(fc)
-            accumulate_fractional_counts(fc)
+            accumulate_fractional_counts(fc, S)
             accumulate_data_likelihood(S)
             print 'accumulating', idx, len(fractional_counts), S, data_likelihood  # , ' '.join(obs)
+    # pprint(fractional_counts)
+    pprint(get_gradient())
     """
-    print ''
-    pprint(fractional_counts)
     print 'arcs', len(conditional_arcs_to_features), 'features', len(features_to_conditional_arcs)
     pprint(features_to_conditional_arcs)
-    pprint(get_gradient())"""
+    )"""
 
 
 
