@@ -8,8 +8,8 @@ from pprint import pprint
 from collections import defaultdict
 
 global BOUNDARY_STATE, END_STATE, SPLIT, E_TYPE, T_TYPE, theta, possible_states, normalizing_decision_map
-global cache_conditoinal_probs, features_to_conditional_arcs, conditional_arcs_to_features
-cache_conditoinal_probs = {}
+global cache_normalizing_decision, features_to_conditional_arcs, conditional_arcs_to_features, data_likelihood
+cache_normalizing_decision = {}
 BOUNDARY_STATE = "###"
 SPLIT = "###/###"
 E_TYPE = "emission"
@@ -25,6 +25,7 @@ theta = {}
 possible_states = defaultdict(set)
 possible_obs = defaultdict(set)
 normalizing_decision_map = {}
+data_likelihood = 0.0
 
 
 def populate_arcs_to_features(co_occurance):
@@ -38,6 +39,11 @@ def populate_arcs_to_features(co_occurance):
             cs = features_to_conditional_arcs.get(ff, set([]))
             cs.add((type, d, c))
             features_to_conditional_arcs[ff] = cs
+
+
+def accumulate_data_likelihood(S):
+    global data_likelihood
+    data_likelihood += S  # this is not log add because its the product of sentence probability under current theta
 
 
 def accumulate_fractional_counts(fc):
@@ -61,28 +67,34 @@ def populate_normalizing_terms(co_occurance=None):
 
 
 def get_features_fired(type, decision, context):
-    if type == E_TYPE:
-        # suffix feature, prefix feature
-        return [(E_TYPE_SUF, decision[-4:], context), (E_TYPE_PRE, decision[:4], context), (E_TYPE, decision, context)]
-    elif type == T_TYPE:
-        return [(T_TYPE, decision, context)]
+    if decision is not BOUNDARY_STATE and context is not BOUNDARY_STATE:
+        if type == E_TYPE:
+            # suffix feature, prefix feature
+            return list(set([(E_TYPE_SUF, decision[-3:], context), (E_TYPE_SUF, decision[-2:], context),
+                             (E_TYPE, decision, context)]))  # (E_TYPE_PRE, decision[:2], context),
+        elif type == T_TYPE:
+            return [(T_TYPE, decision, context)]
+    else:
+        return [(type, decision, context)]
 
 
 def get_decision_given_context(type, decision, context):
-    if (type, decision, context) in cache_conditoinal_probs:
-        return cache_conditoinal_probs[type, decision, context]
+    global normalizing_decision_map, cache_normalizing_decision
+    fired_features = get_features_fired(type=type, context=context, decision=decision)
+    theta_dot_features = exp(sum([theta.get(f, 0.0) for f in fired_features]))
+    # TODO: weights theta are initialized to 0.0
+    # TODO: this initialization should be done in a better way
+    if (type, context) in cache_normalizing_decision:
+        theta_dot_normalizing_features = cache_normalizing_decision[type, context]
     else:
-        global normalizing_decision_map
-        fired_features = get_features_fired(type=type, context=context, decision=decision)
-        theta_dot_features = sum([theta.get(f, 0.0) for f in fired_features])
-        normalizing_decisions = normalizing_decision_map[E_TYPE, context]
+        normalizing_decisions = normalizing_decision_map[type, context]
         theta_dot_normalizing_features = 0.0
         for d in normalizing_decisions:
             d_features = get_features_fired(type=type, context=context, decision=d)
             theta_dot_normalizing_features += exp(sum([theta.get(f, 0.0) for f in d_features]))
-        log_prob = theta_dot_features - theta_dot_normalizing_features
-        cache_conditoinal_probs[E_TYPE, decision, context] = log_prob
-        return log_prob
+        cache_normalizing_decision[type, context] = theta_dot_normalizing_features
+    log_prob = theta_dot_features - theta_dot_normalizing_features
+    return log_prob
 
 
 def get_possible_states(o):
@@ -131,6 +143,8 @@ def get_viterbi_and_forward(raw_words):
             for u in get_possible_states(words[k - 1]):  # [1]:
                 q = get_decision_given_context(T_TYPE, v, u)
                 e = get_decision_given_context(E_TYPE, words[k], v)
+                if e > 0 or q > 0:
+                    pdb.set_trace()
                 # p = pi[(k - 1, u)] * q * e
                 # alpha_p = alpha_pi[(k - 1, u)] * q * e
                 p = pi[(k - 1, u)] + q + e
@@ -157,6 +171,7 @@ def get_viterbi_and_forward(raw_words):
 
 
 def get_fractional_counts(alpha_pi, beta_pi, raw_words):
+    # TODO: I am not dividing by P(X|Theta) like in eq. 5 and 6 from my writeup
     words = [BOUNDARY_STATE] + raw_words + [BOUNDARY_STATE]
     trellis_states = alpha_pi.keys()
     trellis_states.sort()
@@ -218,7 +233,7 @@ if __name__ == "__main__":
     (options, _) = opt.parse_args()
     possible_states[ALL] = set([])
     co_occurance = {}
-    for t in open(options.initial_train, 'r').read().split(SPLIT)[:100]:
+    for t in open(options.initial_train, 'r').read().split(SPLIT):
         if t.strip() != '':
             obs_state = [tuple(x.split('/')) for x in t.split('\n') if x.strip() != '']
             obs_state.append((BOUNDARY_STATE, BOUNDARY_STATE))
@@ -231,11 +246,11 @@ if __name__ == "__main__":
                 possible_obs[ALL].add(obs)
                 co_occurance[E_TYPE, obs, state] = None
                 co_occurance[T_TYPE, state, prev_state] = None
-    populate_normalizing_terms(co_occurance)
+    populate_normalizing_terms()
     populate_arcs_to_features(co_occurance)
     possible_states[ALL].remove(BOUNDARY_STATE)
 
-    for idx, t in enumerate(open(options.initial_train, 'r').read().split(SPLIT)[:100]):
+    for idx, t in enumerate(open(options.initial_train, 'r').read().split(SPLIT)):
         if t.strip() != '':
             obs_state = [tuple(x.split('/')) for x in t.split('\n') if x.strip() != '']
             obs, state = zip(*obs_state)
@@ -246,16 +261,19 @@ if __name__ == "__main__":
             # pprint(alpha_pi)
             S, beta_pi = get_backwards(obs, alpha_pi)
             # pprint(beta_pi)
+            if S > 0:
+                pass  # pdb.set_trace()
             fc = get_fractional_counts(alpha_pi, beta_pi, obs)
             # pprint(fc)
             accumulate_fractional_counts(fc)
-            print 'accumulating', idx, len(fractional_counts)
-
+            accumulate_data_likelihood(S)
+            print 'accumulating', idx, len(fractional_counts), S, data_likelihood  # , ' '.join(obs)
+    """
     print ''
     pprint(fractional_counts)
     print 'arcs', len(conditional_arcs_to_features), 'features', len(features_to_conditional_arcs)
     pprint(features_to_conditional_arcs)
-    pprint(get_gradient())
+    pprint(get_gradient())"""
 
 
 
