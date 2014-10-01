@@ -23,20 +23,24 @@ from DifferentiableFunction import DifferentiableFunction
 # In log-linear modeling, you will similarly use theta to package
 # up the weights of all of the named features.
 def value(theta):
-    print 'recived theta', theta
-    return -(theta["x"] - 100) ** 2 + 5 * theta["x"] * theta["y"] - (theta["y"] - 200) ** 4
+    print 'run value'
+    # print 'recived theta', theta
+    return -(theta.get("x", 0.0) - 100) ** 2 + 5 * theta.get("x", 0.0) * theta.get("y", 0.0) - (theta.get("y",
+                                                                                                          0.0) - 200) ** 4
 
 
 # the gradient of the function defined in value() above
 def gradient(theta):
+    print 'run gradient'
     gradient_map = {}
-    gradient_map["x"] = -2 * (theta["x"] - 100) + 5 * theta["y"]
-    gradient_map["y"] = 5 * theta["x"] - 4 * (theta["y"] - 200) ** 3
-    print 'returning gradient', gradient_map
+    gradient_map["x"] = -2 * (theta.get("x", 0.0) - 100) + 5 * theta.get("y", 0.0)
+    gradient_map["y"] = 5 * theta.get("x", 0.0) - 4 * (theta.get("y", 0.0) - 200) ** 3
+    # print 'returning gradient', gradient_map
     return gradient_map
 
 # theta is a feature vector with initialized values
 theta = {"x": 0.0, "y": 0.0}
+# theta = {}
 F = DifferentiableFunction(value, gradient)
 # fd = F.fprime(theta)
 # print 'finite diff', fd

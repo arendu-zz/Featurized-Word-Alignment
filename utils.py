@@ -1,6 +1,7 @@
 __author__ = 'arenduchintala'
 from math import exp, log
 
+
 def flatten_backpointers(bt):
     reverse_bt = []
     while len(bt) > 0:
@@ -11,13 +12,14 @@ def flatten_backpointers(bt):
     reverse_bt.reverse()
     return reverse_bt
 
+
 def logadd(x, y):
     """
     trick to add probabilities in logspace
     without underflow
     """
     if x == 0.0 and y == 0.0:
-        return log(exp(x) + exp(y))
+        return log(exp(x) + exp(y))  # log(2)
     elif x >= y:
         return x + log(1 + exp(y - x))
     else:

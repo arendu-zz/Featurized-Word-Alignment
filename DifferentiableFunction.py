@@ -120,7 +120,8 @@ class DifferentiableFunction:
             self.h_times_gradient = self.h * sum(theta.values())
             # in case you changed the size of your feature function
         if self.size != len(theta):
-            raise Exception("Size of your feature vector (%d) doesn't match size of the gradients (%d)!" % (self.size, len(theta)))
+            raise Exception(
+                "Size of your feature vector (%d) doesn't match size of the gradients (%d)!" % (self.size, len(theta)))
         gradients = zeros(len(theta))
         for feature, value in theta.items():
             if self.revert:
@@ -156,13 +157,15 @@ class DifferentiableFunction:
         if self.method == "LBFGS":
             from scipy.optimize import fmin_l_bfgs_b
             # http://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.fmin_l_bfgs_b.html
-            (xopt, fopt, return_status) = fmin_l_bfgs_b(self.value_translator, initials, self.gradient_translator, pgtol=0.01)
-            #print "============Optimization by LBFGS returns: ", return_status['task']
+            (xopt, fopt, return_status) = fmin_l_bfgs_b(self.value_translator, initials, self.gradient_translator,
+                                                        maxfun=25, pgtol=0.001)
+            # print "============Optimization by LBFGS returns: ", return_status['task']
         elif self.method == "CG":
             from scipy.optimize import fmin_cg
             # http://www.scipy.org/doc/api_docs/SciPy.optimize.optimize.html#fmin_cg
-            (xopt, fopt, _, _, return_status) = fmin_cg(self.value_translator, initials, self.gradient_translator, full_output=1, disp=0)
-            #print "============CG: ", return_status
+            (xopt, fopt, _, _, return_status) = fmin_cg(self.value_translator, initials, self.gradient_translator,
+                                                        full_output=1, disp=0)
+            # print "============CG: ", return_status
         else:
             raise Exception("No optimization method defined!")
         self.size = None
