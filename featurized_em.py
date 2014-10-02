@@ -153,7 +153,10 @@ def get_viterbi_and_forward(theta, words):
                 # print 'q,e', q, e
                 # p = pi[(k - 1, u)] * q * e
                 # alpha_p = alpha_pi[(k - 1, u)] * q * e
-                p = pi[(k - 1, u)] + q + e
+                try:
+                  p = pi[(k - 1, u)] + q + e
+                except KeyError:
+                    pdb.set_trace()
                 alpha_p = alpha_pi[(k - 1, u)] + q + e
                 if len(arg_pi[(k - 1, u)]) == 0:
                     bt = [u]
@@ -205,7 +208,7 @@ def get_likelihood(theta):
     global observations
     reset_fractional_counts()
     data_likelihood = 0.0
-    for idx, obs in enumerate(observations[:]):
+    for idx, obs in enumerate(observations[:5]):
         max_bt, max_p, alpha_pi = get_viterbi_and_forward(theta, obs)
         if idx == 0:
             t, p, al = get_viterbi_and_forward(theta, obs)
@@ -331,6 +334,12 @@ if __name__ == "__main__":
         write_theta.write(str(t)+"\t"+str(theta[t])+"\n")
     write_theta.flush()
     write_theta.close()
+    write_tags = open('predicted.tags', 'w')
+    for obs in observations:
+        t, p, al = get_viterbi_and_forward(theta, obs)
+        write_tags.write(' '.join(t[1:-1]) + '\n')
+    write_tags.flush()
+    write_tags.close()
     # fc = get_fractional_counts(alpha_pi, beta_pi, s)
     # accumulate_fractional_counts(fc, S)
     # pprint(fractional_counts)
