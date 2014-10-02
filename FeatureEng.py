@@ -3,7 +3,7 @@ __author__ = 'arenduchintala'
 import featurized_em as fe
 
 
-def get_features_fired(type, decision, context):
+def get_pos_features_fired(type, decision, context):
     if decision is not fe.BOUNDARY_STATE and context is not fe.BOUNDARY_STATE:
         if type == fe.E_TYPE:
             # suffix feature, prefix feature

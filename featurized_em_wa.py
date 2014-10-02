@@ -15,10 +15,11 @@ import itertools
 
 global BOUNDARY_STATE, END_STATE, SPLIT, E_TYPE, T_TYPE, possible_states, normalizing_decision_map
 global cache_normalizing_decision, features_to_conditional_arcs, conditional_arcs_to_features
-global observations
-observations = []
+global trellis
+trellis = []
 cache_normalizing_decision = {}
 BOUNDARY_STATE = "###"
+NULL = "NULL"
 SPLIT = "###/###"
 E_TYPE = "EMISSION"
 E_TYPE_PRE = "PREFIX_FEATURE"
@@ -202,41 +203,24 @@ def accumulate_fc(type, alpha, beta, d, S, c=None, k=None, q=None, e=None):
 
 def get_likelihood(theta):
     # theta = dict((k, theta_list[v]) for k, v in feature_index.items())
-    global observations
+    global trellis
     reset_fractional_counts()
     data_likelihood = 0.0
-    for idx, obs in enumerate(observations[:]):
+    for idx, obs in enumerate(trellis[:]):
         max_bt, max_p, alpha_pi = get_viterbi_and_forward(theta, obs)
+        """
         if idx == 0:
             t, p, al = get_viterbi_and_forward(theta, obs)
             t.pop(0)
             oo = obs[1:-1]
             pr = [wo + '/' + to for wo, to in zip(oo, t)]
             print ' '.join(pr)
-        # pdb.set_trace()
-        # print(max_bt)
-        # pprint(alpha_pi)
+        """
+
         S, beta_pi = get_backwards(theta, obs, alpha_pi)
-        # pprint(beta_pi)
-        # fc = get_fractional_counts(alpha_pi, beta_pi, obs)
-        # pprint(fc)
-        # accumulate_fractional_counts(fc)
+
         data_likelihood += S
-        if S > 0:
-            pdb.set_trace()
-    """
-    try:
-        print 'the', 'D', get_decision_given_context(theta, E_TYPE, 'the', 'D')
-        print    'the', 'N', get_decision_given_context(theta, E_TYPE, 'the', 'N')
-        print    'the', 'V', get_decision_given_context(theta, E_TYPE, 'the', 'V')
-        print    'book', 'D', get_decision_given_context(theta, E_TYPE, 'book', 'D')
-        print    'book', 'N', get_decision_given_context(theta, E_TYPE, 'book', 'N')
-        print    'book', 'V', get_decision_given_context(theta, E_TYPE, 'book', 'V')
-        print    'labbing', 'D', get_decision_given_context(theta, E_TYPE, 'labbing', 'D')
-        print    'labbing', 'N', get_decision_given_context(theta, E_TYPE, 'labbing', 'N')
-        print    'labbing', 'V', get_decision_given_context(theta, E_TYPE, 'labbing', 'V')
-    except KeyError:
-        pass"""
+
     reg = sum([t ** 2 for k, t in theta.items()])
     print 'accumulating', data_likelihood - (0.5 * reg)  # , ' '.join(obs)
     return data_likelihood - (0.5 * reg)
@@ -276,77 +260,43 @@ def get_gradient(theta):
     return grad
 
 
+def populate_trellis(source, target):
+    global trellis
+    span = 1  # creates a span of +/- span centered around current token
+    for s_sent, t_sent in zip(source, target):
+        current_trellis = {}
+        for t_idx, t_tok in enumerate(t_sent):
+            start = t_idx - span if t_idx - span >= 0 else 0
+            end = t_idx + span + 1
+            current_trellis[t_idx, t_tok] = [(s_idx + start, s_tok) for s_idx, s_tok in
+                                             enumerate(s_sent[start:end])] + [(NULL, NULL)]
+        trellis.append(current_trellis)
+
+
 if __name__ == "__main__":
-    observations = []
+    trellis = []
     possible_states = defaultdict(set)
     possible_obs = defaultdict(set)
     opt = OptionParser()
-    opt.add_option("-i", dest="initial_train", default="data/entrain4k")
-    opt.add_option("-t", dest="raw", default="data/enraw")
+    opt.add_option("-t", dest="target_corpus", default="data/toy2/en")
+    opt.add_option("-f", dest="source_corpus", default="data/toy2/fr")
     opt.add_option("-o", dest="save", default="theta.out")
+    opt.add_option("-a", dest="alignments", default="alignments.out")
     (options, _) = opt.parse_args()
+    source = [s.strip().split() for s in open(options.source_corpus, 'r').readlines() if s.strip() != '']
+    target = [s.strip().split() for s in open(options.target_corpus, 'r').readlines() if s.strip() != '']
+    populate_trellis(source, target)
 
-    co_occurance = {}
-    for t in open(options.initial_train, 'r').read().split(SPLIT)[:]:
-        if t.strip() != '':
-            obs_state = [tuple(x.split('/')) for x in t.split('\n') if x.strip() != '']
-            obs_state.append((BOUNDARY_STATE, BOUNDARY_STATE))
-            obs_state.insert(0, (BOUNDARY_STATE, BOUNDARY_STATE))
-            obs_tup, state_tup = zip(*obs_state)
-            observations.append(list(obs_tup))
-            for idx, (obs, state) in enumerate(obs_state[1:]):
-                prev_obs, prev_state = obs_state[idx - 1]
-
-                possible_states[obs].add(state)
-                possible_states[ALL].add(state)
-                possible_obs[state].add(obs)
-                possible_obs[ALL].add(obs)
-
-                co_occurance[E_TYPE, obs, state] = None
-                co_occurance[T_TYPE, state, prev_state] = None
-
+    """
     populate_normalizing_terms()
     populate_arcs_to_features()
-    """
-    for t in open(options.raw, 'r').read().split(BOUNDARY_STATE)[:]:
-        if t.strip() != '':
-            obs = [BOUNDARY_STATE] + [x.strip() for x in t.split('\n') if x.strip() != ''] + [BOUNDARY_STATE]
-            observations.append(obs)
-    """
-    # s = "### this is big . ###".split()
-    # max_bt, max_p, alpha_pi = get_viterbi_and_forward(s)
-    # pdb.set_trace()
-    # print(max_bt)
-    # pprint(alpha_pi)
-    # S, beta_pi = get_backwards(s, alpha_pi)
     init_theta = dict((k, np.random.uniform(-0.1, 0.1)) for k in feature_index)
-    # print get_decision_given_context(init_theta, E_TYPE, 'Book', 'N')
-    # get_likelihood(init_theta)
-    # get_gradient(init_theta)
     F = DifferentiableFunction(get_likelihood, get_gradient)
     (fopt, theta, return_status) = F.maximize(init_theta)
     print return_status
-    write_theta = open(options.save,'w')
+    write_theta = open(options.save, 'w')
     for t in theta:
-        write_theta.write(str(t)+"\t"+str(theta[t])+"\n")
+        write_theta.write(str(t) + "\t" + str(theta[t]) + "\n")
     write_theta.flush()
     write_theta.close()
-    # fc = get_fractional_counts(alpha_pi, beta_pi, s)
-    # accumulate_fractional_counts(fc, S)
-    # pprint(fractional_counts)
-    # pprint()
-    # eps = 1.0
-    # fprime = approx_fprime([0.0] * len(init_theta), get_likelihood, [eps] * len(init_theta))
-    # print fprime
-    # (learned_theta, fopt, return_status) = fmin_l_bfgs_b(get_likelihood, theta, get_gradient, pgtol=0.1, maxiter=25)
-
-    # print theta
-
-
-
-
-
-
-
-
-
+    """
