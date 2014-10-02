@@ -37,6 +37,25 @@ possible_obs = {}
 normalizing_decision_map = {}
 
 
+def populate_features():
+    # uses the global trellis to populate features
+    global trellis, feature_index
+    for treli in trellis:
+        for t in treli:
+            (t_idx, t_tok) = t
+            for s in treli[t]:
+                (s_idx, s_tok) = s
+                ff = FE.get_wa_features_fired(None, decision=(t_idx, t_tok), context=(s_idx, s_tok))
+                for f in ff:
+                    feature_index[f] = feature_index.get(f, 0) + 1
+                    ca2f = conditional_arcs_to_features.get((t, s), set([]))
+                    ca2f.add(f)
+                    conditional_arcs_to_features[t, s] = ca2f
+                    f2ca = features_to_conditional_arcs.get(f, set([]))
+                    f2ca.add((t, s))
+                    features_to_conditional_arcs[f] = f2ca
+
+
 def populate_arcs_to_features():
     global features_to_conditional_arcs, conditional_arcs_to_features, feature_index, conditional_arc_index
     for d, c in itertools.product(possible_obs[ALL], possible_states[ALL]):
@@ -286,6 +305,9 @@ if __name__ == "__main__":
     source = [s.strip().split() for s in open(options.source_corpus, 'r').readlines() if s.strip() != '']
     target = [s.strip().split() for s in open(options.target_corpus, 'r').readlines() if s.strip() != '']
     populate_trellis(source, target)
+    populate_features()
+    pprint(feature_index)
+    pprint(features_to_conditional_arcs)
 
     """
     populate_normalizing_terms()
