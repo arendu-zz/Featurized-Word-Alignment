@@ -328,7 +328,7 @@ if __name__ == "__main__":
     print return_status
     write_theta = open(options.save,'w')
     for t in theta:
-        write_theta.write(t+"\t"+str(theta[t])+"\n")
+        write_theta.write(str(t)+"\t"+str(theta[t])+"\n")
     write_theta.flush()
     write_theta.close()
     # fc = get_fractional_counts(alpha_pi, beta_pi, s)
