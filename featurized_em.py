@@ -281,8 +281,9 @@ if __name__ == "__main__":
     possible_states = defaultdict(set)
     possible_obs = defaultdict(set)
     opt = OptionParser()
-    opt.add_option("-i", dest="initial_train", default="data/entrain25k")
+    opt.add_option("-i", dest="initial_train", default="data/entrain4k")
     opt.add_option("-t", dest="raw", default="data/enraw")
+    opt.add_option("-o", dest="save", default="theta.out")
     (options, _) = opt.parse_args()
 
     co_occurance = {}
@@ -324,6 +325,12 @@ if __name__ == "__main__":
     # get_gradient(init_theta)
     F = DifferentiableFunction(get_likelihood, get_gradient)
     (fopt, theta, return_status) = F.maximize(init_theta)
+    print return_status
+    write_theta = open(options.save,'w')
+    for t in theta:
+        write_theta.write(t+"\t"+str(theta[t])+"\n")
+    write_theta.flush()
+    write_theta.close()
     # fc = get_fractional_counts(alpha_pi, beta_pi, s)
     # accumulate_fractional_counts(fc, S)
     # pprint(fractional_counts)
