@@ -3,6 +3,14 @@ __author__ = 'arenduchintala'
 import featurized_em as fe
 
 
+def get_wa_features_fired(type, decision, context):
+    # TODO: this has model 1 features only
+    (d_pos, d_tok) = decision
+    (c_pos, c_tok) = context
+    fired_features = [("MODEL_1", d_tok, c_tok)]
+    return fired_features
+
+
 def get_pos_features_fired(type, decision, context):
     if decision is not fe.BOUNDARY_STATE and context is not fe.BOUNDARY_STATE:
         if type == fe.E_TYPE:
