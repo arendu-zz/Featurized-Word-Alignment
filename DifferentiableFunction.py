@@ -158,7 +158,7 @@ class DifferentiableFunction:
             from scipy.optimize import fmin_l_bfgs_b
             # http://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.fmin_l_bfgs_b.html
             (xopt, fopt, return_status) = fmin_l_bfgs_b(self.value_translator, initials, self.gradient_translator,
-                                                        maxfun=25, pgtol=0.001)
+                                                        maxfun=1000, pgtol=0.1)
             # print "============Optimization by LBFGS returns: ", return_status['task']
         elif self.method == "CG":
             from scipy.optimize import fmin_cg

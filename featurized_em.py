@@ -31,14 +31,14 @@ conditional_arcs_to_features = {}
 features_to_conditional_arcs = {}
 feature_index = {}
 conditional_arc_index = {}
-possible_states = set([])
-possible_obs = set([])
+possible_states = {}
+possible_obs = {}
 normalizing_decision_map = {}
 
 
 def populate_arcs_to_features():
     global features_to_conditional_arcs, conditional_arcs_to_features, feature_index, conditional_arc_index
-    for d, c in itertools.product(possible_obs, possible_states):
+    for d, c in itertools.product(possible_obs[ALL], possible_states[ALL]):
         if c == BOUNDARY_STATE and d != BOUNDARY_STATE:
             pass
         else:
@@ -53,7 +53,7 @@ def populate_arcs_to_features():
                 cs.add((E_TYPE, d, c))
                 features_to_conditional_arcs[ff] = cs
 
-    for d, c in itertools.product(possible_states, possible_states):
+    for d, c in itertools.product(possible_states[ALL], possible_states[ALL]):
         if d == BOUNDARY_STATE and c == BOUNDARY_STATE:
             pass
         else:
@@ -70,16 +70,17 @@ def populate_arcs_to_features():
 
 
 def populate_normalizing_terms():
-    for s in possible_states:
+    for s in possible_states[ALL]:
         if s == BOUNDARY_STATE:
             normalizing_decision_map[E_TYPE, s] = set([BOUNDARY_STATE])
-            normalizing_decision_map[T_TYPE, s] = possible_states - set([BOUNDARY_STATE])
+            normalizing_decision_map[T_TYPE, s] = possible_states[ALL] - set([BOUNDARY_STATE])
         else:
-            normalizing_decision_map[E_TYPE, s] = possible_obs
-            normalizing_decision_map[T_TYPE, s] = possible_states
+            normalizing_decision_map[E_TYPE, s] = possible_obs[ALL] - set([BOUNDARY_STATE])
+            normalizing_decision_map[T_TYPE, s] = possible_states[ALL]
 
 
 def get_decision_given_context(theta, type, decision, context):
+    # print 'finding', type, ' d|c', decision, '|', context
     global normalizing_decision_map, cache_normalizing_decision
     fired_features = FE.get_features_fired(type=type, context=context, decision=decision)
     theta_dot_features = sum([theta[f] for f in fired_features if f in theta])
@@ -105,8 +106,10 @@ def get_decision_given_context(theta, type, decision, context):
 def get_possible_states(o):
     if o == BOUNDARY_STATE:
         return [BOUNDARY_STATE]
+    # elif o in possible_states:
+    # return list(possible_states[o])
     else:
-        return list(possible_states - set([BOUNDARY_STATE]))
+        return list(possible_states[ALL] - set([BOUNDARY_STATE]))
 
 
 def get_backwards(theta, words, alpha_pi):
@@ -203,8 +206,13 @@ def get_likelihood(theta):
     reset_fractional_counts()
     data_likelihood = 0.0
     for idx, obs in enumerate(observations[:]):
-        # obs = "this is big .".split()
         max_bt, max_p, alpha_pi = get_viterbi_and_forward(theta, obs)
+        if idx == 0:
+            t, p, al = get_viterbi_and_forward(theta, obs)
+            t.pop(0)
+            oo = obs[1:-1]
+            pr = [wo + '/' + to for wo, to in zip(oo, t)]
+            print ' '.join(pr)
         # pdb.set_trace()
         # print(max_bt)
         # pprint(alpha_pi)
@@ -216,7 +224,7 @@ def get_likelihood(theta):
         data_likelihood += S
         if S > 0:
             pdb.set_trace()
-
+    """
     try:
         print 'the', 'D', get_decision_given_context(theta, E_TYPE, 'the', 'D')
         print    'the', 'N', get_decision_given_context(theta, E_TYPE, 'the', 'N')
@@ -228,23 +236,25 @@ def get_likelihood(theta):
         print    'labbing', 'N', get_decision_given_context(theta, E_TYPE, 'labbing', 'N')
         print    'labbing', 'V', get_decision_given_context(theta, E_TYPE, 'labbing', 'V')
     except KeyError:
-        pass
-    # reg = sum([t ** 2 for k, t in theta.items()])
-    print 'accumulating', data_likelihood  # - reg, reg  # , ' '.join(obs)
-    return data_likelihood  # - reg
+        pass"""
+    reg = sum([t ** 2 for k, t in theta.items()])
+    print 'accumulating', data_likelihood - (0.5 * reg)  # , ' '.join(obs)
+    return data_likelihood - (0.5 * reg)
 
 
 def get_gradient(theta):
     fractional_count_grad = {}
-    for d, c in itertools.product(possible_obs, possible_states):
-        if c == BOUNDARY_STATE and d != BOUNDARY_STATE:
-            pass  # ignore this
-        else:
-            event = E_TYPE, d, c
-            Adc = exp(fractional_counts.get(event, float('-inf')))
-            a_dc = exp(get_decision_given_context(theta, type=E_TYPE, decision=d, context=c))
-            fractional_count_grad[event] = Adc * (1 - a_dc)
-    for d, c in itertools.product(possible_states, possible_states):
+    for c in possible_states[ALL]:
+        for d in possible_obs[c]:
+            if c == BOUNDARY_STATE and d != BOUNDARY_STATE:
+                pass  # ignore this
+            else:
+                event = E_TYPE, d, c
+                Adc = exp(fractional_counts.get(event, float('-inf')))
+                a_dc = exp(get_decision_given_context(theta, type=E_TYPE, decision=d, context=c))
+                fractional_count_grad[event] = Adc * (1 - a_dc)
+
+    for d, c in itertools.product(possible_states[ALL], possible_states[ALL]):
         if d == BOUNDARY_STATE and c == BOUNDARY_STATE:
             pass  # ignore
         else:
@@ -256,62 +266,22 @@ def get_gradient(theta):
     for fcg_event in fractional_count_grad:
         for f in conditional_arcs_to_features[fcg_event]:
             grad[f] = fractional_count_grad[fcg_event] + grad.get(f, 0.0)
+
+    for t in theta:
+        if t not in grad:
+            grad[t] = 0.0 - theta[t]
+        else:
+            grad[t] = grad[t] - theta[t]
     # pdb.set_trace()
-    return grad
-
-
-def get_gradient_old(theta):
-    # theta = dict((k, theta_list[v]) for k, v in feature_index.items())
-    global fractional_counts, features_to_conditional_arcs
-    pre_compute_sum_d_prime = {}
-    for type, c in itertools.product([E_TYPE, T_TYPE], possible_states):
-        for d_prime in normalizing_decision_map[type, c]:
-            a_d_prime_c = get_decision_given_context(theta, type, d_prime, c)
-            pre_compute_sum_d_prime[type, c] = pre_compute_sum_d_prime.get((type, c), 0.0) + exp(a_d_prime_c)
-    print 'theta, f2ca', len(theta), len(features_to_conditional_arcs)
-    grad = {}
-    for f in theta:
-        grad_f = 0.0
-        for type, d, c in features_to_conditional_arcs[f]:
-            Adc = exp(fractional_counts.get((type, d, c), float('-inf')))
-            sum_p_dc = pre_compute_sum_d_prime[type, c]
-            grad_f += Adc * (1 - sum_p_dc)
-        grad[f] = grad_f  # + (0.5 * theta.get(f, 0.0))
-    vals = grad.values()
-    print 'max val', max(vals)
-    grad_list = [0.0] * len(feature_index)
-    for k, v in feature_index:
-        grad_list[v] = grad[k]
-    return grad_list
-
-
-def get_bad_gradient(theta):
-    global fractional_counts, features_to_conditional_arcs
-    grad = {}
-    for f in features_to_conditional_arcs:
-        sum_p_kl = float('-inf')
-        for type, f1, f2 in features_to_conditional_arcs[f]:
-            p_kl = get_decision_given_context(theta, type, f1, f2)
-            sum_p_kl = utils.logadd(sum_p_kl, p_kl)
-
-        for akl_key in features_to_conditional_arcs[f]:
-            # pdb.set_trace()
-            Akl = fractional_counts.get(akl_key, float('-inf'))
-            grad_f = exp(Akl) - exp(sum_p_kl)
-            sum_grad_f = grad.get(f, 0.0)
-            sum_grad_f += grad_f
-        grad[f] = sum_grad_f + (0.5 * theta[f])
-    vals = grad.values()
-    print 'max val', max(vals)
     return grad
 
 
 if __name__ == "__main__":
     observations = []
-    possible_states = set([])
-    possible_obs = set([])
+    possible_states = defaultdict(set)
+    possible_obs = defaultdict(set)
     opt = OptionParser()
-    opt.add_option("-i", dest="initial_train", default="data/entrain4k")
+    opt.add_option("-i", dest="initial_train", default="data/entrain25k")
     opt.add_option("-t", dest="raw", default="data/enraw")
     (options, _) = opt.parse_args()
 
@@ -324,23 +294,31 @@ if __name__ == "__main__":
             obs_tup, state_tup = zip(*obs_state)
             observations.append(list(obs_tup))
             for idx, (obs, state) in enumerate(obs_state[1:]):
-                possible_states.add(state)
                 prev_obs, prev_state = obs_state[idx - 1]
-                possible_obs.add(obs)
+
+                possible_states[obs].add(state)
+                possible_states[ALL].add(state)
+                possible_obs[state].add(obs)
+                possible_obs[ALL].add(obs)
+
                 co_occurance[E_TYPE, obs, state] = None
                 co_occurance[T_TYPE, state, prev_state] = None
 
     populate_normalizing_terms()
     populate_arcs_to_features()
-
-
+    """
+    for t in open(options.raw, 'r').read().split(BOUNDARY_STATE)[:]:
+        if t.strip() != '':
+            obs = [BOUNDARY_STATE] + [x.strip() for x in t.split('\n') if x.strip() != ''] + [BOUNDARY_STATE]
+            observations.append(obs)
+    """
     # s = "### this is big . ###".split()
     # max_bt, max_p, alpha_pi = get_viterbi_and_forward(s)
     # pdb.set_trace()
     # print(max_bt)
     # pprint(alpha_pi)
     # S, beta_pi = get_backwards(s, alpha_pi)
-    init_theta = dict((k, np.random.uniform(-0.5, 0.5)) for k in feature_index)
+    init_theta = dict((k, np.random.uniform(-0.1, 0.1)) for k in feature_index)
     # print get_decision_given_context(init_theta, E_TYPE, 'Book', 'N')
     # get_likelihood(init_theta)
     # get_gradient(init_theta)
