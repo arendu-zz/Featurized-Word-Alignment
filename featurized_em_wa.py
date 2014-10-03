@@ -41,10 +41,10 @@ def populate_features():
     # uses the global trellis to populate features
     global trellis, feature_index
     for treli in trellis:
-        for t in treli:
-            (t_idx, t_tok) = t
-            for s in treli[t]:
-                (s_idx, s_tok) = s
+        for idx in treli:
+            for t_idx, t_tok, s_idx, s_tok in treli[idx]:
+                s = (s_idx, s_tok)
+                t = (t_idx, t_tok)
                 ff = FE.get_wa_features_fired(None, decision=(t_idx, t_tok), context=(s_idx, s_tok))
                 for f in ff:
                     feature_index[f] = feature_index.get(f, 0) + 1
@@ -90,29 +90,31 @@ def populate_arcs_to_features():
 
 
 def populate_normalizing_terms():
-    for s in possible_states[ALL]:
-        if s == BOUNDARY_STATE:
-            normalizing_decision_map[E_TYPE, s] = set([BOUNDARY_STATE])
-            normalizing_decision_map[T_TYPE, s] = possible_states[ALL] - set([BOUNDARY_STATE])
-        else:
-            normalizing_decision_map[E_TYPE, s] = possible_obs[ALL] - set([BOUNDARY_STATE])
-            normalizing_decision_map[T_TYPE, s] = possible_states[ALL]
+    for treli in trellis:
+        for idx in treli:
+            for t_idx, t_tok, s_idx, s_tok in treli[idx]:
+                s = (s_idx, s_tok)
+                t = (t_idx, t_tok)
+                ndm = normalizing_decision_map.get((E_TYPE, s), set([]))
+                ndm.add(t)
+                normalizing_decision_map[E_TYPE, s] = ndm
 
 
 def get_decision_given_context(theta, type, decision, context):
     # print 'finding', type, ' d|c', decision, '|', context
     global normalizing_decision_map, cache_normalizing_decision
-    fired_features = FE.get_pos_features_fired(type=type, context=context, decision=decision)
+    fired_features = FE.get_wa_features_fired(type=type, context=context, decision=decision)
     theta_dot_features = sum([theta[f] for f in fired_features if f in theta])
     # TODO: weights theta are initialized to 0.0
     # TODO: this initialization should be done in a better way
+
     if (type, context) in cache_normalizing_decision:
         theta_dot_normalizing_features = cache_normalizing_decision[type, context]
     else:
         normalizing_decisions = normalizing_decision_map[type, context]
         theta_dot_normalizing_features = float('-inf')
         for d in normalizing_decisions:
-            d_features = FE.get_pos_features_fired(type=type, context=context, decision=d)
+            d_features = FE.get_wa_features_fired(type=type, context=context, decision=d)
             try:
                 theta_dot_normalizing_features = utils.logadd(theta_dot_normalizing_features,
                                                               sum([theta[f] for f in d_features if f in theta]))
@@ -132,18 +134,22 @@ def get_possible_states(o):
         return list(possible_states[ALL] - set([BOUNDARY_STATE]))
 
 
-def get_backwards(theta, words, alpha_pi):
-    n = len(words) - 1  # index of last word
-    beta_pi = {(n, BOUNDARY_STATE): 0.0}
-    S = alpha_pi[(n, BOUNDARY_STATE)]  # from line 13 in pseudo code
+def get_backwards(theta, obs, alpha_pi):
+    n = len(obs) - 1  # index of last word
+    COMPOSITE_BOUNDARY_STATE = (n, '###', n, '###')
+    beta_pi = {(n, COMPOSITE_BOUNDARY_STATE): 0.0}
+    S = alpha_pi[(n, COMPOSITE_BOUNDARY_STATE)]  # from line 13 in pseudo code
     for k in range(n, 0, -1):
-        for v in get_possible_states(words[k]):
-            e = get_decision_given_context(theta, E_TYPE, words[k], v)
+        for v in obs[k]:
+            tk, t_tok, aj, sj = v
+            e = get_decision_given_context(theta, E_TYPE, decision=(tk, t_tok), context=(aj, sj))
             pb = beta_pi[(k, v)]
-            accumulate_fc(type=S_TYPE, alpha=alpha_pi[(k, v)], beta=beta_pi[k, v], k=k, S=S, d=v)
-            accumulate_fc(type=E_TYPE, alpha=alpha_pi[(k, v)], beta=beta_pi[k, v], S=S, d=words[k], c=v)
-            for u in get_possible_states(words[k - 1]):
-                q = get_decision_given_context(theta, T_TYPE, v, u)
+            accumulate_fc(type=S_TYPE, alpha=alpha_pi[(k, v)], beta=beta_pi[k, v], k=k, S=S, d=(tk, t_tok))
+            accumulate_fc(type=E_TYPE, alpha=alpha_pi[(k, v)], beta=beta_pi[k, v], S=S, d=(tk, t_tok), c=(aj, sj))
+            for u in obs[k - 1]:
+                tk_1, t_tok_1, aj_1, sj_1 = u
+                q = log(1.0 / len(obs[k]))  # transition in model1 is uniform
+                # q = get_decision_given_context(theta, T_TYPE, v, u)
                 p = q + e
                 beta_p = pb + p  # The beta includes the emission probability
                 new_pi_key = (k - 1, u)
@@ -153,23 +159,28 @@ def get_backwards(theta, words, alpha_pi):
                     beta_pi[new_pi_key] = utils.logadd(beta_pi[new_pi_key], beta_p)
                     # print 'beta     ', new_pi_key, '=', beta_pi[new_pi_key], exp(beta_pi[new_pi_key])
                 # alpha_pi[(k - 1, u)] + p + beta_pi[(k, v)] - S
-                accumulate_fc(type=T_TYPE, alpha=alpha_pi[k - 1, u], beta=beta_pi[k, v], q=q, e=e, d=v, c=u, S=S)
+                accumulate_fc(type=T_TYPE, alpha=alpha_pi[k - 1, u], beta=beta_pi[k, v], q=q, e=e, d=aj, c=aj_1, S=S)
     return S, beta_pi
 
 
-def get_viterbi_and_forward(theta, words):
-    pi = {(0, BOUNDARY_STATE): 0.0}
-    alpha_pi = {(0, BOUNDARY_STATE): 0.0}
-    arg_pi = {(0, BOUNDARY_STATE): []}
-    for k in range(1, len(words)):  # the words are numbered from 1 to n, 0 is special start character
-        for v in get_possible_states(words[k]):  # [1]:
+def get_viterbi_and_forward(theta, obs):
+    COMPOSITE_BOUNDARY_STATE = (0, '###', 0, '###')
+    pi = {(0, COMPOSITE_BOUNDARY_STATE): 0.0}
+    alpha_pi = {(0, COMPOSITE_BOUNDARY_STATE): 0.0}
+    arg_pi = {(0, COMPOSITE_BOUNDARY_STATE): []}
+    for k in range(1, len(obs)):  # the words are numbered from 1 to n, 0 is special start character
+        for v in obs[k]:  # [1]:
             max_prob_to_bt = {}
             sum_prob_to_bt = []
-            for u in get_possible_states(words[k - 1]):  # [1]:
+            for u in obs[k - 1]:  # [1]:
                 if u == BOUNDARY_STATE and v == BOUNDARY_STATE:
                     print 'hmm'
-                q = get_decision_given_context(theta, T_TYPE, v, u)
-                e = get_decision_given_context(theta, E_TYPE, words[k], v)
+                tk, t_tok, aj, sj = v
+                tk_1, t_tok_1, aj_1, sj_1 = u
+                # TODO: figure out how to send decision and context here, and get back a probability
+                # q = get_decision_given_context(theta, T_TYPE, v, u)
+                q = log(1.0 / len(obs[k]))  # transition in model1 is uniform
+                e = get_decision_given_context(theta, E_TYPE, decision=(tk, t_tok), context=(aj, sj))
                 # print 'q,e', q, e
                 # p = pi[(k - 1, u)] * q * e
                 # alpha_p = alpha_pi[(k - 1, u)] * q * e
@@ -274,21 +285,29 @@ def get_gradient(theta):
         if t not in grad:
             grad[t] = 0.0 - theta[t]
         else:
-            grad[t] = grad[t] - theta[t]
+            grad[t] = grad[t] - (0.5 * theta[t])
     # pdb.set_trace()
     return grad
 
 
-def populate_trellis(source, target):
+def populate_trellis(source_corpus, target_corpus):
     global trellis
-    span = 1  # creates a span of +/- span centered around current token
-    for s_sent, t_sent in zip(source, target):
+    span = 10  # creates a span of +/- span centered around current token
+    for s_sent, t_sent in zip(source_corpus, target_corpus):
+        t_sent.insert(0, BOUNDARY_STATE)
+        s_sent.insert(0, BOUNDARY_STATE)
+        t_sent.append(BOUNDARY_STATE)
+        s_sent.append(BOUNDARY_STATE)
         current_trellis = {}
         for t_idx, t_tok in enumerate(t_sent):
-            start = t_idx - span if t_idx - span >= 0 else 0
-            end = t_idx + span + 1
-            current_trellis[t_idx, t_tok] = [(s_idx + start, s_tok) for s_idx, s_tok in
-                                             enumerate(s_sent[start:end])] + [(NULL, NULL)]
+            if t_tok == BOUNDARY_STATE:
+                current_trellis[t_idx] = [(t_idx, BOUNDARY_STATE, t_idx, BOUNDARY_STATE)]
+            else:
+                start = t_idx - span if t_idx - span >= 0 else 0
+                end = t_idx + span + 1
+                current_trellis[t_idx] = [(t_idx, t_tok, s_idx + start, s_tok) for s_idx, s_tok in
+                                          enumerate(s_sent[start:end]) if s_tok != BOUNDARY_STATE] + [
+                                             (t_idx, t_tok, NULL, NULL)]
         trellis.append(current_trellis)
 
 
@@ -306,11 +325,16 @@ if __name__ == "__main__":
     target = [s.strip().split() for s in open(options.target_corpus, 'r').readlines() if s.strip() != '']
     populate_trellis(source, target)
     populate_features()
-    pprint(feature_index)
-    pprint(features_to_conditional_arcs)
-
-    """
     populate_normalizing_terms()
+    # pprint(feature_index)
+    # pprint(features_to_conditional_arcs)
+    init_theta = dict((k, np.random.uniform(-0.1, 0.1)) for k in feature_index)
+    max_bt, max_p, alpha_pi = get_viterbi_and_forward(init_theta, trellis[0])
+    pprint(alpha_pi)
+    S, beta_pi = get_backwards(init_theta, trellis[0], alpha_pi)
+    pprint(beta_pi)
+    """
+
     populate_arcs_to_features()
     init_theta = dict((k, np.random.uniform(-0.1, 0.1)) for k in feature_index)
     F = DifferentiableFunction(get_likelihood, get_gradient)

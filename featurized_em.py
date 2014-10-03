@@ -154,7 +154,7 @@ def get_viterbi_and_forward(theta, words):
                 # p = pi[(k - 1, u)] * q * e
                 # alpha_p = alpha_pi[(k - 1, u)] * q * e
                 try:
-                  p = pi[(k - 1, u)] + q + e
+                    p = pi[(k - 1, u)] + q + e
                 except KeyError:
                     pdb.set_trace()
                 alpha_p = alpha_pi[(k - 1, u)] + q + e
@@ -274,7 +274,7 @@ def get_gradient(theta):
         if t not in grad:
             grad[t] = 0.0 - theta[t]
         else:
-            grad[t] = grad[t] - theta[t]
+            grad[t] = grad[t] - (0.5 * theta[t])
     # pdb.set_trace()
     return grad
 
@@ -329,9 +329,9 @@ if __name__ == "__main__":
     F = DifferentiableFunction(get_likelihood, get_gradient)
     (fopt, theta, return_status) = F.maximize(init_theta)
     print return_status
-    write_theta = open(options.save,'w')
+    write_theta = open(options.save, 'w')
     for t in theta:
-        write_theta.write(str(t)+"\t"+str(theta[t])+"\n")
+        write_theta.write(str(t) + "\t" + str(theta[t]) + "\n")
     write_theta.flush()
     write_theta.close()
     write_tags = open('predicted.tags', 'w')
