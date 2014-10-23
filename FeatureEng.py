@@ -7,9 +7,7 @@ def get_wa_features_fired(type, decision, context):
     # TODO: this has model 1 features only
     fired_features = []
     if type == fe.E_TYPE:
-        (d_pos, d_tok) = decision
-        (c_pos, c_tok) = context
-        fired_features = [(d_tok, c_tok)]
+        fired_features = [(decision, context)]
     else:
         pass
     return fired_features

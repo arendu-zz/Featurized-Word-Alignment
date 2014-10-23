@@ -38,21 +38,20 @@ normalizing_decision_map = {}
 
 
 def populate_features():
-    # uses the global trellis to populate features
     global trellis, feature_index
     for treli in trellis:
         for idx in treli:
             for t_idx, t_tok, s_idx, s_tok in treli[idx]:
                 s = (s_idx, s_tok)
                 t = (t_idx, t_tok)
-                ff = FE.get_wa_features_fired(None, decision=(t_idx, t_tok), context=(s_idx, s_tok))
+                ff = FE.get_wa_features_fired(type=E_TYPE, decision=t_tok, context=s_tok)
                 for f in ff:
                     feature_index[f] = feature_index.get(f, 0) + 1
-                    ca2f = conditional_arcs_to_features.get((t, s), set([]))
+                    ca2f = conditional_arcs_to_features.get((t_tok, s_tok), set([]))
                     ca2f.add(f)
-                    conditional_arcs_to_features[t, s] = ca2f
+                    conditional_arcs_to_features[t_tok, s_tok] = ca2f
                     f2ca = features_to_conditional_arcs.get(f, set([]))
-                    f2ca.add((t, s))
+                    f2ca.add((t_tok, s_tok))
                     features_to_conditional_arcs[f] = f2ca
 
 
@@ -95,19 +94,17 @@ def populate_normalizing_terms():
             for t_idx, t_tok, s_idx, s_tok in treli[idx]:
                 s = (s_idx, s_tok)
                 t = (t_idx, t_tok)
-                ndm = normalizing_decision_map.get((E_TYPE, s), set([]))
-                ndm.add(t)
-                normalizing_decision_map[E_TYPE, s] = ndm
+                ndm = normalizing_decision_map.get((E_TYPE, s_tok), set([]))
+                ndm.add(t_tok)
+                normalizing_decision_map[E_TYPE, s_tok] = ndm
 
 
 def get_decision_given_context(theta, type, decision, context):
-    # print 'finding', type, ' d|c', decision, '|', context
     global normalizing_decision_map, cache_normalizing_decision
     fired_features = FE.get_wa_features_fired(type=type, context=context, decision=decision)
     theta_dot_features = sum([theta[f] for f in fired_features if f in theta])
     # TODO: weights theta are initialized to 0.0
     # TODO: this initialization should be done in a better way
-
     if (type, context) in cache_normalizing_decision:
         theta_dot_normalizing_features = cache_normalizing_decision[type, context]
     else:
@@ -142,10 +139,10 @@ def get_backwards(theta, obs, alpha_pi):
     for k in range(n, 0, -1):
         for v in obs[k]:
             tk, t_tok, aj, sj = v
-            e = get_decision_given_context(theta, E_TYPE, decision=(tk, t_tok), context=(aj, sj))
+            e = get_decision_given_context(theta, E_TYPE, decision=t_tok, context=sj)
             pb = beta_pi[(k, v)]
-            accumulate_fc(type=S_TYPE, alpha=alpha_pi[(k, v)], beta=beta_pi[k, v], k=k, S=S, d=(tk, t_tok))
-            accumulate_fc(type=E_TYPE, alpha=alpha_pi[(k, v)], beta=beta_pi[k, v], S=S, d=(tk, t_tok), c=(aj, sj))
+            # accumulate_fc(type=S_TYPE, alpha=alpha_pi[(k, v)], beta=beta_pi[k, v], k=k, S=S, d=t_tok)
+            accumulate_fc(type=E_TYPE, alpha=alpha_pi[(k, v)], beta=beta_pi[k, v], S=S, d=t_tok, c=sj)
             for u in obs[k - 1]:
                 tk_1, t_tok_1, aj_1, sj_1 = u
                 q = log(1.0 / len(obs[k]))  # transition in model1 is uniform
@@ -157,7 +154,7 @@ def get_backwards(theta, obs, alpha_pi):
                     beta_pi[new_pi_key] = beta_p
                 else:
                     beta_pi[new_pi_key] = utils.logadd(beta_pi[new_pi_key], beta_p)
-                    # print 'beta     ', new_pi_key, '=', beta_pi[new_pi_key], exp(beta_pi[new_pi_key])
+                # print 'beta     ', new_pi_key, '=', beta_pi[new_pi_key], exp(beta_pi[new_pi_key])
                 # alpha_pi[(k - 1, u)] + p + beta_pi[(k, v)] - S
                 accumulate_fc(type=T_TYPE, alpha=alpha_pi[k - 1, u], beta=beta_pi[k, v], q=q, e=e, d=aj, c=aj_1, S=S)
     return S, beta_pi
@@ -173,14 +170,12 @@ def get_viterbi_and_forward(theta, obs):
             max_prob_to_bt = {}
             sum_prob_to_bt = []
             for u in obs[k - 1]:  # [1]:
-                if u == BOUNDARY_STATE and v == BOUNDARY_STATE:
-                    print 'hmm'
                 tk, t_tok, aj, sj = v
                 tk_1, t_tok_1, aj_1, sj_1 = u
                 # TODO: figure out how to send decision and context here, and get back a probability
                 # q = get_decision_given_context(theta, T_TYPE, v, u)
                 q = log(1.0 / len(obs[k]))  # transition in model1 is uniform
-                e = get_decision_given_context(theta, E_TYPE, decision=(tk, t_tok), context=(aj, sj))
+                e = get_decision_given_context(theta, E_TYPE, decision=t_tok, context=sj)
                 # print 'q,e', q, e
                 # p = pi[(k - 1, u)] * q * e
                 # alpha_p = alpha_pi[(k - 1, u)] * q * e
@@ -258,35 +253,26 @@ def get_likelihood(theta):
 
 def get_gradient(theta):
     fractional_count_grad = {}
-    for c in possible_states[ALL]:
-        for d in possible_obs[c]:
-            if c == BOUNDARY_STATE and d != BOUNDARY_STATE:
-                pass  # ignore this
-            else:
-                event = E_TYPE, d, c
-                Adc = exp(fractional_counts.get(event, float('-inf')))
-                a_dc = exp(get_decision_given_context(theta, type=E_TYPE, decision=d, context=c))
-                fractional_count_grad[event] = Adc * (1 - a_dc)
-
-    for d, c in itertools.product(possible_states[ALL], possible_states[ALL]):
-        if d == BOUNDARY_STATE and c == BOUNDARY_STATE:
-            pass  # ignore
-        else:
-            event = T_TYPE, d, c
+    for event in fractional_counts:
+        (type, d, c) = event
+        # print event, fractional_counts[event]
+        if type == E_TYPE:
             Adc = exp(fractional_counts.get(event, float('-inf')))
-            a_dc = exp(get_decision_given_context(theta, type=T_TYPE, decision=d, context=c))
-            fractional_count_grad[event] = Adc * (1 - a_dc)
+            a_dc = exp(get_decision_given_context(theta, type=E_TYPE, decision=d, context=c))
+            fractional_count_grad[type, d, c] = Adc * (1 - a_dc)
+
     grad = {}
     for fcg_event in fractional_count_grad:
-        for f in conditional_arcs_to_features[fcg_event]:
-            grad[f] = fractional_count_grad[fcg_event] + grad.get(f, 0.0)
+        (type, d, c) = fcg_event
+        if type == E_TYPE:
+            for f in conditional_arcs_to_features[d, c]:
+                grad[f] = fractional_count_grad[fcg_event] + grad.get(f, 0.0)
 
     for t in theta:
         if t not in grad:
-            grad[t] = 0.0 - theta[t]
+            grad[t] = 0.0 - (0.5 * theta[t])
         else:
             grad[t] = grad[t] - (0.5 * theta[t])
-    # pdb.set_trace()
     return grad
 
 
@@ -316,8 +302,8 @@ if __name__ == "__main__":
     possible_states = defaultdict(set)
     possible_obs = defaultdict(set)
     opt = OptionParser()
-    opt.add_option("-t", dest="target_corpus", default="data/toy2/en")
-    opt.add_option("-f", dest="source_corpus", default="data/toy2/fr")
+    opt.add_option("-t", dest="target_corpus", default="data/small/en20")
+    opt.add_option("-f", dest="source_corpus", default="data/small/es20")
     opt.add_option("-o", dest="save", default="theta.out")
     opt.add_option("-a", dest="alignments", default="alignments.out")
     (options, _) = opt.parse_args()
@@ -326,19 +312,14 @@ if __name__ == "__main__":
     populate_trellis(source, target)
     populate_features()
     populate_normalizing_terms()
-    # pprint(feature_index)
-    # pprint(features_to_conditional_arcs)
-    init_theta = dict((k, np.random.uniform(-0.1, 0.1)) for k in feature_index)
-    max_bt, max_p, alpha_pi = get_viterbi_and_forward(init_theta, trellis[0])
-    pprint(alpha_pi)
-    S, beta_pi = get_backwards(init_theta, trellis[0], alpha_pi)
-    pprint(beta_pi)
-    """
-
-    populate_arcs_to_features()
-    init_theta = dict((k, np.random.uniform(-0.1, 0.1)) for k in feature_index)
+    init_theta = dict((k, 1.0) for k in feature_index)
     F = DifferentiableFunction(get_likelihood, get_gradient)
     (fopt, theta, return_status) = F.maximize(init_theta)
+    pprint(theta)
+    """
+    populate_arcs_to_features()
+    init_theta = dict((k, np.random.uniform(-0.1, 0.1)) for k in feature_index)
+
     print return_status
     write_theta = open(options.save, 'w')
     for t in theta:
