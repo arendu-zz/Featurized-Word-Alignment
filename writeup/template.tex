@@ -6,45 +6,93 @@
 \usepackage{wrapfig}
 \usepackage{hyperref} 
 \usepackage{color}
+\usepackage{latexsym}
+\usepackage{amssymb}
+\usepackage{times}
+\usepackage{float}
+%usepackage[in]{fullpage}
+\usepackage{amsmath,amsfonts,amsthm}
+\usepackage{mathtools}
+\usepackage{graphicx}
+\usepackage{fullpage}
+\usepackage{graphicx,booktabs}
+%\usepackage{algorithm2e}
+\usepackage{algorithm}
+%\usepackage{algorithmic}
+\usepackage{algpseudocode}
+\usepackage[colorinlistoftodos]{todonotes}
 
-\oddsidemargin 0mm
-\evensidemargin 5mm
-\topmargin -20mm
-\textheight 240mm
-\textwidth 160mm
+
+%\oddsidemargin 0mm
+%\evensidemargin 5mm
+%\topmargin -20mm
+%\textheight 240mm
+%\textwidth 160mm
 
 \parskip 12pt 
 \setlength{\parindent}{0in}
 
-\pagestyle{myheadings} 
-
-\title{Project Name Here}
-
-\author{Your Name (JHED, email address), Your Name (JHED, email address)}
-\date{}
-
+%\pagestyle{myheadings} 
 \begin{document}
+\title{Unsupervised Featureized HMM Modeling}
+
+\author{Shuoyang Ding (sding8, dings@jhu.edu) \\ Adithya Renduchintala (arenduc1, adithya.renduchintala@jhu.edu)}
+
+
 \maketitle
 
 \section{Abstract}
 % Clearly explain your idea.
+In this project we propose to implement a featurized version of baum-welch training of HMMs. Our implementation will closely follow \cite[Painless unsupervised learning paper]. The basic idea is to replace the probabilities in an HMM model with probabilities estimated using a log linear modeling technique. We would like to apply this model to the following common NLP tasks - Word Alignment, POS tagging and Word Segmentation.
 
 \section{Methods}
-% Explain the methods you will be using and why they are appropriate.
+In this section we will discuss how the training of such a model will work. \\
+In the fully observed case, we can simply count the transitions and emissions and then 
+maximize the probability of the data under the model using MLE. In the un-supervised case this process of counting becomes a process of getting expected counts. The probability of the data under the model is:
+\begin{align}
+P(X \mid \theta) &= \prod_{ k,l \in \mathbf{S,S}} a(s_l \mid s_k)^{A_{kl}}
+\prod_{ x_b,L \in \mathbf{V,S}}e(x_b \mid s_l)^{E_{lb}}\label{eq2}
+\end{align}
+Where $A_{kl}$ and $E_{lb}$ are the expected counts of transitions and emissions. This can be expressed as a log likelihood shown below:\\
+\begin{align}
+\begin{split}
+L(X,\theta) =& \sum_{s_k \rightarrow s_l} A_{kl} (\theta' \cdot f(s_k, s_l) -
+log \sum_{s_l'} exp( \theta' \cdot f(s_k, s_l'))) + \\
+& \sum_{s_l \rightarrow x_b} E_{lb} (\theta' \cdot f(x_b, s_l) - log\sum_{x_b'}
+exp(\theta' \cdot f(s_l, x_b'))) \label{eq:logsub}
+\end{split}
+\end{align}
+Here we have replaced the emission and transition probabilities using the log-linear form, given by:
+\begin{align}
+a'(s_l \mid s_k) &= \frac{exp(\theta' \cdot f(s_k, s_l))}{\sum_{s_l'}
+exp(\theta' \cdot f(s_k,s_l'))} \label{eq:probakl}\\
+e'(x_b \mid s_l) &= \frac{exp(\theta' \cdot
+f(s_l, x_b))}{\sum_{x_b'} exp(\theta' \cdot f(s_l, x_b'))} \label{eq:probelb}
+\end{align}
+Maximizing \ref{logsub} with respect to log-linear feature weights $\theta$ is the optimization problem we want to solve.
+\begin{align}
+\begin{split}
+\frac{\partial}{\partial\theta_j} L(X,\theta) =&  \sum_{s_k \rightarrow s_l} A_{kl}
+(f_j(s_k, s_l) - \sum_{s_l'} f_j(s_k,s_l') \cdot a(s_l\mid a_k)) +\\
+& \sum_{s_l \rightarrow x_b} E_{lb}(f_j(s_k, s_l) - \sum_{x_b'} f_j(s_k,s_l')
+\cdot e(x_b' \mid s_l)) \label{eq:grad}
+\end{split}
+\end{align}
 
 \section{Resources}
 % What resources will you use and how will you get them?
+We plan to apply our method to 3 tasks - word alignment , POS tagging and word segmentation. For the first 2 tasks we have access to large amounts of parallel sentences from the newscrawl corpus. Word segmentation is a preprocessing task needed when dealing with languages like Chinese. We plan to use PKU corpus to train and evaluate our performance on this task.
 
 \section{Milestones}
 \subsection{Must achieve}
-
-\subsection{Expected to achieve}
-
+Word Alignment for at least one language pair is something we intend to complete. This would include incorporating features that emulate IBM-Model1 word alignment and HMM word alignment \cite{1992 hmm paper} and the extend these to use more features that would go beyond HMM word alignment.
 \subsection{Would like to achieve}
+Beyond what we expect to achieve we would like to explore the performance of this model on Chinese word segmentation and POS tagging.
 
 
 \section{Final Writeup}
 % What will appear in the final writeup.
+We would like to have have results showing the performance differences between Baum-Welch training and Featurized training described above. We would also like to explore different feature functions for each of the tasks and compare them. We hope to show accuracy gains, at the cost of training time. This is primarily because log-linear modeling requires a normalization term summing over all possible decisions. In our tasks this could be a very large space. 
 
 \section{Bibliography}
 % A list of the papers relevant to this project.
