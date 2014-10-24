@@ -272,7 +272,7 @@ def get_gradient(theta):
         if t not in grad:
             grad[t] = 0.0 - (0.5 * theta[t])
         else:
-            grad[t] = grad[t] - (0.5 * theta[t])
+            grad[t] -= (0.5 * theta[t])
     return grad
 
 
@@ -315,15 +315,13 @@ if __name__ == "__main__":
     init_theta = dict((k, 1.0) for k in feature_index)
     F = DifferentiableFunction(get_likelihood, get_gradient)
     (fopt, theta, return_status) = F.maximize(init_theta)
-    pprint(theta)
     """
     populate_arcs_to_features()
     init_theta = dict((k, np.random.uniform(-0.1, 0.1)) for k in feature_index)
-
-    print return_status
+    """
+    # print return_status
     write_theta = open(options.save, 'w')
-    for t in theta:
-        write_theta.write(str(t) + "\t" + str(theta[t]) + "\n")
+    for t in sorted(theta):
+        write_theta.write(t[0] + '\t' + t[1] + "\t" + str(theta[t]) + '' + "\n")
     write_theta.flush()
     write_theta.close()
-    """
