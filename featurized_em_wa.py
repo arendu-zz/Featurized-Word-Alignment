@@ -305,7 +305,7 @@ if __name__ == "__main__":
     possible_obs = defaultdict(set)
     opt = OptionParser()
     opt.add_option("-t", dest="target_corpus", default="data/toy2/en")
-    opt.add_option("-f", dest="source_corpus", default="data/toy2/fr")
+    opt.add_option("-s", dest="source_corpus", default="data/toy2/fr")
     opt.add_option("-o", dest="save", default="theta.out")
     opt.add_option("-a", dest="alignments", default="alignments.out")
     (options, _) = opt.parse_args()
