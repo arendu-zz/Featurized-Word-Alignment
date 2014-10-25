@@ -226,6 +226,18 @@ def accumulate_fc(type, alpha, beta, d, S, c=None, k=None, q=None, e=None):
         raise "Wrong type"
 
 
+def write_alignments(theta, save_align):
+    global trellis
+    write_align = open(save_align, 'w')
+    for idx, obs in enumerate(trellis[:]):
+        max_bt, max_p, alpha_pi = get_viterbi_and_forward(theta, obs)
+        w = ' '.join([str(tar_i - 1) + '-' + str(src_i - 1) for src_i, src, tar_i, tar in max_bt if
+                      (tar_i != NULL and tar_i > 0 and src_i > 0)])
+        write_align.write(w + '\n')
+    write_align.flush()
+    write_align.close()
+
+
 def get_likelihood(theta):
     # theta = dict((k, theta_list[v]) for k, v in feature_index.items())
     global trellis
@@ -233,17 +245,7 @@ def get_likelihood(theta):
     data_likelihood = 0.0
     for idx, obs in enumerate(trellis[:]):
         max_bt, max_p, alpha_pi = get_viterbi_and_forward(theta, obs)
-        """
-        if idx == 0:
-            t, p, al = get_viterbi_and_forward(theta, obs)
-            t.pop(0)
-            oo = obs[1:-1]
-            pr = [wo + '/' + to for wo, to in zip(oo, t)]
-            print ' '.join(pr)
-        """
-
         S, beta_pi = get_backwards(theta, obs, alpha_pi)
-
         data_likelihood += S
 
     reg = sum([t ** 2 for k, t in theta.items()])
@@ -325,3 +327,5 @@ if __name__ == "__main__":
         write_theta.write(t[0] + '\t' + t[1] + "\t" + str(theta[t]) + '' + "\n")
     write_theta.flush()
     write_theta.close()
+
+    write_alignments(theta, options.alignments)
