@@ -99,6 +99,11 @@ def populate_normalizing_terms():
                 normalizing_decision_map[E_TYPE, s_tok] = ndm
 
 
+def get_transition_no_feature(jump):
+    p = utils.normpdf(jump, 1.0, 3.0)  # TODO: what should the variance be?
+    return log(p)
+
+
 def get_decision_given_context(theta, type, decision, context):
     global normalizing_decision_map, cache_normalizing_decision
     fired_features = FE.get_wa_features_fired(type=type, context=context, decision=decision)
@@ -145,7 +150,10 @@ def get_backwards(theta, obs, alpha_pi):
             accumulate_fc(type=E_TYPE, alpha=alpha_pi[(k, v)], beta=beta_pi[k, v], S=S, d=t_tok, c=sj)
             for u in obs[k - 1]:
                 tk_1, t_tok_1, aj_1, sj_1 = u
-                q = log(1.0 / len(obs[k]))  # transition in model1 is uniform
+                try:
+                    q = get_transition_no_feature(aj - aj_1)
+                except TypeError:
+                    q = log(1.0 / len(obs[k]))
                 # q = get_decision_given_context(theta, T_TYPE, v, u)
                 p = q + e
                 beta_p = pb + p  # The beta includes the emission probability
@@ -174,7 +182,10 @@ def get_viterbi_and_forward(theta, obs):
                 tk_1, t_tok_1, aj_1, sj_1 = u
                 # TODO: figure out how to send decision and context here, and get back a probability
                 # q = get_decision_given_context(theta, T_TYPE, v, u)
-                q = log(1.0 / len(obs[k]))  # transition in model1 is uniform
+                try:
+                    q = get_transition_no_feature(aj - aj_1)
+                except TypeError:
+                    q = log(1.0 / len(obs[k]))
                 e = get_decision_given_context(theta, E_TYPE, decision=t_tok, context=sj)
                 # print 'q,e', q, e
                 # p = pi[(k - 1, u)] * q * e
