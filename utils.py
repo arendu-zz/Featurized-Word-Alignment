@@ -1,5 +1,12 @@
 __author__ = 'arenduchintala'
-from math import exp, log
+from math import exp, log, pi
+
+
+def normpdf(x, mean, sd):
+    var = float(sd) ** 2
+    denom = (2 * pi * var) ** .5
+    num = exp(-(float(x) - float(mean)) ** 2 / (2 * var))
+    return num / denom
 
 
 def flatten_backpointers(bt):
