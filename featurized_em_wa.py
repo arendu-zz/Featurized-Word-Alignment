@@ -17,7 +17,7 @@ import itertools
 global BOUNDARY_STATE, END_STATE, SPLIT, E_TYPE, T_TYPE, possible_states, normalizing_decision_map
 global cache_normalizing_decision, features_to_conditional_arcs, conditional_arcs_to_features
 global trellis, max_jump_width
-max_jump_width = 4  # creates a span of +/- span centered around current token
+max_jump_width = 6  # creates a span of +/- span centered around current token
 trellis = []
 cache_normalizing_decision = {}
 BOUNDARY_STATE = "###"
@@ -42,7 +42,7 @@ normalizing_decision_map = {}
 def get_jump(aj, aj_1):
     if aj != NULL and aj_1 != 'NULL':
         jump = abs(aj_1 - aj)
-        assert jump <= max_jump_width + 1
+        assert jump <= max_jump_width
     else:
         jump = NULL
     return jump
@@ -133,7 +133,7 @@ def get_decision_given_context(theta, type, decision, context):
                                                           sum([theta[f] for f in d_features if f in theta]))
 
         cache_normalizing_decision[type, context] = theta_dot_normalizing_features
-    log_prob = theta_dot_features - theta_dot_normalizing_features
+    log_prob = round(theta_dot_features - theta_dot_normalizing_features, 10)
     if log_prob > 0.0:
         print log_prob, type, decision, context
         raise Exception
@@ -320,8 +320,8 @@ def populate_trellis(source_corpus, target_corpus):
                 current_trellis[t_idx] = [(t_idx, BOUNDARY_STATE, t_idx, BOUNDARY_STATE, len(s_sent))]
             else:
                 start = t_idx - (max_jump_width / 2) if t_idx - (max_jump_width / 2) >= 0 else 0
-                end = t_idx + (max_jump_width / 2) + 1
-                assert end - start <= max_jump_width + 1
+                end = t_idx + (max_jump_width / 2)
+                assert end - start <= max_jump_width
                 current_trellis[t_idx] = [(t_idx, t_tok, s_idx + start, s_tok, len(s_sent)) for s_idx, s_tok in
                                           enumerate(s_sent[start:end]) if s_tok != BOUNDARY_STATE] + [
                                              (t_idx, t_tok, NULL, NULL, len(s_sent))]
@@ -357,7 +357,7 @@ if __name__ == "__main__":
     write_theta = open(options.save, 'w')
     for t in sorted(theta):
         str_t = reduce(lambda a, d: str(a) + '\t' + str(d), t, '')
-        write_theta.write(str_t.strip() + str(theta[t]) + '' + "\n")
+        write_theta.write(str_t.strip() + '\t' + str(theta[t]) + '' + "\n")
     write_theta.flush()
     write_theta.close()
 
