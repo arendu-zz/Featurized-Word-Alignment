@@ -61,7 +61,7 @@ def populate_features():
 
                         if jump == NULL or jump < span_limit:
                             ff_t = FE.get_wa_features_fired(type=T_TYPE, decision=s_idx, context=(prev_s_idx, L))
-                            transition_arc = (prev_s_idx, s_idx)
+                            transition_arc = (s_idx, (prev_s_idx, L))
                             for f in ff_t:
                                 feature_index[f] = feature_index.get(f, 0) + 1
                                 ca2f = conditional_arcs_to_features.get(transition_arc, set([]))
@@ -185,7 +185,8 @@ def get_backwards(theta, obs, alpha_pi):
                     beta_pi[new_pi_key] = utils.logadd(beta_pi[new_pi_key], beta_p)
                 # print 'beta     ', new_pi_key, '=', beta_pi[new_pi_key], exp(beta_pi[new_pi_key])
                 # alpha_pi[(k - 1, u)] + p + beta_pi[(k, v)] - S
-                accumulate_fc(type=T_TYPE, alpha=alpha_pi[k - 1, u], beta=beta_pi[k, v], q=q, e=e, d=aj, c=aj_1, S=S)
+                accumulate_fc(type=T_TYPE, alpha=alpha_pi[k - 1, u], beta=beta_pi[k, v], q=q, e=e, d=aj, c=(aj_1, L),
+                              S=S)
     return S, beta_pi
 
 
@@ -292,11 +293,18 @@ def get_gradient(theta):
             Adc = exp(fractional_counts.get(event, float('-inf')))
             a_dc = exp(get_decision_given_context(theta, type=E_TYPE, decision=d, context=c))
             fractional_count_grad[type, d, c] = Adc * (1 - a_dc)
+        elif type == T_TYPE:
+            Adc = exp(fractional_counts.get(event, float('-inf')))
+            a_dc = exp(get_decision_given_context(theta, type=T_TYPE, decision=d, context=c))
+            fractional_count_grad[type, d, c] = Adc * (1 - a_dc)
 
     grad = {}
     for fcg_event in fractional_count_grad:
         (type, d, c) = fcg_event
         if type == E_TYPE:
+            for f in conditional_arcs_to_features[d, c]:
+                grad[f] = fractional_count_grad[fcg_event] + grad.get(f, 0.0)
+        elif type == T_TYPE:
             for f in conditional_arcs_to_features[d, c]:
                 grad[f] = fractional_count_grad[fcg_event] + grad.get(f, 0.0)
 
@@ -344,12 +352,10 @@ if __name__ == "__main__":
     populate_features()
     populate_normalizing_terms(target)
     init_theta = dict((k, 1.0) for k in feature_index)
+    # init_theta = dict((k, np.random.uniform(0, 0.1)) for k in feature_index)
     F = DifferentiableFunction(get_likelihood, get_gradient)
     (fopt, theta, return_status) = F.maximize(init_theta)
-    """
-    populate_arcs_to_features()
-    init_theta = dict((k, np.random.uniform(-0.1, 0.1)) for k in feature_index)
-    """
+
     # print return_status
     write_theta = open(options.save, 'w')
     for t in sorted(theta):
