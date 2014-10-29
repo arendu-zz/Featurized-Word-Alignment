@@ -227,19 +227,6 @@ def get_likelihood(theta):
         data_likelihood += S
         if S > 0:
             pdb.set_trace()
-    """
-    try:
-        print 'the', 'D', get_decision_given_context(theta, E_TYPE, 'the', 'D')
-        print    'the', 'N', get_decision_given_context(theta, E_TYPE, 'the', 'N')
-        print    'the', 'V', get_decision_given_context(theta, E_TYPE, 'the', 'V')
-        print    'book', 'D', get_decision_given_context(theta, E_TYPE, 'book', 'D')
-        print    'book', 'N', get_decision_given_context(theta, E_TYPE, 'book', 'N')
-        print    'book', 'V', get_decision_given_context(theta, E_TYPE, 'book', 'V')
-        print    'labbing', 'D', get_decision_given_context(theta, E_TYPE, 'labbing', 'D')
-        print    'labbing', 'N', get_decision_given_context(theta, E_TYPE, 'labbing', 'N')
-        print    'labbing', 'V', get_decision_given_context(theta, E_TYPE, 'labbing', 'V')
-    except KeyError:
-        pass"""
     reg = sum([t ** 2 for k, t in theta.items()])
     print 'accumulating', data_likelihood - (0.5 * reg)  # , ' '.join(obs)
     return data_likelihood - (0.5 * reg)

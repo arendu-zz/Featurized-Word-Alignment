@@ -4,12 +4,17 @@ import featurized_em as fe
 
 
 def get_wa_features_fired(type, decision, context):
-    # TODO: this has model 1 features only
     fired_features = []
     if type == fe.E_TYPE:
-        fired_features = [(decision, context)]
-    else:
-        pass
+        fired_features = [(fe.E_TYPE, decision, context)]
+    elif type == fe.T_TYPE:
+        i_prime, L = context
+        i = decision
+        if i == 'NULL' or i_prime == 'NULL':
+            fired_features = [(fe.T_TYPE, 'NULL')]
+        else:
+            jump = str(abs(i - i_prime))
+            fired_features = [(fe.T_TYPE, jump)]
     return fired_features
 
 
