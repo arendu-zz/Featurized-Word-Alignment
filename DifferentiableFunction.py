@@ -58,7 +58,10 @@ class DifferentiableFunction:
         from scipy.optimize import approx_fprime
 
         eps = np.sqrt(np.finfo(np.float).eps)
-        return approx_fprime(initials, self.value_translator, [eps] * self.size)
+        approx_fprime = approx_fprime(initials, self.value_translator, [eps] * self.size)
+        for i, x in enumerate(approx_fprime):
+            theta[self.index2feature[i]] = x
+        return theta
 
 
     def finite_diff(self, theta):
@@ -158,7 +161,7 @@ class DifferentiableFunction:
             from scipy.optimize import fmin_l_bfgs_b
             # http://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.fmin_l_bfgs_b.html
             (xopt, fopt, return_status) = fmin_l_bfgs_b(self.value_translator, initials, self.gradient_translator,
-                                                        pgtol=0.1)
+                                                        pgtol=1.0)
             # print "============Optimization by LBFGS returns: ", return_status['task']
         elif self.method == "CG":
             from scipy.optimize import fmin_cg
