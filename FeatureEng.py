@@ -7,6 +7,8 @@ def get_wa_features_fired(type, decision, context):
     fired_features = []
     if type == fe.E_TYPE:
         fired_features = [(fe.E_TYPE, decision, context)]
+        if decision == context:
+            fired_features += [('IS_SAME', decision == context)]
     elif type == fe.T_TYPE:
         fired_features = [(fe.T_TYPE, decision)]
     return fired_features

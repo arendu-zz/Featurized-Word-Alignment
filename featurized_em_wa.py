@@ -17,7 +17,7 @@ import itertools
 global BOUNDARY_STATE, END_STATE, SPLIT, E_TYPE, T_TYPE, possible_states, normalizing_decision_map
 global cache_normalizing_decision, features_to_conditional_arcs, conditional_arcs_to_features
 global trellis, max_jump_width
-max_jump_width = 6  # creates a span of +/- span centered around current token
+max_jump_width = 10  # creates a span of +/- span centered around current token
 trellis = []
 cache_normalizing_decision = {}
 BOUNDARY_STATE = "###"
@@ -120,8 +120,7 @@ def get_decision_given_context(theta, type, decision, context):
     global normalizing_decision_map, cache_normalizing_decision
     fired_features = FE.get_wa_features_fired(type=type, context=context, decision=decision)
     theta_dot_features = sum([theta[f] for f in fired_features if f in theta])
-    # TODO: weights theta are initialized to 0.0
-    # TODO: this initialization should be done in a better way
+
     if (type, context) in cache_normalizing_decision:
         theta_dot_normalizing_features = cache_normalizing_decision[type, context]
     else:
@@ -196,7 +195,6 @@ def get_viterbi_and_forward(theta, obs):
 
                 jump = get_jump(aj, aj_1)
                 q = get_decision_given_context(theta, T_TYPE, decision=jump, context=aj_1)
-
                 # q = log(1.0 / len(obs[k]))
                 e = get_decision_given_context(theta, E_TYPE, decision=t_tok, context=s_tok)
                 p = pi[(k - 1, u)] + q + e
@@ -278,25 +276,25 @@ def get_gradient(theta):
     for event in fractional_counts:
         (type, d, c) = event
         # print event, fractional_counts[event]
-        if type == E_TYPE:
-            Adc = exp(fractional_counts.get(event, float('-inf')))
-            a_dc = exp(get_decision_given_context(theta, type=E_TYPE, decision=d, context=c))
-            fractional_count_grad[type, d, c] = Adc * (1 - a_dc)
-        elif type == T_TYPE:
-            Adc = exp(fractional_counts.get(event, float('-inf')))
-            dd = get_decision_given_context(theta, type=T_TYPE, decision=d, context=c)
-            a_dc = exp(dd)
-            fractional_count_grad[type, d, c] = Adc * (1 - a_dc)
+        # if type == E_TYPE:
+        Adc = exp(fractional_counts.get(event, float('-inf')))
+        a_dc = exp(get_decision_given_context(theta, type=type, decision=d, context=c))
+        fractional_count_grad[type, d, c] = Adc * (1 - a_dc)
+        # elif type == T_TYPE:
+        # Adc = exp(fractional_counts.get(event, float('-inf')))
+        # dd = get_decision_given_context(theta, type=T_TYPE, decision=d, context=c)
+        # a_dc = exp(dd)
+        # fractional_count_grad[type, d, c] = Adc * (1 - a_dc)
 
     grad = {}
     for fcg_event in fractional_count_grad:
         (type, d, c) = fcg_event
-        if type == E_TYPE:
-            for f in conditional_arcs_to_features[d, c]:
-                grad[f] = fractional_count_grad[fcg_event] + grad.get(f, 0.0)
-        elif type == T_TYPE:
-            for f in conditional_arcs_to_features[d, c]:
-                grad[f] = fractional_count_grad[fcg_event] + grad.get(f, 0.0)
+        # if type == E_TYPE:
+        for f in conditional_arcs_to_features[d, c]:
+            grad[f] = fractional_count_grad[fcg_event] + grad.get(f, 0.0)
+            # elif type == T_TYPE:
+            # for f in conditional_arcs_to_features[d, c]:
+            # grad[f] = fractional_count_grad[fcg_event] + grad.get(f, 0.0)
 
     for t in theta:
         if t not in grad:
@@ -333,8 +331,8 @@ if __name__ == "__main__":
     possible_states = defaultdict(set)
     possible_obs = defaultdict(set)
     opt = OptionParser()
-    opt.add_option("-t", dest="target_corpus", default="data/small/en20.50")
-    opt.add_option("-s", dest="source_corpus", default="data/small/es20.50")
+    opt.add_option("-t", dest="target_corpus", default="data/toy2/en")
+    opt.add_option("-s", dest="source_corpus", default="data/toy2/fr")
     opt.add_option("-o", dest="save", default="theta.out")
     opt.add_option("-a", dest="alignments", default="alignments.out")
     (options, _) = opt.parse_args()
@@ -349,10 +347,17 @@ if __name__ == "__main__":
     F = DifferentiableFunction(get_likelihood, get_gradient)
     F.method = "LBFGS"
     (fopt, theta, return_status) = F.maximize(init_theta)
-    # print chk_grad
-    # chk_grad = F.fprime(init_theta)
-    # for k in sorted(theta):
-    # print theta[k], chk_grad[k], k
+    cache_normalizing_decision = {}
+    init_theta = dict((k, 1.0) for k in feature_index)
+    init_same = get_decision_given_context(theta=init_theta, type=E_TYPE, decision=".", context=".")
+    final_same = get_decision_given_context(theta=theta, type=E_TYPE, decision=".", context=".")
+
+    print 'init..', init_same, 'final..', final_same
+    """
+    chk_grad = F.fprime(init_theta)
+    for k in sorted(theta):
+        print theta[k], chk_grad[k], k
+    """
     # print return_status
     write_theta = open(options.save, 'w')
     for t in sorted(theta):
