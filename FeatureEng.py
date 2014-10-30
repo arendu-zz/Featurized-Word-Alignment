@@ -6,7 +6,6 @@ import featurized_em_wa as fe_w
 
 def get_wa_features_fired(type, decision, context):
     fired_features = []
-<<<<<<< HEAD
     if type == fe_w.E_TYPE:
         fired_features = [(fe_w.E_TYPE, decision, context)]
         if decision == context:
@@ -18,15 +17,6 @@ def get_wa_features_fired(type, decision, context):
         else:
             jump = fe_w.NULL
         fired_features = [(fe_w.T_TYPE, jump)]
-
-=======
-    if type == fe.E_TYPE:
-        fired_features = [(fe.E_TYPE, decision, context)]
-        if decision == context:
-            fired_features += [('IS_SAME', decision == context)]
-    elif type == fe.T_TYPE:
-        fired_features = [(fe.T_TYPE, decision)]
->>>>>>> de83c5cb5cb590e85a3615858184293258677f1c
     return fired_features
 
 
