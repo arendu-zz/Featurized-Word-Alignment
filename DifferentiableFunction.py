@@ -76,7 +76,10 @@ class DifferentiableFunction:
             index += 1
         from scipy.optimize import check_grad
 
-        return check_grad(self.value_translator, self.gradient_translator, initials)
+        chk_grad = check_grad(self.value_translator, self.gradient_translator, initials)
+        for i, x in enumerate(chk_grad):
+            theta[self.index2feature[i]] = x
+        return theta
 
 
     def value_translator(self, point):
@@ -161,7 +164,7 @@ class DifferentiableFunction:
             from scipy.optimize import fmin_l_bfgs_b
             # http://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.fmin_l_bfgs_b.html
             (xopt, fopt, return_status) = fmin_l_bfgs_b(self.value_translator, initials, self.gradient_translator,
-                                                        pgtol=1.0)
+                                                        pgtol=0.1)
             # print "============Optimization by LBFGS returns: ", return_status['task']
         elif self.method == "CG":
             from scipy.optimize import fmin_cg

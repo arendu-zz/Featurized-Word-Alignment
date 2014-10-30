@@ -10,6 +10,8 @@ You need SciPy/NumPy to run this.
 '''
 
 import sys
+import numpy
+
 
 sys.path.append(".")
 sys.path.append("/usr/local/data/cs465/hw-lm/code/python")
@@ -23,7 +25,6 @@ from DifferentiableFunction import DifferentiableFunction
 # In log-linear modeling, you will similarly use theta to package
 # up the weights of all of the named features.
 def value(theta):
-    print 'run value'
     # print 'recived theta', theta
     return -(theta.get("x", 0.0) - 100) ** 2 + 5 * theta.get("x", 0.0) * theta.get("y", 0.0) - (theta.get("y",
                                                                                                           0.0) - 200) ** 4
@@ -31,7 +32,6 @@ def value(theta):
 
 # the gradient of the function defined in value() above
 def gradient(theta):
-    print 'run gradient'
     gradient_map = {}
     gradient_map["x"] = -2 * (theta.get("x", 0.0) - 100) + 5 * theta.get("y", 0.0)
     gradient_map["y"] = 5 * theta.get("x", 0.0) - 4 * (theta.get("y", 0.0) - 200) ** 3
@@ -39,13 +39,19 @@ def gradient(theta):
     return gradient_map
 
 # theta is a feature vector with initialized values
-theta = {"x": 0.0, "y": 0.0}
+init_theta = {"x": 0.0, "y": 0.0}
 # theta = {}
 F = DifferentiableFunction(value, gradient)
 # fd = F.fprime(theta)
 # print 'finite diff', fd
-(fopt, theta, return_status) = F.maximize(theta)
+(fopt, theta, return_status) = F.maximize(init_theta)
 # after optimization, theta now has the optimal feature values
 print "Max f(x) = %f at x = %f y = %f" % (fopt, theta.get("x"), theta.get("y"))
 # always check the return status. Sometimes the optimizer returns quickly but it doesn't converge!
 print return_status
+
+import utils
+
+init_theta = {"x": 0.0, "y": 0.0}
+f_prox = utils.gradient_checking(init_theta, 0.00001, value)
+print f_prox

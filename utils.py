@@ -1,5 +1,6 @@
 __author__ = 'arenduchintala'
 from math import exp, log, pi
+import copy
 
 
 def normpdf(x, mean, sd):
@@ -38,3 +39,14 @@ def logadd_of_list(a_list):
     for i in a_list[1:]:
         logsum = logadd(logsum, i)
     return logsum
+
+
+def gradient_checking(theta, eps, val):
+    f_approx = {}
+    for i in theta:
+        theta_plus = copy.deepcopy(theta)
+        theta_minus = copy.deepcopy(theta)
+        theta_plus[i] = theta[i] + eps
+        theta_minus[i] = theta[i] - eps
+        f_approx[i] = (val(theta_plus) - val(theta_minus)) / (2 * eps)
+    return f_approx

@@ -82,6 +82,7 @@ def get_transition_no_feature(jump):
 def get_decision_given_context(theta, type, decision, context):
     global normalizing_decision_map, cache_normalizing_decision
     fired_features = FE.get_wa_features_fired(type=type, context=context, decision=decision)
+
     theta_dot_features = sum([theta[f] for f in fired_features])
     # TODO: weights theta are initialized to 0.0
     # TODO: this initialization should be done in a better way
@@ -282,8 +283,8 @@ if __name__ == "__main__":
     possible_states = defaultdict(set)
     possible_obs = defaultdict(set)
     opt = OptionParser()
-    opt.add_option("-t", dest="target_corpus", default="data/small/en20.50")
-    opt.add_option("-s", dest="source_corpus", default="data/small/es20.50")
+    opt.add_option("-t", dest="target_corpus", default="data/toy2/en")
+    opt.add_option("-s", dest="source_corpus", default="data/toy2/fr")
     opt.add_option("-o", dest="save", default="theta.out")
     opt.add_option("-a", dest="alignments", default="alignments.out")
     (options, _) = opt.parse_args()
@@ -310,6 +311,10 @@ if __name__ == "__main__":
     print "init", "final", init_p, final_p
 
     """
+    chk_grad = F.fprime(init_theta)
+    for k in sorted(theta):
+        print theta[k], chk_grad[k], k
+    """
     # print return_status
     write_theta = open(options.save, 'w')
     for t in sorted(theta):
@@ -319,10 +324,9 @@ if __name__ == "__main__":
     write_theta.close()
 
     write_alignments(theta, options.alignments)
-    """
 
     """
-    #TODO: print chk_grad
+    # TODO: print chk_grad
     init_theta = dict((k, 1.0) for k in feature_index)
     chk_grad2 = F.fprime(init_theta)
     init_theta = dict((k, 1.0) for k in feature_index)
