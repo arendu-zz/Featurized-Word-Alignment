@@ -1,14 +1,23 @@
 __author__ = 'arenduchintala'
 
 import featurized_em as fe
+import featurized_em_wa as fe_w
 
 
 def get_wa_features_fired(type, decision, context):
     fired_features = []
-    if type == fe.E_TYPE:
-        fired_features = [(fe.E_TYPE, decision, context)]
-    elif type == fe.T_TYPE:
-        fired_features = [(fe.T_TYPE, decision)]
+    if type == fe_w.E_TYPE:
+        fired_features = [(fe_w.E_TYPE, decision, context)]
+        if decision == context:
+            fired_features += [("IS_SAME", decision, context)]
+    elif type == fe_w.T_TYPE:
+        (p, L) = context
+        if decision != fe_w.NULL and p != fe_w.NULL:
+            jump = abs(decision - p)
+        else:
+            jump = fe_w.NULL
+        fired_features = [(fe_w.T_TYPE, jump)]
+
     return fired_features
 
 
