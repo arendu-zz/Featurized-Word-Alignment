@@ -279,7 +279,9 @@ def get_likelihood(theta):
         data_likelihood += S
 
     reg = sum([t ** 2 for t in theta.values()])
-    return data_likelihood - (0.5 * reg)
+    ll = data_likelihood - (0.5 * reg)
+    print 'log likelihood:', ll
+    return ll
 
 
 def get_likelihood_with_expected_counts(theta):
@@ -289,11 +291,8 @@ def get_likelihood_with_expected_counts(theta):
         A_dct = exp(fractional_counts[event])
         a_dct = get_decision_given_context(theta=theta, type=t, decision=d, context=c)
         sum_likelihood += A_dct * a_dct
-
-    sum_likelihood += get_decision_given_context(theta=theta, type=E_TYPE, decision=BOUNDARY_START,
-                                                 context=BOUNDARY_START)
     reg = sum([t ** 2 for t in theta.values()])
-    return sum_likelihood  # - (0.5 * reg)
+    return sum_likelihood - (0.5 * reg)
 
 
 """
