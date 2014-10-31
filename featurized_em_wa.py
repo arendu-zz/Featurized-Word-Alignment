@@ -15,7 +15,7 @@ from collections import defaultdict
 import itertools
 
 global BOUNDARY_STATE, END_STATE, SPLIT, E_TYPE, T_TYPE, possible_states, normalizing_decision_map
-global cache_normalizing_decision, features_to_conditional_arcs, conditional_arcs_to_features
+global cache_normalizing_decision, features_to_events, events_to_features
 global trellis, max_jump_width
 max_jump_width = 10  # creates a span of +/- span centered around current token
 trellis = []
@@ -30,8 +30,8 @@ T_TYPE = "TRANSITION"
 S_TYPE = "STATE"
 ALL = "ALL_STATES"
 fractional_counts = {}
-conditional_arcs_to_features = {}
-features_to_conditional_arcs = {}
+events_to_features = {}
+features_to_events = {}
 feature_index = {}
 conditional_arc_index = {}
 possible_states = {}
@@ -62,16 +62,16 @@ def populate_features():
                 normalizing_decision_map[E_TYPE, s_tok] = ndm
                 emission_context = s_tok
                 emission_decision = t_tok
-                emission_arc = (emission_decision, emission_context)
+                emission_event = (E_TYPE, emission_decision, emission_context)
                 ff_e = FE.get_wa_features_fired(type=E_TYPE, decision=emission_decision, context=emission_context)
                 for f in ff_e:
                     feature_index[f] = feature_index.get(f, 0) + 1
-                    ca2f = conditional_arcs_to_features.get(emission_arc, set([]))
+                    ca2f = events_to_features.get(emission_event, set([]))
                     ca2f.add(f)
-                    conditional_arcs_to_features[emission_arc] = ca2f
-                    f2ca = features_to_conditional_arcs.get(f, set([]))
-                    f2ca.add(emission_arc)
-                    features_to_conditional_arcs[f] = f2ca
+                    events_to_features[emission_event] = ca2f
+                    f2ca = features_to_events.get(f, set([]))
+                    f2ca.add(emission_event)
+                    features_to_events[f] = f2ca
 
 
 def get_transition_no_feature(jump):
@@ -123,7 +123,7 @@ def get_backwards(theta, obs, alpha_pi):
             tk, t_tok, aj, s_tok, L = v
             e = get_decision_given_context(theta, E_TYPE, decision=t_tok, context=s_tok)
             pb = beta_pi[(k, v)]
-            accumulate_fc(type=E_TYPE, alpha=alpha_pi[(k, v)], beta=beta_pi[k, v], S=S, d=t_tok, c=s_tok)
+            accumulate_fc(type=E_TYPE, alpha=alpha_pi[(k, v)], beta=beta_pi[k, v], e=e, S=S, d=t_tok, c=s_tok)
             for u in obs[k - 1]:
                 tk_1, t_tok_1, aj_1, s_tok_1, L = u
 
@@ -194,12 +194,6 @@ def accumulate_fc(type, alpha, beta, d, S, c=None, k=None, q=None, e=None):
     elif type == E_TYPE:
         update = alpha + beta - S  # the emission should be included in alpha
         fractional_counts[E_TYPE, d, c] = utils.logadd(update, fractional_counts.get((E_TYPE, d, c,), float('-inf')))
-    elif type == S_TYPE:
-        update = alpha + beta - S
-        old = fractional_counts.get((S_TYPE, k, d), float('-inf'))
-        fractional_counts[S_TYPE, k, d] = utils.logadd(update, old)
-        old = fractional_counts.get((S_TYPE, None, d), float('-inf'))
-        fractional_counts[S_TYPE, None, d] = utils.logadd(update, old)
     else:
         raise "Wrong type"
 
@@ -226,34 +220,46 @@ def get_likelihood(theta):
         S, beta_pi = get_backwards(theta, obs, alpha_pi)
         data_likelihood += S
 
-    reg = sum([t ** 2 for k, t in theta.items()])
-    print 'reg log likelihood:', data_likelihood - (0.5 * reg)  # , ' '.join(obs)
+    reg = sum([t ** 2 for t in theta.values()])
+    print 'log likelihood    :', data_likelihood
+    # print 'reg log likelihood:', data_likelihood - (0.5 * reg)  # , ' '.join(obs)
     return data_likelihood - (0.5 * reg)
 
 
-def get_gradient(theta):
-    fractional_count_grad = {}
-    for event in fractional_counts:
-        (type, d, c) = event
-        # print event, fractional_counts[event]
-        # if type == E_TYPE:
-        Adc = exp(fractional_counts.get(event, float('-inf')))
-        a_dc = exp(get_decision_given_context(theta, type=type, decision=d, context=c))
-        fractional_count_grad[type, d, c] = Adc * (1 - a_dc)
-
+"""
+def chk_gradient(theta):
     grad = {}
-    for fcg_event in fractional_count_grad:
-        (type, d, c) = fcg_event
-        # if type == E_TYPE:
-        for f in conditional_arcs_to_features[d, c]:
-            grad[f] = fractional_count_grad[fcg_event] + grad.get(f, 0.0)
+    for feature in theta:
+        sum_dct = 0.0
+        for event in fractional_counts:
+            (t, d, c) = event
+            A_dct = exp(fractional_counts[event])
+            fj = 1.0 if event == feature else 0.0
+            sum_norm = 0.0
 
-    for t in theta:
-        if t not in grad:
-            grad[t] = 0.0 - (0.5 * theta[t])
-        else:
-            grad[t] -= (0.5 * theta[t])
+            for dp in normalizing_decision_map[t, c]:
+                norm_event = (t, dp, c)
+                a_dp_ct = exp(get_decision_given_context(theta, decision=dp, context=c, type=t))
+                fjp = 1.0 if norm_event == feature else 0.0
+                sum_norm += fjp * a_dp_ct
+            sum_dct += A_dct * (fj - sum_norm)
+        grad[feature] = sum_dct
+    return grad
+"""
 
+
+def get_gradient(theta):
+    grad = {}
+    for feature_j in fractional_counts.keys():
+        (t, dj, cj) = feature_j
+        a_dp_ct = exp(get_decision_given_context(theta, decision=dj, context=cj, type=t))
+        sum_feature_j = 0.0
+        norm_features = [(t, dp, cj) for dp in normalizing_decision_map[t, cj]]
+        for feature_i in norm_features:
+            A_dct = exp(fractional_counts[feature_i])
+            fj = 1.0 if feature_i == feature_j else 0.0
+            sum_feature_j += A_dct * (fj - a_dp_ct)
+        grad[feature_j] = sum_feature_j - abs(theta[feature_j])
     return grad
 
 
@@ -283,8 +289,8 @@ if __name__ == "__main__":
     possible_states = defaultdict(set)
     possible_obs = defaultdict(set)
     opt = OptionParser()
-    opt.add_option("-t", dest="target_corpus", default="data/toy2/en")
-    opt.add_option("-s", dest="source_corpus", default="data/toy2/fr")
+    opt.add_option("-t", dest="target_corpus", default="data/toy2/en1")
+    opt.add_option("-s", dest="source_corpus", default="data/toy2/fr1")
     opt.add_option("-o", dest="save", default="theta.out")
     opt.add_option("-a", dest="alignments", default="alignments.out")
     (options, _) = opt.parse_args()
@@ -292,29 +298,39 @@ if __name__ == "__main__":
     target = [s.strip().split() for s in open(options.target_corpus, 'r').readlines() if s.strip() != '']
     populate_trellis(source, target)
     populate_features()
-
+    """
     # init_theta = dict((k, 0.0) for k in feature_index)
     init_theta = dict((k, np.random.uniform(-1.0, 1.0)) for k in feature_index)
+    chk_grad = utils.gradient_checking(init_theta, 0.001, get_likelihood)
+    my_grad = get_gradient(init_theta)
+    # my_grad2 = chk_gradient(init_theta)
+    for k in sorted(my_grad):
+        print str(round(my_grad[k], 5)).center(10), \
+            str(round(chk_grad[k], 5)).center(10), k
+    pdb.set_trace()
+    """
+    init_theta = dict((k, np.random.uniform(-0.1, 0.1)) for k in feature_index)
     init_p = (get_decision_given_context(init_theta, E_TYPE, decision=".", context="."),
               get_decision_given_context(init_theta, E_TYPE, decision="wrong", context="."),
-              get_decision_given_context(init_theta, E_TYPE, decision="your", context="."))
+              get_decision_given_context(init_theta, E_TYPE, decision="your", context="."),
+              get_decision_given_context(init_theta, E_TYPE, decision="very", context="muy"),
+              get_decision_given_context(init_theta, E_TYPE, decision="to", context="muy"),
+              get_decision_given_context(init_theta, E_TYPE, decision="is", context="muy"))
 
     F = DifferentiableFunction(get_likelihood, get_gradient)
     F.method = "LBFGS"
     (fopt, theta, return_status) = F.maximize(init_theta)
+
     final_p = (get_decision_given_context(init_theta, E_TYPE, decision=".", context="."),
                get_decision_given_context(init_theta, E_TYPE, decision="wrong", context="."),
-               get_decision_given_context(init_theta, E_TYPE, decision="your", context="."))
+               get_decision_given_context(init_theta, E_TYPE, decision="your", context="."),
+               get_decision_given_context(init_theta, E_TYPE, decision="very", context="muy"),
+               get_decision_given_context(init_theta, E_TYPE, decision="to", context="muy"),
+               get_decision_given_context(init_theta, E_TYPE, decision="is", context="muy"))
 
-    for k in sorted(theta):
-        print theta[k], k
     print "init", "final", init_p, final_p
 
-    """
-    chk_grad = F.fprime(init_theta)
-    for k in sorted(theta):
-        print theta[k], chk_grad[k], k
-    """
+
     # print return_status
     write_theta = open(options.save, 'w')
     for t in sorted(theta):
@@ -325,12 +341,4 @@ if __name__ == "__main__":
 
     write_alignments(theta, options.alignments)
 
-    """
-    # TODO: print chk_grad
-    init_theta = dict((k, 1.0) for k in feature_index)
-    chk_grad2 = F.fprime(init_theta)
-    init_theta = dict((k, 1.0) for k in feature_index)
-    chk_grad = utils.gradient_checking(init_theta, 1e-10, get_likelihood)
-    for k in sorted(theta):
-        print theta[k], chk_grad[k], chk_grad2[k], k
-    """
+
