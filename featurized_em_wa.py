@@ -309,26 +309,31 @@ if __name__ == "__main__":
             str(round(chk_grad[k], 5)).center(10), k
     pdb.set_trace()
     """
-    init_theta = dict((k, np.random.uniform(-0.1, 0.1)) for k in feature_index)
-    init_p = (get_decision_given_context(init_theta, E_TYPE, decision=".", context="."),
-              get_decision_given_context(init_theta, E_TYPE, decision="wrong", context="."),
-              get_decision_given_context(init_theta, E_TYPE, decision="your", context="."),
-              get_decision_given_context(init_theta, E_TYPE, decision="very", context="muy"),
-              get_decision_given_context(init_theta, E_TYPE, decision="to", context="muy"),
-              get_decision_given_context(init_theta, E_TYPE, decision="is", context="muy"))
+    try:
+        init_theta = dict((k, np.random.uniform(-0.1, 0.1)) for k in feature_index)
+        init_p = (get_decision_given_context(init_theta, E_TYPE, decision=".", context="."),
+                  get_decision_given_context(init_theta, E_TYPE, decision="wrong", context="."),
+                  get_decision_given_context(init_theta, E_TYPE, decision="your", context="."),
+                  get_decision_given_context(init_theta, E_TYPE, decision="very", context="muy"),
+                  get_decision_given_context(init_theta, E_TYPE, decision="to", context="muy"),
+                  get_decision_given_context(init_theta, E_TYPE, decision="is", context="muy"))
+    except:
+        pass
 
     F = DifferentiableFunction(get_likelihood, get_gradient)
     F.method = "LBFGS"
     (fopt, theta, return_status) = F.maximize(init_theta)
+    try:
+        final_p = (get_decision_given_context(init_theta, E_TYPE, decision=".", context="."),
+                   get_decision_given_context(init_theta, E_TYPE, decision="wrong", context="."),
+                   get_decision_given_context(init_theta, E_TYPE, decision="your", context="."),
+                   get_decision_given_context(init_theta, E_TYPE, decision="very", context="muy"),
+                   get_decision_given_context(init_theta, E_TYPE, decision="to", context="muy"),
+                   get_decision_given_context(init_theta, E_TYPE, decision="is", context="muy"))
 
-    final_p = (get_decision_given_context(init_theta, E_TYPE, decision=".", context="."),
-               get_decision_given_context(init_theta, E_TYPE, decision="wrong", context="."),
-               get_decision_given_context(init_theta, E_TYPE, decision="your", context="."),
-               get_decision_given_context(init_theta, E_TYPE, decision="very", context="muy"),
-               get_decision_given_context(init_theta, E_TYPE, decision="to", context="muy"),
-               get_decision_given_context(init_theta, E_TYPE, decision="is", context="muy"))
-
-    print "init", "final", init_p, final_p
+        print "init", "final", init_p, final_p
+    except:
+        pass
 
 
     # print return_status
