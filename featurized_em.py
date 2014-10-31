@@ -13,12 +13,12 @@ from pprint import pprint
 from collections import defaultdict
 import itertools
 
-global BOUNDARY_STATE, END_STATE, SPLIT, E_TYPE, T_TYPE, possible_states, normalizing_decision_map
+global BOUNDARY_START, END_STATE, SPLIT, E_TYPE, T_TYPE, possible_states, normalizing_decision_map
 global cache_normalizing_decision, features_to_events, events_to_features
 global observations
 observations = []
 cache_normalizing_decision = {}
-BOUNDARY_STATE = "###"
+BOUNDARY_START = "###"
 SPLIT = "###/###"
 E_TYPE = "EMISSION"
 E_TYPE_PRE = "PREFIX_FEATURE"
@@ -39,7 +39,7 @@ normalizing_decision_map = {}
 def populate_arcs_to_features():
     global features_to_events, events_to_features, feature_index, conditional_arc_index
     for d, c in itertools.product(possible_obs[ALL], possible_states[ALL]):
-        if c == BOUNDARY_STATE and d != BOUNDARY_STATE:
+        if c == BOUNDARY_START and d != BOUNDARY_START:
             pass
         else:
             fired_features = FE.get_pos_features_fired(E_TYPE, decision=d, context=c)
@@ -54,7 +54,7 @@ def populate_arcs_to_features():
                 features_to_conditional_arcs[ff] = cs
 
     for d, c in itertools.product(possible_states[ALL], possible_states[ALL]):
-        if d == BOUNDARY_STATE and c == BOUNDARY_STATE:
+        if d == BOUNDARY_START and c == BOUNDARY_START:
             pass
         else:
             fired_features = FE.get_pos_features_fired(T_TYPE, decision=d, context=c)
@@ -71,11 +71,11 @@ def populate_arcs_to_features():
 
 def populate_normalizing_terms():
     for s in possible_states[ALL]:
-        if s == BOUNDARY_STATE:
-            normalizing_decision_map[E_TYPE, s] = set([BOUNDARY_STATE])
-            normalizing_decision_map[T_TYPE, s] = possible_states[ALL] - set([BOUNDARY_STATE])
+        if s == BOUNDARY_START:
+            normalizing_decision_map[E_TYPE, s] = set([BOUNDARY_START])
+            normalizing_decision_map[T_TYPE, s] = possible_states[ALL] - set([BOUNDARY_START])
         else:
-            normalizing_decision_map[E_TYPE, s] = possible_obs[ALL] - set([BOUNDARY_STATE])
+            normalizing_decision_map[E_TYPE, s] = possible_obs[ALL] - set([BOUNDARY_START])
             normalizing_decision_map[T_TYPE, s] = possible_states[ALL]
 
 
@@ -104,18 +104,18 @@ def get_decision_given_context(theta, type, decision, context):
 
 
 def get_possible_states(o):
-    if o == BOUNDARY_STATE:
-        return [BOUNDARY_STATE]
+    if o == BOUNDARY_START:
+        return [BOUNDARY_START]
     # elif o in possible_states:
     # return list(possible_states[o])
     else:
-        return list(possible_states[ALL] - set([BOUNDARY_STATE]))
+        return list(possible_states[ALL] - set([BOUNDARY_START]))
 
 
 def get_backwards(theta, words, alpha_pi):
     n = len(words) - 1  # index of last word
-    beta_pi = {(n, BOUNDARY_STATE): 0.0}
-    S = alpha_pi[(n, BOUNDARY_STATE)]  # from line 13 in pseudo code
+    beta_pi = {(n, BOUNDARY_START): 0.0}
+    S = alpha_pi[(n, BOUNDARY_START)]  # from line 13 in pseudo code
     for k in range(n, 0, -1):
         for v in get_possible_states(words[k]):
             e = get_decision_given_context(theta, E_TYPE, words[k], v)
@@ -138,15 +138,15 @@ def get_backwards(theta, words, alpha_pi):
 
 
 def get_viterbi_and_forward(theta, words):
-    pi = {(0, BOUNDARY_STATE): 0.0}
-    alpha_pi = {(0, BOUNDARY_STATE): 0.0}
-    arg_pi = {(0, BOUNDARY_STATE): []}
+    pi = {(0, BOUNDARY_START): 0.0}
+    alpha_pi = {(0, BOUNDARY_START): 0.0}
+    arg_pi = {(0, BOUNDARY_START): []}
     for k in range(1, len(words)):  # the words are numbered from 1 to n, 0 is special start character
         for v in get_possible_states(words[k]):  # [1]:
             max_prob_to_bt = {}
             sum_prob_to_bt = []
             for u in get_possible_states(words[k - 1]):  # [1]:
-                if u == BOUNDARY_STATE and v == BOUNDARY_STATE:
+                if u == BOUNDARY_START and v == BOUNDARY_START:
                     print 'hmm'
                 q = get_decision_given_context(theta, T_TYPE, v, u)
                 e = get_decision_given_context(theta, E_TYPE, words[k], v)
@@ -236,7 +236,7 @@ def get_gradient(theta):
     fractional_count_grad = {}
     for c in possible_states[ALL]:
         for d in possible_obs[c]:
-            if c == BOUNDARY_STATE and d != BOUNDARY_STATE:
+            if c == BOUNDARY_START and d != BOUNDARY_START:
                 pass  # ignore this
             else:
                 event = E_TYPE, d, c
@@ -245,7 +245,7 @@ def get_gradient(theta):
                 fractional_count_grad[event] = Adc * (1 - a_dc)
 
     for d, c in itertools.product(possible_states[ALL], possible_states[ALL]):
-        if d == BOUNDARY_STATE and c == BOUNDARY_STATE:
+        if d == BOUNDARY_START and c == BOUNDARY_START:
             pass  # ignore
         else:
             event = T_TYPE, d, c
@@ -280,8 +280,8 @@ if __name__ == "__main__":
     for t in open(options.initial_train, 'r').read().split(SPLIT)[:]:
         if t.strip() != '':
             obs_state = [tuple(x.split('/')) for x in t.split('\n') if x.strip() != '']
-            obs_state.append((BOUNDARY_STATE, BOUNDARY_STATE))
-            obs_state.insert(0, (BOUNDARY_STATE, BOUNDARY_STATE))
+            obs_state.append((BOUNDARY_START, BOUNDARY_START))
+            obs_state.insert(0, (BOUNDARY_START, BOUNDARY_START))
             obs_tup, state_tup = zip(*obs_state)
             observations.append(list(obs_tup))
             for idx, (obs, state) in enumerate(obs_state[1:]):
