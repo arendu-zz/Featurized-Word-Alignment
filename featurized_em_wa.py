@@ -249,17 +249,23 @@ def chk_gradient(theta):
 
 
 def get_gradient(theta):
-    grad = {}
-    for feature_j in fractional_counts.keys():
-        (t, dj, cj) = feature_j
+    event_grad = {}
+    for event_j in fractional_counts.keys():
+        (t, dj, cj) = event_j
         a_dp_ct = exp(get_decision_given_context(theta, decision=dj, context=cj, type=t))
         sum_feature_j = 0.0
-        norm_features = [(t, dp, cj) for dp in normalizing_decision_map[t, cj]]
-        for feature_i in norm_features:
-            A_dct = exp(fractional_counts[feature_i])
-            fj = 1.0 if feature_i == feature_j else 0.0
+        norm_events = [(t, dp, cj) for dp in normalizing_decision_map[t, cj]]
+        for event_i in norm_events:
+            A_dct = exp(fractional_counts[event_i])
+            fj = 1.0 if event_i == event_j else 0.0
             sum_feature_j += A_dct * (fj - a_dp_ct)
-        grad[feature_j] = sum_feature_j - abs(theta[feature_j])
+        event_grad[event_j] = sum_feature_j - abs(theta[event_j])  # this is the regularizing term
+
+    grad = {}
+    for e in event_grad:
+        feats = events_to_features[e]
+        for f in feats:
+            grad[f] = grad.get(f, 0.0) + event_grad[e]
     return grad
 
 
@@ -289,27 +295,31 @@ if __name__ == "__main__":
     possible_states = defaultdict(set)
     possible_obs = defaultdict(set)
     opt = OptionParser()
-    opt.add_option("-t", dest="target_corpus", default="data/toy2/en")
-    opt.add_option("-s", dest="source_corpus", default="data/toy2/fr")
+    opt.add_option("-t", dest="target_corpus", default="data/toy2/en1")
+    opt.add_option("-s", dest="source_corpus", default="data/toy2/fr1")
     opt.add_option("-o", dest="save", default="theta.out")
     opt.add_option("-a", dest="alignments", default="alignments.out")
+    opt.add_option("-g", dest="test_gradient", default=False)
     (options, _) = opt.parse_args()
     source = [s.strip().split() for s in open(options.source_corpus, 'r').readlines() if s.strip() != '']
     target = [s.strip().split() for s in open(options.target_corpus, 'r').readlines() if s.strip() != '']
     populate_trellis(source, target)
     populate_features()
-    """
-    # init_theta = dict((k, 0.0) for k in feature_index)
-    init_theta = dict((k, np.random.uniform(-1.0, 1.0)) for k in feature_index)
-    chk_grad = utils.gradient_checking(init_theta, 0.001, get_likelihood)
+
+    init_theta = dict((k, 0.0) for k in feature_index)
+    # init_theta = dict((k, np.random.uniform(-1.0, 1.0)) for k in feature_index)
+    chk_grad = utils.gradient_checking(init_theta, 1e-5, get_likelihood)
     my_grad = get_gradient(init_theta)
-    # my_grad2 = chk_gradient(init_theta)
+    # my_grad = chk_gradient(init_theta)
+    diff = []
     for k in sorted(my_grad):
-        print str(round(my_grad[k], 5)).center(10), \
+        diff.append(my_grad[k] - chk_grad[k])
+        print str(round(my_grad[k] - chk_grad[k], 3)).center(10), str(round(my_grad[k], 5)).center(10), \
             str(round(chk_grad[k], 5)).center(10), k
+    print 'difference:', round(sum(diff), 3)
     pdb.set_trace()
-    """
-    init_theta = dict((k, np.random.uniform(-0.1, 0.1)) for k in feature_index)
+
+    init_theta = dict((k, np.random.uniform(-1.0, 1.0)) for k in feature_index)
     try:
 
         init_p = (get_decision_given_context(init_theta, E_TYPE, decision=".", context="."),
