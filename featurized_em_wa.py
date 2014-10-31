@@ -289,8 +289,8 @@ if __name__ == "__main__":
     possible_states = defaultdict(set)
     possible_obs = defaultdict(set)
     opt = OptionParser()
-    opt.add_option("-t", dest="target_corpus", default="data/toy2/en1")
-    opt.add_option("-s", dest="source_corpus", default="data/toy2/fr1")
+    opt.add_option("-t", dest="target_corpus", default="data/toy2/en")
+    opt.add_option("-s", dest="source_corpus", default="data/toy2/fr")
     opt.add_option("-o", dest="save", default="theta.out")
     opt.add_option("-a", dest="alignments", default="alignments.out")
     (options, _) = opt.parse_args()
@@ -309,8 +309,9 @@ if __name__ == "__main__":
             str(round(chk_grad[k], 5)).center(10), k
     pdb.set_trace()
     """
+    init_theta = dict((k, np.random.uniform(-0.1, 0.1)) for k in feature_index)
     try:
-        init_theta = dict((k, np.random.uniform(-0.1, 0.1)) for k in feature_index)
+
         init_p = (get_decision_given_context(init_theta, E_TYPE, decision=".", context="."),
                   get_decision_given_context(init_theta, E_TYPE, decision="wrong", context="."),
                   get_decision_given_context(init_theta, E_TYPE, decision="your", context="."),
@@ -324,12 +325,12 @@ if __name__ == "__main__":
     F.method = "LBFGS"
     (fopt, theta, return_status) = F.maximize(init_theta)
     try:
-        final_p = (get_decision_given_context(init_theta, E_TYPE, decision=".", context="."),
-                   get_decision_given_context(init_theta, E_TYPE, decision="wrong", context="."),
-                   get_decision_given_context(init_theta, E_TYPE, decision="your", context="."),
-                   get_decision_given_context(init_theta, E_TYPE, decision="very", context="muy"),
-                   get_decision_given_context(init_theta, E_TYPE, decision="to", context="muy"),
-                   get_decision_given_context(init_theta, E_TYPE, decision="is", context="muy"))
+        final_p = (get_decision_given_context(theta, E_TYPE, decision=".", context="."),
+                   get_decision_given_context(theta, E_TYPE, decision="wrong", context="."),
+                   get_decision_given_context(theta, E_TYPE, decision="your", context="."),
+                   get_decision_given_context(theta, E_TYPE, decision="very", context="muy"),
+                   get_decision_given_context(theta, E_TYPE, decision="to", context="muy"),
+                   get_decision_given_context(theta, E_TYPE, decision="is", context="muy"))
 
         print "init", "final", init_p, final_p
     except:
