@@ -54,4 +54,5 @@ import utils
 
 init_theta = {"x": 0.0, "y": 0.0}
 f_prox = utils.gradient_checking(init_theta, 0.00001, value)
-print f_prox
+f_grad = gradient(theta=init_theta)
+print f_prox, f_grad

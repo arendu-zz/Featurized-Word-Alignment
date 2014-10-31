@@ -15,7 +15,7 @@ from collections import defaultdict
 import itertools
 
 global BOUNDARY_STATE, END_STATE, SPLIT, E_TYPE, T_TYPE, possible_states, normalizing_decision_map
-global cache_normalizing_decision, features_to_conditional_arcs, conditional_arcs_to_features
+global cache_normalizing_decision, features_to_events, events_to_features
 global trellis, max_jump_width
 max_jump_width = 10  # creates a span of +/- span centered around current token
 trellis = []
@@ -30,8 +30,8 @@ T_TYPE = "TRANSITION"
 S_TYPE = "STATE"
 ALL = "ALL_STATES"
 fractional_counts = {}
-conditional_arcs_to_features = {}
-features_to_conditional_arcs = {}
+events_to_features = {}
+features_to_events = {}
 feature_index = {}
 conditional_arc_index = {}
 possible_states = {}
@@ -66,12 +66,12 @@ def populate_features():
                 ff_e = FE.get_wa_features_fired(type=E_TYPE, decision=emission_decision, context=emission_context)
                 for f in ff_e:
                     feature_index[f] = feature_index.get(f, 0) + 1
-                    ca2f = conditional_arcs_to_features.get(emission_arc, set([]))
+                    ca2f = events_to_features.get(emission_arc, set([]))
                     ca2f.add(f)
-                    conditional_arcs_to_features[emission_arc] = ca2f
-                    f2ca = features_to_conditional_arcs.get(f, set([]))
+                    events_to_features[emission_arc] = ca2f
+                    f2ca = features_to_events.get(f, set([]))
                     f2ca.add(emission_arc)
-                    features_to_conditional_arcs[f] = f2ca
+                    features_to_events[f] = f2ca
 
                 if idx > 0:
                     for prev_t_idx, prev_t_tok, prev_s_idx, prev_s_tok, L in treli[idx - 1]:
@@ -96,12 +96,12 @@ def populate_features():
                         normalizing_decision_map[T_TYPE, transition_context] = ndm
                         for f in ff_t:
                             feature_index[f] = feature_index.get(f, 0) + 1
-                            ca2f = conditional_arcs_to_features.get(transition_arc, set([]))
+                            ca2f = events_to_features.get(transition_arc, set([]))
                             ca2f.add(f)
-                            conditional_arcs_to_features[transition_arc] = ca2f
-                            f2ca = features_to_conditional_arcs.get(f, set([]))
+                            events_to_features[transition_arc] = ca2f
+                            f2ca = features_to_events.get(f, set([]))
                             f2ca.add(transition_arc)
-                            features_to_conditional_arcs[f] = f2ca
+                            features_to_events[f] = f2ca
 
 
 def get_transition_no_feature(jump):
@@ -281,7 +281,7 @@ def get_gradient(theta):
     for fcg_event in fractional_count_grad:
         (type, d, c) = fcg_event
         # if type == E_TYPE:
-        for f in conditional_arcs_to_features[d, c]:
+        for f in events_to_features[d, c]:
             grad[f] = fractional_count_grad[fcg_event] + grad.get(f, 0.0)
 
     for t in theta:
