@@ -259,13 +259,15 @@ def get_gradient(theta):
             A_dct = exp(fractional_counts[event_i])
             fj = 1.0 if event_i == event_j else 0.0
             sum_feature_j += A_dct * (fj - a_dp_ct)
-        event_grad[event_j] = sum_feature_j - abs(theta[event_j])  # this is the regularizing term
+        event_grad[event_j] = sum_feature_j  # - abs(theta[event_j])  # this is the regularizing term
 
     grad = {}
     for e in event_grad:
         feats = events_to_features[e]
         for f in feats:
             grad[f] = grad.get(f, 0.0) + event_grad[e]
+    for f in grad:
+        grad[f] -= theta[f]
     return grad
 
 
@@ -295,8 +297,8 @@ if __name__ == "__main__":
     possible_states = defaultdict(set)
     possible_obs = defaultdict(set)
     opt = OptionParser()
-    opt.add_option("-t", dest="target_corpus", default="data/toy2/en1")
-    opt.add_option("-s", dest="source_corpus", default="data/toy2/fr1")
+    opt.add_option("-t", dest="target_corpus", default="data/toy2/en")
+    opt.add_option("-s", dest="source_corpus", default="data/toy2/fr")
     opt.add_option("-o", dest="save", default="theta.out")
     opt.add_option("-a", dest="alignments", default="alignments.out")
     opt.add_option("-g", dest="test_gradient", default=False)
@@ -305,56 +307,54 @@ if __name__ == "__main__":
     target = [s.strip().split() for s in open(options.target_corpus, 'r').readlines() if s.strip() != '']
     populate_trellis(source, target)
     populate_features()
+    if options.test_gradient:
+        init_theta = dict((k, np.random.uniform(-1.0, 1.0)) for k in feature_index)
+        chk_grad = utils.gradient_checking(init_theta, 1e-5, get_likelihood)
+        my_grad = get_gradient(init_theta)
+        # my_grad = chk_gradient(init_theta)
+        diff = []
+        for k in sorted(my_grad):
+            diff.append(my_grad[k] - chk_grad[k])
+            print str(round(my_grad[k] - chk_grad[k], 3)).center(10), str(round(my_grad[k], 5)).center(10), \
+                str(round(chk_grad[k], 5)).center(10), k
+        print 'difference:', round(sum(diff), 3)
+    else:
+        init_theta = dict((k, np.random.uniform(-1.0, 1.0)) for k in feature_index)
+        try:
 
-    init_theta = dict((k, 0.0) for k in feature_index)
-    # init_theta = dict((k, np.random.uniform(-1.0, 1.0)) for k in feature_index)
-    chk_grad = utils.gradient_checking(init_theta, 1e-5, get_likelihood)
-    my_grad = get_gradient(init_theta)
-    # my_grad = chk_gradient(init_theta)
-    diff = []
-    for k in sorted(my_grad):
-        diff.append(my_grad[k] - chk_grad[k])
-        print str(round(my_grad[k] - chk_grad[k], 3)).center(10), str(round(my_grad[k], 5)).center(10), \
-            str(round(chk_grad[k], 5)).center(10), k
-    print 'difference:', round(sum(diff), 3)
-    pdb.set_trace()
+            init_p = (get_decision_given_context(init_theta, E_TYPE, decision=".", context="."),
+                      get_decision_given_context(init_theta, E_TYPE, decision="wrong", context="."),
+                      get_decision_given_context(init_theta, E_TYPE, decision="your", context="."),
+                      get_decision_given_context(init_theta, E_TYPE, decision="very", context="muy"),
+                      get_decision_given_context(init_theta, E_TYPE, decision="to", context="muy"),
+                      get_decision_given_context(init_theta, E_TYPE, decision="is", context="muy"))
+        except:
+            pass
 
-    init_theta = dict((k, np.random.uniform(-1.0, 1.0)) for k in feature_index)
-    try:
+        F = DifferentiableFunction(get_likelihood, get_gradient)
+        F.method = "LBFGS"
+        (fopt, theta, return_status) = F.maximize(init_theta)
+        try:
+            final_p = (get_decision_given_context(theta, E_TYPE, decision=".", context="."),
+                       get_decision_given_context(theta, E_TYPE, decision="wrong", context="."),
+                       get_decision_given_context(theta, E_TYPE, decision="your", context="."),
+                       get_decision_given_context(theta, E_TYPE, decision="very", context="muy"),
+                       get_decision_given_context(theta, E_TYPE, decision="to", context="muy"),
+                       get_decision_given_context(theta, E_TYPE, decision="is", context="muy"))
 
-        init_p = (get_decision_given_context(init_theta, E_TYPE, decision=".", context="."),
-                  get_decision_given_context(init_theta, E_TYPE, decision="wrong", context="."),
-                  get_decision_given_context(init_theta, E_TYPE, decision="your", context="."),
-                  get_decision_given_context(init_theta, E_TYPE, decision="very", context="muy"),
-                  get_decision_given_context(init_theta, E_TYPE, decision="to", context="muy"),
-                  get_decision_given_context(init_theta, E_TYPE, decision="is", context="muy"))
-    except:
-        pass
-
-    F = DifferentiableFunction(get_likelihood, get_gradient)
-    F.method = "LBFGS"
-    (fopt, theta, return_status) = F.maximize(init_theta)
-    try:
-        final_p = (get_decision_given_context(theta, E_TYPE, decision=".", context="."),
-                   get_decision_given_context(theta, E_TYPE, decision="wrong", context="."),
-                   get_decision_given_context(theta, E_TYPE, decision="your", context="."),
-                   get_decision_given_context(theta, E_TYPE, decision="very", context="muy"),
-                   get_decision_given_context(theta, E_TYPE, decision="to", context="muy"),
-                   get_decision_given_context(theta, E_TYPE, decision="is", context="muy"))
-
-        print "init", "final", init_p, final_p
-    except:
-        pass
+            print "init", "final", init_p, final_p
+        except:
+            pass
 
 
-    # print return_status
-    write_theta = open(options.save, 'w')
-    for t in sorted(theta):
-        str_t = reduce(lambda a, d: str(a) + '\t' + str(d), t, '')
-        write_theta.write(str_t.strip() + '\t' + str(theta[t]) + '' + "\n")
-    write_theta.flush()
-    write_theta.close()
+        # print return_status
+        write_theta = open(options.save, 'w')
+        for t in sorted(theta):
+            str_t = reduce(lambda a, d: str(a) + '\t' + str(d), t, '')
+            write_theta.write(str_t.strip() + '\t' + str(theta[t]) + '' + "\n")
+        write_theta.flush()
+        write_theta.close()
 
-    write_alignments(theta, options.alignments)
+        write_alignments(theta, options.alignments)
 
 

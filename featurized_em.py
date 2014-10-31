@@ -14,7 +14,7 @@ from collections import defaultdict
 import itertools
 
 global BOUNDARY_STATE, END_STATE, SPLIT, E_TYPE, T_TYPE, possible_states, normalizing_decision_map
-global cache_normalizing_decision, features_to_conditional_arcs, conditional_arcs_to_features
+global cache_normalizing_decision, features_to_events, events_to_features
 global observations
 observations = []
 cache_normalizing_decision = {}
@@ -27,8 +27,8 @@ T_TYPE = "TRANSITION"
 S_TYPE = "STATE"
 ALL = "ALL_STATES"
 fractional_counts = {}
-conditional_arcs_to_features = {}
-features_to_conditional_arcs = {}
+events_to_features = {}
+features_to_events = {}
 feature_index = {}
 conditional_arc_index = {}
 possible_states = {}
@@ -37,7 +37,7 @@ normalizing_decision_map = {}
 
 
 def populate_arcs_to_features():
-    global features_to_conditional_arcs, conditional_arcs_to_features, feature_index, conditional_arc_index
+    global features_to_events, events_to_features, feature_index, conditional_arc_index
     for d, c in itertools.product(possible_obs[ALL], possible_states[ALL]):
         if c == BOUNDARY_STATE and d != BOUNDARY_STATE:
             pass
@@ -254,7 +254,7 @@ def get_gradient(theta):
             fractional_count_grad[event] = Adc * (1 - a_dc)
     grad = {}
     for fcg_event in fractional_count_grad:
-        for f in conditional_arcs_to_features[fcg_event]:
+        for f in events_to_features[fcg_event]:
             grad[f] = fractional_count_grad[fcg_event] + grad.get(f, 0.0)
 
     for t in theta:
