@@ -14,15 +14,15 @@ from pprint import pprint
 from collections import defaultdict
 import itertools
 
-global BOUNDARY_STATE, END_STATE, SPLIT, E_TYPE, T_TYPE, possible_states, normalizing_decision_map
+global BOUNDARY_START, END_STATE, SPLIT, E_TYPE, T_TYPE, possible_states, normalizing_decision_map
 global cache_normalizing_decision, features_to_events, events_to_features
 global trellis, max_jump_width
 max_jump_width = 10  # creates a span of +/- span centered around current token
 trellis = []
 cache_normalizing_decision = {}
-BOUNDARY_STATE = "###"
+BOUNDARY_START = "#START#"
+BOUNDARY_END = "#END#"
 NULL = "NULL"
-SPLIT = "###/###"
 E_TYPE = "EMISSION"
 E_TYPE_PRE = "PREFIX_FEATURE"
 E_TYPE_SUF = "SUFFIX_FEATURE"
@@ -40,7 +40,7 @@ normalizing_decision_map = {}
 
 
 def get_jump(aj, aj_1):
-    if aj != NULL and aj_1 != 'NULL':
+    if aj != NULL and aj_1 != NULL:
         jump = abs(aj_1 - aj)
         assert jump <= max_jump_width
     else:
@@ -56,7 +56,6 @@ def populate_features():
                 """
                 emission features
                 """
-
                 ndm = normalizing_decision_map.get((E_TYPE, s_tok), set([]))
                 ndm.add(t_tok)
                 normalizing_decision_map[E_TYPE, s_tok] = ndm
@@ -72,6 +71,36 @@ def populate_features():
                     f2ca = features_to_events.get(f, set([]))
                     f2ca.add(emission_event)
                     features_to_events[f] = f2ca
+
+                if idx > 0:
+                    for prev_t_idx, prev_t_tok, prev_s_idx, prev_s_tok, L in treli[idx - 1]:
+                        # an arc in an hmm can have the following information:
+                        # prev_s_idx, prev_s_tok, s_idx, s_tok, t_idx, t_tok
+                        prev_s = (prev_s_idx, prev_s_tok)
+                        curr_s = (s_idx, s_tok)
+                        curr_t = (t_idx, t_tok)
+                        # arc = (prev_s, curr_s, curr_t)
+
+                        # transition features
+
+                        # jump = get_jump(s_idx, prev_s_idx)
+                        transition_context = (prev_s_idx, L)
+                        transition_decision = s_idx
+                        transition_event = (T_TYPE, transition_decision, transition_context)
+                        ff_t = FE.get_wa_features_fired(type=T_TYPE, decision=transition_decision,
+                                                        context=transition_context)
+
+                        ndm = normalizing_decision_map.get((T_TYPE, transition_context), set([]))
+                        ndm.add(transition_decision)
+                        normalizing_decision_map[T_TYPE, transition_context] = ndm
+                        for f in ff_t:
+                            feature_index[f] = feature_index.get(f, 0) + 1
+                            ca2f = events_to_features.get(transition_event, set([]))
+                            ca2f.add(f)
+                            events_to_features[transition_event] = ca2f
+                            f2ca = features_to_events.get(f, set([]))
+                            f2ca.add(transition_event)
+                            features_to_events[f] = f2ca
 
 
 def get_transition_no_feature(jump):
@@ -105,19 +134,21 @@ def get_decision_given_context(theta, type, decision, context):
 
 
 def get_possible_states(o):
-    if o == BOUNDARY_STATE:
-        return [BOUNDARY_STATE]
+    if o == BOUNDARY_START:
+        return [BOUNDARY_START]
+    elif o == BOUNDARY_END:
+        return [BOUNDARY_END]
     # elif o in possible_states:
     # return list(possible_states[o])
     else:
-        return list(possible_states[ALL] - set([BOUNDARY_STATE]))
+        return list(possible_states[ALL] - set([BOUNDARY_START, BOUNDARY_END]))
 
 
 def get_backwards(theta, obs, alpha_pi):
     n = len(obs) - 1  # index of last word
-    COMPOSITE_BOUNDARY_STATE = obs[n][0]
-    beta_pi = {(n, COMPOSITE_BOUNDARY_STATE): 0.0}
-    S = alpha_pi[(n, COMPOSITE_BOUNDARY_STATE)]  # from line 13 in pseudo code
+    end_state = obs[n][0]
+    beta_pi = {(n, end_state): 0.0}
+    S = alpha_pi[(n, end_state)]  # from line 13 in pseudo code
     for k in range(n, 0, -1):
         for v in obs[k]:
             tk, t_tok, aj, s_tok, L = v
@@ -126,9 +157,12 @@ def get_backwards(theta, obs, alpha_pi):
             accumulate_fc(type=E_TYPE, alpha=alpha_pi[(k, v)], beta=beta_pi[k, v], e=e, S=S, d=t_tok, c=s_tok)
             for u in obs[k - 1]:
                 tk_1, t_tok_1, aj_1, s_tok_1, L = u
-
-                q = log(1.0 / len(obs[k]))
+                context = (aj_1, L)
+                q = get_decision_given_context(theta, T_TYPE, decision=aj, context=context)
+                # q = log(1.0 / len(obs[k]))
                 p = q + e
+                accumulate_fc(type=T_TYPE, alpha=alpha_pi[k - 1, u], beta=beta_pi[k, v], q=q, e=e, d=aj, c=(aj_1, L),
+                              S=S)
                 beta_p = pb + p  # The beta includes the emission probability
                 new_pi_key = (k - 1, u)
                 if new_pi_key not in beta_pi:  # implements lines 16
@@ -136,17 +170,19 @@ def get_backwards(theta, obs, alpha_pi):
                 else:
                     beta_pi[new_pi_key] = utils.logadd(beta_pi[new_pi_key], beta_p)
                     # print 'beta     ', new_pi_key, '=', beta_pi[new_pi_key], exp(beta_pi[new_pi_key])
-                    # alpha_pi[(k - 1, u)] + p + beta_pi[(k, v)] - S
+                    alpha_pi[(k - 1, u)] + p + beta_pi[(k, v)] - S
+
+                    # print 'beta     ', new_pi_key, '=', beta_pi[new_pi_key], exp(beta_pi[new_pi_key])
 
     return S, beta_pi
 
 
 def get_viterbi_and_forward(theta, obs):
     global max_jump_width
-    COMPOSITE_BOUNDARY_STATE = obs[0][0]
-    pi = {(0, COMPOSITE_BOUNDARY_STATE): 0.0}
-    alpha_pi = {(0, COMPOSITE_BOUNDARY_STATE): 0.0}
-    arg_pi = {(0, COMPOSITE_BOUNDARY_STATE): []}
+    start_state = obs[0][0]
+    pi = {(0, start_state): 0.0}
+    alpha_pi = {(0, start_state): 0.0}
+    arg_pi = {(0, start_state): []}
     for k in range(1, len(obs)):  # the words are numbered from 1 to n, 0 is special start character
         for v in obs[k]:  # [1]:
             max_prob_to_bt = {}
@@ -154,8 +190,9 @@ def get_viterbi_and_forward(theta, obs):
             for u in obs[k - 1]:  # [1]:
                 tk, t_tok, aj, s_tok, L = v
                 tk_1, t_tok_1, aj_1, s_tok_1, L = u
-
-                q = log(1.0 / len(obs[k]))
+                context = (aj_1, L)
+                q = get_decision_given_context(theta, T_TYPE, decision=aj, context=context)
+                # q = log(1.0 / len(obs[k]))
                 e = get_decision_given_context(theta, E_TYPE, decision=t_tok, context=s_tok)
                 p = pi[(k - 1, u)] + q + e
                 alpha_p = alpha_pi[(k - 1, u)] + q + e
@@ -221,9 +258,21 @@ def get_likelihood(theta):
         data_likelihood += S
 
     reg = sum([t ** 2 for t in theta.values()])
-    print 'log likelihood    :', data_likelihood
-    # print 'reg log likelihood:', data_likelihood - (0.5 * reg)  # , ' '.join(obs)
     return data_likelihood - (0.5 * reg)
+
+
+def get_likelihood_with_expected_counts(theta):
+    sum_likelihood = 0.0
+    for event in fractional_counts.keys() + [(E_TYPE, BOUNDARY_END, BOUNDARY_END)]:
+        (t, d, c) = event
+        A_dct = exp(fractional_counts[event])
+        a_dct = get_decision_given_context(theta=theta, type=t, decision=d, context=c)
+        sum_likelihood += A_dct * a_dct
+
+    sum_likelihood += get_decision_given_context(theta=theta, type=E_TYPE, decision=BOUNDARY_START,
+                                                 context=BOUNDARY_START)
+    reg = sum([t ** 2 for t in theta.values()])
+    return sum_likelihood  # - (0.5 * reg)
 
 
 """
@@ -274,21 +323,24 @@ def get_gradient(theta):
 def populate_trellis(source_corpus, target_corpus):
     global trellis, max_jump_width
     for s_sent, t_sent in zip(source_corpus, target_corpus):
-        t_sent.insert(0, BOUNDARY_STATE)
-        s_sent.insert(0, BOUNDARY_STATE)
-        t_sent.append(BOUNDARY_STATE)
-        s_sent.append(BOUNDARY_STATE)
+        t_sent.insert(0, BOUNDARY_START)
+        s_sent.insert(0, BOUNDARY_START)
+        t_sent.append(BOUNDARY_END)
+        s_sent.append(BOUNDARY_END)
         current_trellis = {}
         for t_idx, t_tok in enumerate(t_sent):
-            if t_tok == BOUNDARY_STATE:
-                current_trellis[t_idx] = [(t_idx, BOUNDARY_STATE, t_idx, BOUNDARY_STATE, len(s_sent))]
+            if t_tok == BOUNDARY_START:
+                current_trellis[t_idx] = [(t_idx, BOUNDARY_START, t_idx, BOUNDARY_START, len(s_sent))]
+            elif t_tok == BOUNDARY_END:
+                current_trellis[t_idx] = [(t_idx, BOUNDARY_END, t_idx, BOUNDARY_END, len(s_sent))]
             else:
                 start = t_idx - (max_jump_width / 2) if t_idx - (max_jump_width / 2) >= 0 else 0
                 end = t_idx + (max_jump_width / 2)
                 assert end - start <= max_jump_width
                 current_trellis[t_idx] = [(t_idx, t_tok, s_idx + start, s_tok, len(s_sent)) for s_idx, s_tok in
-                                          enumerate(s_sent[start:end]) if s_tok != BOUNDARY_STATE] + [
-                                             (t_idx, t_tok, NULL, NULL, len(s_sent))]
+                                          enumerate(s_sent[start:end]) if
+                                          (s_tok != BOUNDARY_START and s_tok != BOUNDARY_END)]
+                current_trellis[t_idx] += [(t_idx, t_tok, NULL, NULL, len(s_sent))]
         trellis.append(current_trellis)
 
 
@@ -307,6 +359,10 @@ if __name__ == "__main__":
     target = [s.strip().split() for s in open(options.target_corpus, 'r').readlines() if s.strip() != '']
     populate_trellis(source, target)
     populate_features()
+    # init_theta = dict((k, np.random.uniform(-1.0, 1.0)) for k in feature_index)
+    # print get_likelihood(init_theta)
+    # print get_likelihood_with_expected_counts(init_theta)
+    # print 'ok'
     if options.test_gradient:
         init_theta = dict((k, np.random.uniform(-1.0, 1.0)) for k in feature_index)
         chk_grad = utils.gradient_checking(init_theta, 1e-5, get_likelihood)
@@ -314,37 +370,16 @@ if __name__ == "__main__":
         # my_grad = chk_gradient(init_theta)
         diff = []
         for k in sorted(my_grad):
-            diff.append(my_grad[k] - chk_grad[k])
+            diff.append(abs(my_grad[k] - chk_grad[k]))
             print str(round(my_grad[k] - chk_grad[k], 3)).center(10), str(round(my_grad[k], 5)).center(10), \
                 str(round(chk_grad[k], 5)).center(10), k
         print 'difference:', round(sum(diff), 3)
     else:
         init_theta = dict((k, np.random.uniform(-1.0, 1.0)) for k in feature_index)
-        try:
-
-            init_p = (get_decision_given_context(init_theta, E_TYPE, decision=".", context="."),
-                      get_decision_given_context(init_theta, E_TYPE, decision="wrong", context="."),
-                      get_decision_given_context(init_theta, E_TYPE, decision="your", context="."),
-                      get_decision_given_context(init_theta, E_TYPE, decision="very", context="muy"),
-                      get_decision_given_context(init_theta, E_TYPE, decision="to", context="muy"),
-                      get_decision_given_context(init_theta, E_TYPE, decision="is", context="muy"))
-        except:
-            pass
 
         F = DifferentiableFunction(get_likelihood, get_gradient)
         F.method = "LBFGS"
         (fopt, theta, return_status) = F.maximize(init_theta)
-        try:
-            final_p = (get_decision_given_context(theta, E_TYPE, decision=".", context="."),
-                       get_decision_given_context(theta, E_TYPE, decision="wrong", context="."),
-                       get_decision_given_context(theta, E_TYPE, decision="your", context="."),
-                       get_decision_given_context(theta, E_TYPE, decision="very", context="muy"),
-                       get_decision_given_context(theta, E_TYPE, decision="to", context="muy"),
-                       get_decision_given_context(theta, E_TYPE, decision="is", context="muy"))
-
-            print "init", "final", init_p, final_p
-        except:
-            pass
 
 
         # print return_status
