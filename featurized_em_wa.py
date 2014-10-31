@@ -14,9 +14,11 @@ from pprint import pprint
 from collections import defaultdict
 import itertools
 
-global BOUNDARY_START, END_STATE, SPLIT, E_TYPE, T_TYPE, possible_states, normalizing_decision_map
-global cache_normalizing_decision, features_to_events, events_to_features
-global trellis, max_jump_width
+global BOUNDARY_START, END_STATE, SPLIT, E_TYPE, T_TYPE, IBM_MODEL_1, HMM_MODEL, possible_states
+global cache_normalizing_decision, features_to_events, events_to_features, normalizing_decision_map
+global trellis, max_jump_width, model_type
+IBM_MODEL_1 = "model1"
+HMM_MODEL = "hmm"
 max_jump_width = 10  # creates a span of +/- span centered around current token
 trellis = []
 cache_normalizing_decision = {}
@@ -72,7 +74,7 @@ def populate_features():
                     f2ca.add(emission_event)
                     features_to_events[f] = f2ca
 
-                if idx > 0:
+                if idx > 0 and model_type == HMM_MODEL:
                     for prev_t_idx, prev_t_tok, prev_s_idx, prev_s_tok, L in treli[idx - 1]:
                         # an arc in an hmm can have the following information:
                         # prev_s_idx, prev_s_tok, s_idx, s_tok, t_idx, t_tok
@@ -149,6 +151,7 @@ def get_backwards(theta, obs, alpha_pi):
     end_state = obs[n][0]
     beta_pi = {(n, end_state): 0.0}
     S = alpha_pi[(n, end_state)]  # from line 13 in pseudo code
+    accumulate_fc(type=E_TYPE, alpha=0.0, beta=S, e=0.0, S=S, d=BOUNDARY_START, c=BOUNDARY_START)
     for k in range(n, 0, -1):
         for v in obs[k]:
             tk, t_tok, aj, s_tok, L = v
@@ -157,12 +160,16 @@ def get_backwards(theta, obs, alpha_pi):
             accumulate_fc(type=E_TYPE, alpha=alpha_pi[(k, v)], beta=beta_pi[k, v], e=e, S=S, d=t_tok, c=s_tok)
             for u in obs[k - 1]:
                 tk_1, t_tok_1, aj_1, s_tok_1, L = u
-                context = (aj_1, L)
-                q = get_decision_given_context(theta, T_TYPE, decision=aj, context=context)
-                # q = log(1.0 / len(obs[k]))
+                if model_type == HMM_MODEL:
+                    context = (aj_1, L)
+                    q = get_decision_given_context(theta, T_TYPE, decision=aj, context=context)
+                    accumulate_fc(type=T_TYPE, alpha=alpha_pi[k - 1, u], beta=beta_pi[k, v], q=q, e=e, d=aj,
+                                  c=(aj_1, L),
+                                  S=S)
+                else:
+                    q = log(1.0 / len(obs[k]))
+
                 p = q + e
-                accumulate_fc(type=T_TYPE, alpha=alpha_pi[k - 1, u], beta=beta_pi[k, v], q=q, e=e, d=aj, c=(aj_1, L),
-                              S=S)
                 beta_p = pb + p  # The beta includes the emission probability
                 new_pi_key = (k - 1, u)
                 if new_pi_key not in beta_pi:  # implements lines 16
@@ -190,9 +197,11 @@ def get_viterbi_and_forward(theta, obs):
             for u in obs[k - 1]:  # [1]:
                 tk, t_tok, aj, s_tok, L = v
                 tk_1, t_tok_1, aj_1, s_tok_1, L = u
-                context = (aj_1, L)
-                q = get_decision_given_context(theta, T_TYPE, decision=aj, context=context)
-                # q = log(1.0 / len(obs[k]))
+                if model_type == HMM_MODEL:
+                    context = (aj_1, L)
+                    q = get_decision_given_context(theta, T_TYPE, decision=aj, context=context)
+                else:
+                    q = log(1.0 / len(obs[k]))
                 e = get_decision_given_context(theta, E_TYPE, decision=t_tok, context=s_tok)
                 p = pi[(k - 1, u)] + q + e
                 alpha_p = alpha_pi[(k - 1, u)] + q + e
@@ -235,6 +244,17 @@ def accumulate_fc(type, alpha, beta, d, S, c=None, k=None, q=None, e=None):
         raise "Wrong type"
 
 
+def write_weights(theta, save_weights):
+    global trellis
+    write_theta = open(save_weights, 'w')
+    for t in sorted(theta):
+        str_t = reduce(lambda a, d: str(a) + '\t' + str(d), t, '')
+        write_theta.write(str_t.strip() + '\t' + str(theta[t]) + '' + "\n")
+    write_theta.flush()
+    write_theta.close()
+    print 'wrote weights to:', save_weights
+
+
 def write_alignments(theta, save_align):
     global trellis
     write_align = open(save_align, 'w')
@@ -245,6 +265,7 @@ def write_alignments(theta, save_align):
         write_align.write(w + '\n')
     write_align.flush()
     write_align.close()
+    print 'wrote alignments to:', save_align
 
 
 def get_likelihood(theta):
@@ -317,6 +338,7 @@ def get_gradient(theta):
             grad[f] = grad.get(f, 0.0) + event_grad[e]
     for f in grad:
         grad[f] -= theta[f]
+
     return grad
 
 
@@ -351,18 +373,17 @@ if __name__ == "__main__":
     opt = OptionParser()
     opt.add_option("-t", dest="target_corpus", default="data/toy2/en")
     opt.add_option("-s", dest="source_corpus", default="data/toy2/fr")
-    opt.add_option("-o", dest="save", default="theta.out")
-    opt.add_option("-a", dest="alignments", default="alignments.out")
+    opt.add_option("-o", dest="output_weights", default="theta", help="extention of trained weights file")
+    opt.add_option("-a", dest="output_alignments", default="alignments", help="extension of alignments files")
     opt.add_option("-g", dest="test_gradient", default=False)
+    opt.add_option("-m", dest="model", default=IBM_MODEL_1, help="'model1' or 'hmm'")
     (options, _) = opt.parse_args()
+    model_type = options.model
     source = [s.strip().split() for s in open(options.source_corpus, 'r').readlines() if s.strip() != '']
     target = [s.strip().split() for s in open(options.target_corpus, 'r').readlines() if s.strip() != '']
     populate_trellis(source, target)
     populate_features()
-    # init_theta = dict((k, np.random.uniform(-1.0, 1.0)) for k in feature_index)
-    # print get_likelihood(init_theta)
-    # print get_likelihood_with_expected_counts(init_theta)
-    # print 'ok'
+
     if options.test_gradient:
         init_theta = dict((k, np.random.uniform(-1.0, 1.0)) for k in feature_index)
         chk_grad = utils.gradient_checking(init_theta, 1e-5, get_likelihood)
@@ -381,15 +402,7 @@ if __name__ == "__main__":
         F.method = "LBFGS"
         (fopt, theta, return_status) = F.maximize(init_theta)
 
-
-        # print return_status
-        write_theta = open(options.save, 'w')
-        for t in sorted(theta):
-            str_t = reduce(lambda a, d: str(a) + '\t' + str(d), t, '')
-            write_theta.write(str_t.strip() + '\t' + str(theta[t]) + '' + "\n")
-        write_theta.flush()
-        write_theta.close()
-
-        write_alignments(theta, options.alignments)
+        write_alignments(theta, model_type + '.' + options.output_alignments)
+        write_weights(theta, model_type + '.' + options.output_weights)
 
 
