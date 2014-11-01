@@ -16,7 +16,7 @@ import itertools
 
 global BOUNDARY_START, END_STATE, SPLIT, E_TYPE, T_TYPE, IBM_MODEL_1, HMM_MODEL, possible_states
 global cache_normalizing_decision, features_to_events, events_to_features, normalizing_decision_map
-global trellis, max_jump_width, model_type
+global trellis, max_jump_width, model_type, number_of_events
 IBM_MODEL_1 = "model1"
 HMM_MODEL = "hmm"
 max_jump_width = 10  # creates a span of +/- span centered around current token
@@ -29,9 +29,9 @@ E_TYPE = "EMISSION"
 E_TYPE_PRE = "PREFIX_FEATURE"
 E_TYPE_SUF = "SUFFIX_FEATURE"
 T_TYPE = "TRANSITION"
-S_TYPE = "STATE"
 ALL = "ALL_STATES"
 fractional_counts = {}
+number_of_events = 0
 events_to_features = {}
 features_to_events = {}
 feature_index = {}
@@ -44,7 +44,7 @@ normalizing_decision_map = {}
 def get_jump(aj, aj_1):
     if aj != NULL and aj_1 != NULL:
         jump = abs(aj_1 - aj)
-        assert jump <= max_jump_width
+        assert jump <= 2 * max_jump_width + 1
     else:
         jump = NULL
     return jump
@@ -131,7 +131,9 @@ def get_decision_given_context(theta, type, decision, context):
     log_prob = round(theta_dot_features - theta_dot_normalizing_features, 10)
     if log_prob > 0.0:
         print log_prob, type, decision, context
-        raise Exception
+        pdb.set_trace()
+        log_prob = 0.0
+        # raise Exception
     return log_prob
 
 
@@ -160,11 +162,11 @@ def get_backwards(theta, obs, alpha_pi):
             accumulate_fc(type=E_TYPE, alpha=alpha_pi[(k, v)], beta=beta_pi[k, v], e=e, S=S, d=t_tok, c=s_tok)
             for u in obs[k - 1]:
                 tk_1, t_tok_1, aj_1, s_tok_1, L = u
+                context = (aj_1, L)
                 if model_type == HMM_MODEL:
-                    context = (aj_1, L)
                     q = get_decision_given_context(theta, T_TYPE, decision=aj, context=context)
                     accumulate_fc(type=T_TYPE, alpha=alpha_pi[k - 1, u], beta=beta_pi[k, v], q=q, e=e, d=aj,
-                                  c=(aj_1, L),
+                                  c=context,
                                   S=S)
                 else:
                     q = log(1.0 / len(obs[k]))
@@ -227,13 +229,15 @@ def get_viterbi_and_forward(theta, obs):
 
 
 def reset_fractional_counts():
-    global fractional_counts, cache_normalizing_decision
+    global fractional_counts, cache_normalizing_decision, number_of_events
     fractional_counts = {}  # dict((k, float('-inf')) for k in conditional_arc_index)
     cache_normalizing_decision = {}
+    number_of_events = 0
 
 
 def accumulate_fc(type, alpha, beta, d, S, c=None, k=None, q=None, e=None):
-    global fractional_counts
+    global fractional_counts, number_of_events
+    number_of_events += 1
     if type == T_TYPE:
         update = alpha + q + e + beta - S
         fractional_counts[T_TYPE, d, c] = utils.logadd(update, fractional_counts.get((T_TYPE, d, c,), float('-inf')))
@@ -286,11 +290,14 @@ def get_likelihood(theta):
 
 def get_likelihood_with_expected_counts(theta):
     sum_likelihood = 0.0
-    for event in fractional_counts.keys() + [(E_TYPE, BOUNDARY_END, BOUNDARY_END)]:
+    for event in fractional_counts:
         (t, d, c) = event
         A_dct = exp(fractional_counts[event])
         a_dct = get_decision_given_context(theta=theta, type=t, decision=d, context=c)
+        print event, A_dct, a_dct, A_dct * a_dct
+
         sum_likelihood += A_dct * a_dct
+        print 'sl', sum_likelihood
     reg = sum([t ** 2 for t in theta.values()])
     return sum_likelihood - (0.5 * reg)
 
@@ -335,8 +342,9 @@ def get_gradient(theta):
         feats = events_to_features[e]
         for f in feats:
             grad[f] = grad.get(f, 0.0) + event_grad[e]
+
     for f in grad:
-        grad[f] -= theta[f]
+        grad[f] -= theta[f]  # for l2 regularization with lambda 0.5
 
     return grad
 
@@ -353,15 +361,15 @@ def populate_trellis(source_corpus, target_corpus):
             if t_tok == BOUNDARY_START:
                 current_trellis[t_idx] = [(t_idx, BOUNDARY_START, t_idx, BOUNDARY_START, len(s_sent))]
             elif t_tok == BOUNDARY_END:
-                current_trellis[t_idx] = [(t_idx, BOUNDARY_END, t_idx, BOUNDARY_END, len(s_sent))]
+                current_trellis[t_idx] = [(t_idx, BOUNDARY_END, len(s_sent) - 1, BOUNDARY_END, len(s_sent))]
             else:
-                start = t_idx - (max_jump_width / 2) if t_idx - (max_jump_width / 2) >= 0 else 0
-                end = t_idx + (max_jump_width / 2)
-                assert end - start <= max_jump_width
+                start = t_idx - (max_jump_width) if t_idx - (max_jump_width) >= 0 else 0
+                end = t_idx + (max_jump_width) + 1
+                assert end - start <= 2 * max_jump_width + 1
                 current_trellis[t_idx] = [(t_idx, t_tok, s_idx + start, s_tok, len(s_sent)) for s_idx, s_tok in
                                           enumerate(s_sent[start:end]) if
                                           (s_tok != BOUNDARY_START and s_tok != BOUNDARY_END)]
-                current_trellis[t_idx] += [(t_idx, t_tok, NULL, NULL, len(s_sent))]
+                # current_trellis[t_idx] += [(t_idx, t_tok, NULL, NULL, len(s_sent))]
         trellis.append(current_trellis)
 
 
@@ -374,8 +382,8 @@ if __name__ == "__main__":
     opt.add_option("-s", dest="source_corpus", default="data/small/fr-toy")
     opt.add_option("-o", dest="output_weights", default="theta", help="extention of trained weights file")
     opt.add_option("-a", dest="output_alignments", default="alignments", help="extension of alignments files")
-    opt.add_option("-g", dest="test_gradient", default=False)
-    opt.add_option("-m", dest="model", default=IBM_MODEL_1, help="'model1' or 'hmm'")
+    opt.add_option("-g", dest="test_gradient", default=True)
+    opt.add_option("-m", dest="model", default=HMM_MODEL, help="'model1' or 'hmm'")
     (options, _) = opt.parse_args()
     model_type = options.model
     source = [s.strip().split() for s in open(options.source_corpus, 'r').readlines() if s.strip() != '']
@@ -385,13 +393,19 @@ if __name__ == "__main__":
 
     if options.test_gradient:
         init_theta = dict((k, np.random.uniform(-1.0, 1.0)) for k in feature_index)
+        # pdb.set_trace()
+        gl = get_likelihood(init_theta)
+        gle = get_likelihood_with_expected_counts(init_theta)
+        print 'gl vs gle:', gl, gle
+        # assert gl == gle
         chk_grad = utils.gradient_checking(init_theta, 1e-5, get_likelihood)
         my_grad = get_gradient(init_theta)
         # my_grad = chk_gradient(init_theta)
         diff = []
         for k in sorted(my_grad):
             diff.append(abs(my_grad[k] - chk_grad[k]))
-            print str(round(my_grad[k] - chk_grad[k], 3)).center(10), str(round(my_grad[k], 5)).center(10), \
+            print  str(round(my_grad[k] - chk_grad[k], 3)).center(10), str(
+                round(my_grad[k], 5)).center(10), \
                 str(round(chk_grad[k], 5)).center(10), k
         print 'difference:', round(sum(diff), 3)
     else:
