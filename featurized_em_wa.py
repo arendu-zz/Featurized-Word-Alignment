@@ -130,8 +130,8 @@ def get_decision_given_context(theta, type, decision, context):
         cache_normalizing_decision[type, context] = theta_dot_normalizing_features
     log_prob = round(theta_dot_features - theta_dot_normalizing_features, 10)
     if log_prob > 0.0:
-        print log_prob, type, decision, context
-        pdb.set_trace()
+        # print log_prob, type, decision, context
+        # pdb.set_trace()
         log_prob = 0.0
         # raise Exception
     return log_prob
@@ -294,10 +294,10 @@ def get_likelihood_with_expected_counts(theta):
         (t, d, c) = event
         A_dct = exp(fractional_counts[event])
         a_dct = get_decision_given_context(theta=theta, type=t, decision=d, context=c)
-        print event, A_dct, a_dct, A_dct * a_dct
+        # print event, A_dct, a_dct, A_dct * a_dct
 
         sum_likelihood += A_dct * a_dct
-        print 'sl', sum_likelihood
+        # print 'sl', sum_likelihood
     reg = sum([t ** 2 for t in theta.values()])
     return sum_likelihood - (0.5 * reg)
 
@@ -373,6 +373,18 @@ def populate_trellis(source_corpus, target_corpus):
         trellis.append(current_trellis)
 
 
+def write_probs(theta, save_probs):
+    write_probs = open(save_probs, 'w')
+    for fc in sorted(fractional_counts):
+        (t, d, c) = fc
+        prob = get_decision_given_context(theta, type=t, decision=d, context=c)
+        str_t = reduce(lambda a, d: str(a) + '\t' + str(d), fc, '')
+        write_probs.write(str_t.strip() + '\t' + str(round(prob, 5)) + '' + "\n")
+    write_probs.flush()
+    write_probs.close()
+    print 'wrote weights to:', save_probs
+
+
 if __name__ == "__main__":
     trellis = []
     possible_states = defaultdict(set)
@@ -380,10 +392,13 @@ if __name__ == "__main__":
     opt = OptionParser()
     opt.add_option("-t", dest="target_corpus", default="data/small/en-toy")
     opt.add_option("-s", dest="source_corpus", default="data/small/fr-toy")
-    opt.add_option("-o", dest="output_weights", default="theta", help="extention of trained weights file")
-    opt.add_option("-a", dest="output_alignments", default="alignments", help="extension of alignments files")
+    opt.add_option("--ow", dest="output_weights", default="theta", help="extention of trained weights file")
+    opt.add_option("--oa", dest="output_alignments", default="alignments", help="extension of alignments files")
+    opt.add_option("--op", dest="output_probs", default="probs", help="extension of probabilities")
     opt.add_option("-g", dest="test_gradient", default=True)
-    opt.add_option("-m", dest="model", default=HMM_MODEL, help="'model1' or 'hmm'")
+    opt.add_option("-a", dest="algorithm", default="LBFGS",
+                   help="use feature-enhanced em 'EM' or direct optimization 'LBFGS'")
+    opt.add_option("-m", dest="model", default=IBM_MODEL_1, help="'model1' or 'hmm'")
     (options, _) = opt.parse_args()
     model_type = options.model
     source = [s.strip().split() for s in open(options.source_corpus, 'r').readlines() if s.strip() != '']
@@ -391,31 +406,46 @@ if __name__ == "__main__":
     populate_trellis(source, target)
     populate_features()
 
-    if options.test_gradient:
+    if options.test_gradient == "True" or options.test_gradient == "true":
         init_theta = dict((k, np.random.uniform(-1.0, 1.0)) for k in feature_index)
-        # pdb.set_trace()
         gl = get_likelihood(init_theta)
-        gle = get_likelihood_with_expected_counts(init_theta)
-        print 'gl vs gle:', gl, gle
-        # assert gl == gle
         chk_grad = utils.gradient_checking(init_theta, 1e-5, get_likelihood)
         my_grad = get_gradient(init_theta)
-        # my_grad = chk_gradient(init_theta)
         diff = []
         for k in sorted(my_grad):
             diff.append(abs(my_grad[k] - chk_grad[k]))
-            print  str(round(my_grad[k] - chk_grad[k], 3)).center(10), str(
+            print str(round(my_grad[k] - chk_grad[k], 3)).center(10), str(
                 round(my_grad[k], 5)).center(10), \
                 str(round(chk_grad[k], 5)).center(10), k
         print 'difference:', round(sum(diff), 3)
-    else:
+
+    if options.algorithm == "LBFGS":
         init_theta = dict((k, np.random.uniform(-1.0, 1.0)) for k in feature_index)
 
         F = DifferentiableFunction(get_likelihood, get_gradient)
-        F.method = "LBFGS"
         (fopt, theta, return_status) = F.maximize(init_theta)
 
-        write_alignments(theta, model_type + '.' + options.output_alignments)
-        write_weights(theta, model_type + '.' + options.output_weights)
+        write_alignments(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
+        write_weights(theta, options.algorithm + '.' + model_type + '.' + options.output_weights)
+        write_probs(theta, options.algorithm + '.' + model_type + '.' + options.output_probs)
+
+    if options.algorithm == "EM":
+        init_theta = dict((k, np.random.uniform(-1.0, 1.0)) for k in feature_index)
+        new_e = get_likelihood(init_theta)
+        old_e = float('-inf')
+        converged = False
+        while not converged:
+            F = DifferentiableFunction(get_likelihood_with_expected_counts, get_gradient)
+            (fopt, theta, return_status) = F.maximize(init_theta, maxfun=5)
+            new_e = get_likelihood(theta)  # this will also update expected counts
+            converged = round(abs(old_e - new_e), 2) == 0.0
+            old_e = new_e
+        write_alignments(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
+        write_weights(theta, options.algorithm + '.' + model_type + '.' + options.output_weights)
+        write_probs(theta, options.algorithm + '.' + model_type + '.' + options.output_probs)
+
+
+
+
 
 

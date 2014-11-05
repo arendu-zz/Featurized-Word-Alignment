@@ -141,14 +141,14 @@ class DifferentiableFunction:
            output: the minimal value '''
         return self.optimize(theta)
 
-    def maximize(self, theta):
+    def maximize(self, theta, maxfun=1000):
         '''Get the maximal value of this differentiable function
            input: theta with initial values, after function return, theta will be set with optimal values
            output: the maximal value '''
-        (fopt, theta, return_status) = self.optimize(theta, revert=True)
+        (fopt, theta, return_status) = self.optimize(theta, maxfun, revert=True)
         return (-fopt, theta, return_status)
 
-    def optimize(self, theta, revert=False):
+    def optimize(self, theta, maxfun, revert=False):
         '''real executing function'''
         self.size = len(theta)
         self.revert = revert
@@ -164,7 +164,7 @@ class DifferentiableFunction:
             from scipy.optimize import fmin_l_bfgs_b
             # http://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.fmin_l_bfgs_b.html
             (xopt, fopt, return_status) = fmin_l_bfgs_b(self.value_translator, initials, self.gradient_translator,
-                                                        pgtol=0.1)
+                                                        pgtol=0.1, maxfun=maxfun)
             # print "============Optimization by LBFGS returns: ", return_status['task']
         elif self.method == "CG":
             from scipy.optimize import fmin_cg
