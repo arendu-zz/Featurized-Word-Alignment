@@ -1,5 +1,5 @@
 __author__ = 'arenduchintala'
-from math import exp, log, pi
+from math import exp, log, pi, sqrt
 import copy
 
 
@@ -39,6 +39,30 @@ def logadd_of_list(a_list):
     for i in a_list[1:]:
         logsum = logadd(logsum, i)
     return logsum
+
+
+def sign_difference(v1, v2):
+    diff = 0.0
+    for k in v1:
+        if v1[k] > 0 and v2[k] > 0:
+            pass
+        elif v1[k] < 0 and v2[k] < 0:
+            pass
+        else:
+            diff += 1.0
+    return diff, len(v1)
+
+
+def cosine_sim(v1, v2):
+    assert len(v1) == len(v2)
+    dot = 0.0
+    v1_sq = 0.0
+    v2_sq = 0.0
+    for i in v1:
+        dot += v1[i] * v2[i]
+        v1_sq += v1[i] ** 2.0
+        v2_sq += v2[i] ** 2.0
+    return dot / (sqrt(v1_sq) * sqrt(v2_sq))
 
 
 def gradient_checking(theta, eps, val):

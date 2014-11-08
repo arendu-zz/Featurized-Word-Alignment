@@ -13,6 +13,8 @@ import utils
 from pprint import pprint
 from collections import defaultdict
 import itertools
+import random
+import copy
 
 global BOUNDARY_START, END_STATE, SPLIT, E_TYPE, T_TYPE, IBM_MODEL_1, HMM_MODEL, possible_states
 global cache_normalizing_decision, features_to_events, events_to_features, normalizing_decision_map
@@ -272,12 +274,13 @@ def write_alignments(theta, save_align):
     print 'wrote alignments to:', save_align
 
 
-def get_likelihood(theta):
-    # theta = dict((k, theta_list[v]) for k, v in feature_index.items())
+def get_likelihood(theta, start_idx=None, end_idx=None):
     global trellis
     reset_fractional_counts()
     data_likelihood = 0.0
-    for idx, obs in enumerate(trellis[:]):
+    st = 0 if start_idx == None else start_idx
+    end = len(trellis) if end_idx == None else end_idx
+    for idx, obs in enumerate(trellis[st:end]):
         max_bt, max_p, alpha_pi = get_viterbi_and_forward(theta, obs)
         S, beta_pi = get_backwards(theta, obs, alpha_pi)
         data_likelihood += S
@@ -289,6 +292,7 @@ def get_likelihood(theta):
 
 
 def get_likelihood_with_expected_counts(theta):
+    global fractional_counts
     sum_likelihood = 0.0
     for event in fractional_counts:
         (t, d, c) = event
@@ -302,29 +306,8 @@ def get_likelihood_with_expected_counts(theta):
     return sum_likelihood - (0.5 * reg)
 
 
-"""
-def chk_gradient(theta):
-    grad = {}
-    for feature in theta:
-        sum_dct = 0.0
-        for event in fractional_counts:
-            (t, d, c) = event
-            A_dct = exp(fractional_counts[event])
-            fj = 1.0 if event == feature else 0.0
-            sum_norm = 0.0
-
-            for dp in normalizing_decision_map[t, c]:
-                norm_event = (t, dp, c)
-                a_dp_ct = exp(get_decision_given_context(theta, decision=dp, context=c, type=t))
-                fjp = 1.0 if norm_event == feature else 0.0
-                sum_norm += fjp * a_dp_ct
-            sum_dct += A_dct * (fj - sum_norm)
-        grad[feature] = sum_dct
-    return grad
-"""
-
-
 def get_gradient(theta):
+    global fractional_counts
     event_grad = {}
     for event_j in fractional_counts.keys():
         (t, dj, cj) = event_j
@@ -345,7 +328,6 @@ def get_gradient(theta):
 
     for f in grad:
         grad[f] -= theta[f]  # for l2 regularization with lambda 0.5
-
     return grad
 
 
@@ -385,6 +367,49 @@ def write_probs(theta, save_probs):
     print 'wrote weights to:', save_probs
 
 
+def gradient_check_em():
+    init_theta = dict((k, np.random.uniform(-1.0, 1.0)) for k in feature_index)
+    eps = 1e-10
+    f_approx = {}
+    for i in init_theta:
+        theta_plus = copy.deepcopy(init_theta)
+        theta_minus = copy.deepcopy(init_theta)
+        theta_plus[i] = init_theta[i] + eps
+        get_likelihood(theta_plus)  # updates fractional counts
+        val_plus = get_likelihood_with_expected_counts(theta_plus)
+        theta_minus[i] = init_theta[i] - eps
+        get_likelihood(theta_minus)  # updates fractional counts
+        val_minus = get_likelihood_with_expected_counts(theta_minus)
+        f_approx[i] = (val_plus - val_minus) / (2 * eps)
+
+    my_grad = get_gradient(init_theta)
+    diff = []
+    for k in sorted(my_grad):
+        diff.append(abs(my_grad[k] - f_approx[k]))
+        print str(round(my_grad[k] - f_approx[k], 3)).center(10), str(
+            round(my_grad[k], 5)).center(10), \
+            str(round(f_approx[k], 5)).center(10), k
+    print 'component difference:', round(sum(diff), 3), \
+        'cosine similarity:', utils.cosine_sim(f_approx, my_grad), \
+        ' sign difference', utils.sign_difference(f_approx, my_grad)
+
+
+def gradient_check_lbfgs():
+    init_theta = dict((k, np.random.uniform(-1.0, 1.0)) for k in feature_index)
+    chk_grad = utils.gradient_checking(init_theta, 1e-8, get_likelihood)
+    my_grad = get_gradient(init_theta)
+    diff = []
+    for k in sorted(my_grad):
+        diff.append(abs(my_grad[k] - chk_grad[k]))
+        print str(round(my_grad[k] - chk_grad[k], 3)).center(10), str(
+            round(my_grad[k], 5)).center(10), \
+            str(round(chk_grad[k], 5)).center(10), k
+
+    print 'component difference:', round(sum(diff), 3), \
+        'cosine similarity:', utils.cosine_sim(chk_grad, my_grad), \
+        ' sign difference', utils.sign_difference(chk_grad, my_grad)
+
+
 if __name__ == "__main__":
     trellis = []
     possible_states = defaultdict(set)
@@ -395,9 +420,9 @@ if __name__ == "__main__":
     opt.add_option("--ow", dest="output_weights", default="theta", help="extention of trained weights file")
     opt.add_option("--oa", dest="output_alignments", default="alignments", help="extension of alignments files")
     opt.add_option("--op", dest="output_probs", default="probs", help="extension of probabilities")
-    opt.add_option("-g", dest="test_gradient", default=True)
-    opt.add_option("-a", dest="algorithm", default="LBFGS",
-                   help="use feature-enhanced em 'EM' or direct optimization 'LBFGS'")
+    opt.add_option("-g", dest="test_gradient", default=False)
+    opt.add_option("-a", dest="algorithm", default="SGD",
+                   help="use 'EM' 'LBFGS' 'SGD'")
     opt.add_option("-m", dest="model", default=IBM_MODEL_1, help="'model1' or 'hmm'")
     (options, _) = opt.parse_args()
     model_type = options.model
@@ -406,46 +431,52 @@ if __name__ == "__main__":
     populate_trellis(source, target)
     populate_features()
 
-    if options.test_gradient == "True" or options.test_gradient == "true":
-        init_theta = dict((k, np.random.uniform(-1.0, 1.0)) for k in feature_index)
-        gl = get_likelihood(init_theta)
-        chk_grad = utils.gradient_checking(init_theta, 1e-5, get_likelihood)
-        my_grad = get_gradient(init_theta)
-        diff = []
-        for k in sorted(my_grad):
-            diff.append(abs(my_grad[k] - chk_grad[k]))
-            print str(round(my_grad[k] - chk_grad[k], 3)).center(10), str(
-                round(my_grad[k], 5)).center(10), \
-                str(round(chk_grad[k], 5)).center(10), k
-        print 'difference:', round(sum(diff), 3)
-
     if options.algorithm == "LBFGS":
-        init_theta = dict((k, np.random.uniform(-1.0, 1.0)) for k in feature_index)
 
-        F = DifferentiableFunction(get_likelihood, get_gradient)
-        (fopt, theta, return_status) = F.maximize(init_theta)
+        if options.test_gradient == "True" or options.test_gradient == "true":
+            gradient_check_lbfgs()
+        else:
+            print 'skipping gradient check...'
 
-        write_alignments(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
-        write_weights(theta, options.algorithm + '.' + model_type + '.' + options.output_weights)
-        write_probs(theta, options.algorithm + '.' + model_type + '.' + options.output_probs)
+            init_theta = dict((k, np.random.uniform(-1.0, 1.0)) for k in feature_index)
+            F = DifferentiableFunction(get_likelihood, get_gradient)
+            (fopt, theta, return_status) = F.maximize(init_theta)
+
+            write_alignments(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
+            write_weights(theta, options.algorithm + '.' + model_type + '.' + options.output_weights)
+            write_probs(theta, options.algorithm + '.' + model_type + '.' + options.output_probs)
 
     if options.algorithm == "EM":
-        init_theta = dict((k, np.random.uniform(-1.0, 1.0)) for k in feature_index)
-        new_e = get_likelihood(init_theta)
-        old_e = float('-inf')
+
+        if options.test_gradient == "True" or options.test_gradient == "true":
+            gradient_check_em()
+        else:
+            print 'skipping gradient check...'
+
+            init_theta = dict((k, np.random.uniform(-1.0, 1.0)) for k in feature_index)
+            new_e = get_likelihood(init_theta)
+            old_e = float('-inf')
+            converged = False
+            while not converged:
+                F = DifferentiableFunction(get_likelihood_with_expected_counts, get_gradient)
+                (fopt, theta, return_status) = F.maximize(init_theta, maxfun=5)
+                new_e = get_likelihood(theta)  # this will also update expected counts
+                converged = round(abs(old_e - new_e), 2) == 0.0
+                old_e = new_e
+            write_alignments(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
+            write_weights(theta, options.algorithm + '.' + model_type + '.' + options.output_weights)
+            write_probs(theta, options.algorithm + '.' + model_type + '.' + options.output_probs)
+
+    if options.algorithm == "SGD":
+        init_theta = dict((k, np.random.uniform(-0.0, 0.0)) for k in feature_index)
         converged = False
-        while not converged:
-            F = DifferentiableFunction(get_likelihood_with_expected_counts, get_gradient)
-            (fopt, theta, return_status) = F.maximize(init_theta, maxfun=5)
-            new_e = get_likelihood(theta)  # this will also update expected counts
-            converged = round(abs(old_e - new_e), 2) == 0.0
-            old_e = new_e
-        write_alignments(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
-        write_weights(theta, options.algorithm + '.' + model_type + '.' + options.output_weights)
-        write_probs(theta, options.algorithm + '.' + model_type + '.' + options.output_probs)
-
-
-
+        old_ll = float('-inf')
+        idxs = range(len(trellis))
+        random.shuffle(idxs)
+        new_ll = get_likelihood(init_theta, idxs[0], idxs[0] + 1)
+        grad = get_gradient(init_theta)
+        print new_ll
+        pprint(grad)
 
 
 
