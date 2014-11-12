@@ -18,7 +18,9 @@ import copy
 
 global BOUNDARY_START, END_STATE, SPLIT, E_TYPE, T_TYPE, IBM_MODEL_1, HMM_MODEL, possible_states
 global cache_normalizing_decision, features_to_events, events_to_features, normalizing_decision_map
-global trellis, max_jump_width, model_type, number_of_events
+global trellis, max_jump_width, model_type, number_of_events, EPS, snippet
+snippet = ''
+EPS = 1e-20
 IBM_MODEL_1 = "model1"
 HMM_MODEL = "hmm"
 max_jump_width = 10  # creates a span of +/- span centered around current token
@@ -253,6 +255,7 @@ def accumulate_fc(type, alpha, beta, d, S, c=None, k=None, q=None, e=None):
 def write_weights(theta, save_weights):
     global trellis
     write_theta = open(save_weights, 'w')
+    write_theta.write(snippet);
     for t in sorted(theta):
         str_t = reduce(lambda a, d: str(a) + '\t' + str(d), t, '')
         write_theta.write(str_t.strip() + '\t' + str(theta[t]) + '' + "\n")
@@ -264,6 +267,7 @@ def write_weights(theta, save_weights):
 def write_alignments(theta, save_align):
     global trellis
     write_align = open(save_align, 'w')
+    write_align.write(snippet);
     for idx, obs in enumerate(trellis[:]):
         max_bt, max_p, alpha_pi = get_viterbi_and_forward(theta, obs)
         w = ' '.join([str(tar_i - 1) + '-' + str(src_i - 1) for src_i, src, tar_i, tar, L in max_bt if
@@ -315,7 +319,7 @@ def get_gradient(theta):
         sum_feature_j = 0.0
         norm_events = [(t, dp, cj) for dp in normalizing_decision_map[t, cj]]
         for event_i in norm_events:
-            A_dct = exp(fractional_counts[event_i])
+            A_dct = exp(fractional_counts.get(event_i, 0.0))
             fj = 1.0 if event_i == event_j else 0.0
             sum_feature_j += A_dct * (fj - a_dp_ct)
         event_grad[event_j] = sum_feature_j  # - abs(theta[event_j])  # this is the regularizing term
@@ -357,6 +361,7 @@ def populate_trellis(source_corpus, target_corpus):
 
 def write_probs(theta, save_probs):
     write_probs = open(save_probs, 'w')
+    write_probs.write(snippet);
     for fc in sorted(fractional_counts):
         (t, d, c) = fc
         prob = get_decision_given_context(theta, type=t, decision=d, context=c)
@@ -368,19 +373,19 @@ def write_probs(theta, save_probs):
 
 
 def gradient_check_em():
+    global EPS
     init_theta = dict((k, np.random.uniform(-1.0, 1.0)) for k in feature_index)
-    eps = 1e-10
     f_approx = {}
     for i in init_theta:
         theta_plus = copy.deepcopy(init_theta)
         theta_minus = copy.deepcopy(init_theta)
-        theta_plus[i] = init_theta[i] + eps
+        theta_plus[i] = init_theta[i] + EPS
         get_likelihood(theta_plus)  # updates fractional counts
         val_plus = get_likelihood_with_expected_counts(theta_plus)
-        theta_minus[i] = init_theta[i] - eps
+        theta_minus[i] = init_theta[i] - EPS
         get_likelihood(theta_minus)  # updates fractional counts
         val_minus = get_likelihood_with_expected_counts(theta_minus)
-        f_approx[i] = (val_plus - val_minus) / (2 * eps)
+        f_approx[i] = (val_plus - val_minus) / (2 * EPS)
 
     my_grad = get_gradient(init_theta)
     diff = []
@@ -395,8 +400,9 @@ def gradient_check_em():
 
 
 def gradient_check_lbfgs():
+    global EPS
     init_theta = dict((k, np.random.uniform(-1.0, 1.0)) for k in feature_index)
-    chk_grad = utils.gradient_checking(init_theta, 1e-8, get_likelihood)
+    chk_grad = utils.gradient_checking(init_theta, EPS, get_likelihood)
     my_grad = get_gradient(init_theta)
     diff = []
     for k in sorted(my_grad):
@@ -415,6 +421,7 @@ if __name__ == "__main__":
     possible_states = defaultdict(set)
     possible_obs = defaultdict(set)
     opt = OptionParser()
+
     opt.add_option("-t", dest="target_corpus", default="data/small/en-toy")
     opt.add_option("-s", dest="source_corpus", default="data/small/fr-toy")
     opt.add_option("--ow", dest="output_weights", default="theta", help="extention of trained weights file")
@@ -425,11 +432,14 @@ if __name__ == "__main__":
                    help="use 'EM' 'LBFGS' 'SGD'")
     opt.add_option("-m", dest="model", default=IBM_MODEL_1, help="'model1' or 'hmm'")
     (options, _) = opt.parse_args()
+    print _
     model_type = options.model
     source = [s.strip().split() for s in open(options.source_corpus, 'r').readlines() if s.strip() != '']
     target = [s.strip().split() for s in open(options.target_corpus, 'r').readlines() if s.strip() != '']
     populate_trellis(source, target)
     populate_features()
+
+    snippet = "#" + str(opt.values) + "\n"
 
     if options.algorithm == "LBFGS":
 
@@ -473,6 +483,7 @@ if __name__ == "__main__":
         old_ll = float('-inf')
         idxs = range(len(trellis))
         random.shuffle(idxs)
+        print trellis[idxs[0]]
         new_ll = get_likelihood(init_theta, idxs[0], idxs[0] + 1)
         grad = get_gradient(init_theta)
         print new_ll
