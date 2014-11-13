@@ -1,18 +1,13 @@
 __author__ = 'arenduchintala'
 
 from optparse import OptionParser
-import sys
-from math import exp, log
+from math import exp, log, sqrt
 from DifferentiableFunction import DifferentiableFunction
 import numpy as np
 import FeatureEng as FE
-from scipy.optimize import fmin_l_bfgs_b
-from scipy.optimize import approx_fprime
-import pdb
 import utils
 from pprint import pprint
 from collections import defaultdict
-import itertools
 import random
 import copy
 
@@ -20,7 +15,7 @@ global BOUNDARY_START, END_STATE, SPLIT, E_TYPE, T_TYPE, IBM_MODEL_1, HMM_MODEL,
 global cache_normalizing_decision, features_to_events, events_to_features, normalizing_decision_map
 global trellis, max_jump_width, model_type, number_of_events, EPS, snippet
 snippet = ''
-EPS = 1e-20
+EPS = 1e-8
 IBM_MODEL_1 = "model1"
 HMM_MODEL = "hmm"
 max_jump_width = 10  # creates a span of +/- span centered around current token
@@ -252,10 +247,23 @@ def accumulate_fc(type, alpha, beta, d, S, c=None, k=None, q=None, e=None):
         raise "Wrong type"
 
 
+def write_probs(theta, save_probs):
+    write_probs = open(save_probs, 'w')
+    write_probs.write(snippet)
+    for fc in sorted(fractional_counts):
+        (t, d, c) = fc
+        prob = get_decision_given_context(theta, type=t, decision=d, context=c)
+        str_t = reduce(lambda a, d: str(a) + '\t' + str(d), fc, '')
+        write_probs.write(str_t.strip() + '\t' + str(round(prob, 5)) + '' + "\n")
+    write_probs.flush()
+    write_probs.close()
+    print 'wrote weights to:', save_probs
+
+
 def write_weights(theta, save_weights):
     global trellis
     write_theta = open(save_weights, 'w')
-    write_theta.write(snippet);
+    write_theta.write(snippet)
     for t in sorted(theta):
         str_t = reduce(lambda a, d: str(a) + '\t' + str(d), t, '')
         write_theta.write(str_t.strip() + '\t' + str(theta[t]) + '' + "\n")
@@ -267,7 +275,7 @@ def write_weights(theta, save_weights):
 def write_alignments(theta, save_align):
     global trellis
     write_align = open(save_align, 'w')
-    write_align.write(snippet);
+    write_align.write(snippet)
     for idx, obs in enumerate(trellis[:]):
         max_bt, max_p, alpha_pi = get_viterbi_and_forward(theta, obs)
         w = ' '.join([str(tar_i - 1) + '-' + str(src_i - 1) for src_i, src, tar_i, tar, L in max_bt if
@@ -359,19 +367,6 @@ def populate_trellis(source_corpus, target_corpus):
         trellis.append(current_trellis)
 
 
-def write_probs(theta, save_probs):
-    write_probs = open(save_probs, 'w')
-    write_probs.write(snippet);
-    for fc in sorted(fractional_counts):
-        (t, d, c) = fc
-        prob = get_decision_given_context(theta, type=t, decision=d, context=c)
-        str_t = reduce(lambda a, d: str(a) + '\t' + str(d), fc, '')
-        write_probs.write(str_t.strip() + '\t' + str(round(prob, 5)) + '' + "\n")
-    write_probs.flush()
-    write_probs.close()
-    print 'wrote weights to:', save_probs
-
-
 def gradient_check_em():
     global EPS
     init_theta = dict((k, np.random.uniform(-1.0, 1.0)) for k in feature_index)
@@ -407,7 +402,7 @@ def gradient_check_lbfgs():
     diff = []
     for k in sorted(my_grad):
         diff.append(abs(my_grad[k] - chk_grad[k]))
-        print str(round(my_grad[k] - chk_grad[k], 3)).center(10), str(
+        print str(round(my_grad[k] - chk_grad[k], 5)).center(10), str(
             round(my_grad[k], 5)).center(10), \
             str(round(chk_grad[k], 5)).center(10), k
 
@@ -428,11 +423,11 @@ if __name__ == "__main__":
     opt.add_option("--oa", dest="output_alignments", default="alignments", help="extension of alignments files")
     opt.add_option("--op", dest="output_probs", default="probs", help="extension of probabilities")
     opt.add_option("-g", dest="test_gradient", default=False)
-    opt.add_option("-a", dest="algorithm", default="SGD",
+    opt.add_option("-a", dest="algorithm", default="LBFGS",
                    help="use 'EM' 'LBFGS' 'SGD'")
     opt.add_option("-m", dest="model", default=IBM_MODEL_1, help="'model1' or 'hmm'")
     (options, _) = opt.parse_args()
-    print _
+
     model_type = options.model
     source = [s.strip().split() for s in open(options.source_corpus, 'r').readlines() if s.strip() != '']
     target = [s.strip().split() for s in open(options.target_corpus, 'r').readlines() if s.strip() != '']
@@ -440,25 +435,27 @@ if __name__ == "__main__":
     populate_features()
 
     snippet = "#" + str(opt.values) + "\n"
+    print snippet
 
     if options.algorithm == "LBFGS":
 
-        if options.test_gradient == "True" or options.test_gradient == "true":
+        if options.test_gradient.lower() == "true":
             gradient_check_lbfgs()
         else:
             print 'skipping gradient check...'
 
             init_theta = dict((k, np.random.uniform(-1.0, 1.0)) for k in feature_index)
+
             F = DifferentiableFunction(get_likelihood, get_gradient)
             (fopt, theta, return_status) = F.maximize(init_theta)
-
+            get_likelihood(theta)
             write_alignments(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
             write_weights(theta, options.algorithm + '.' + model_type + '.' + options.output_weights)
             write_probs(theta, options.algorithm + '.' + model_type + '.' + options.output_probs)
 
     if options.algorithm == "EM":
 
-        if options.test_gradient == "True" or options.test_gradient == "true":
+        if options.test_gradient.lower() == "true":
             gradient_check_em()
         else:
             print 'skipping gradient check...'
@@ -478,16 +475,26 @@ if __name__ == "__main__":
             write_probs(theta, options.algorithm + '.' + model_type + '.' + options.output_probs)
 
     if options.algorithm == "SGD":
-        init_theta = dict((k, np.random.uniform(-0.0, 0.0)) for k in feature_index)
-        converged = False
-        old_ll = float('-inf')
+        theta = dict((k, np.random.uniform(-1.0, 1.0)) for k in feature_index)
+        get_likelihood(theta)
+        eta = 1.0
+        I = 1.0
+        step_size = 0.1
         idxs = range(len(trellis))
-        random.shuffle(idxs)
-        print trellis[idxs[0]]
-        new_ll = get_likelihood(init_theta, idxs[0], idxs[0] + 1)
-        grad = get_gradient(init_theta)
-        print new_ll
-        pprint(grad)
+        t = 0
+        for iter in xrange(500):
+            random.shuffle(idxs)
+            for i in idxs:
+                t += 1
+                print idxs[i]
+                new_ll = get_likelihood(theta, start_idx=idxs[i], end_idx=idxs[i] + 1)
+                grad = get_gradient(theta)
+                for g in grad:
+                    theta[g] = theta[g] - (step_size * grad[g])
+
+            print 'full ll', get_likelihood(theta)
+
+
 
 
 

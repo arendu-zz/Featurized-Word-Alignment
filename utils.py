@@ -62,7 +62,11 @@ def cosine_sim(v1, v2):
         dot += v1[i] * v2[i]
         v1_sq += v1[i] ** 2.0
         v2_sq += v2[i] ** 2.0
-    return dot / (sqrt(v1_sq) * sqrt(v2_sq))
+    denom = (sqrt(v1_sq) * sqrt(v2_sq))
+    if denom > 0.0:
+        return dot / denom
+    else:
+        return float('inf')
 
 
 def gradient_checking(theta, eps, val):
