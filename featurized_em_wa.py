@@ -10,15 +10,17 @@ from pprint import pprint
 from collections import defaultdict
 import random
 import copy
+import pdb
 
 global BOUNDARY_START, END_STATE, SPLIT, E_TYPE, T_TYPE, IBM_MODEL_1, HMM_MODEL, possible_states
 global cache_normalizing_decision, features_to_events, events_to_features, normalizing_decision_map
-global trellis, max_jump_width, model_type, number_of_events, EPS, snippet
+global trellis, max_jump_width, model_type, number_of_events, EPS, snippet, max_beam_width
 snippet = ''
 EPS = 1e-8
 IBM_MODEL_1 = "model1"
 HMM_MODEL = "hmm"
-max_jump_width = 10  # creates a span of +/- span centered around current token
+max_jump_width = 10
+max_beam_width = 20  # creates a span of +/- span centered around current token
 trellis = []
 cache_normalizing_decision = {}
 BOUNDARY_START = "#START#"
@@ -343,6 +345,57 @@ def get_gradient(theta):
     return grad
 
 
+def populate_trellis_proper(source_corpus, target_corpus):
+    global trellis, max_jump_width
+    for s_sent, t_sent in zip(source_corpus, target_corpus):
+        t_sent.insert(0, BOUNDARY_START)
+        s_sent.insert(0, BOUNDARY_START)
+
+        t_sent.append(BOUNDARY_END)
+        s_sent.append(BOUNDARY_END)
+
+        fwd_trellis = {}
+        for t_idx, t_tok in enumerate(t_sent):
+            if t_tok == BOUNDARY_START:
+                fwd_trellis[t_idx] = [(t_idx, BOUNDARY_START, 0, BOUNDARY_START, len(s_sent))]
+            elif t_tok == BOUNDARY_END:
+                fwd_trellis[t_idx] = [(t_idx, BOUNDARY_END, len(s_sent) - 1, BOUNDARY_END, len(s_sent))]
+            else:
+                max_prev = max([item[2] for item in fwd_trellis[t_idx - 1]])
+                r = range(1,
+                          (max_prev + max_jump_width + 1) if (max_prev + max_jump_width + 1) <= len(s_sent) - 1 else (
+                              len(s_sent) - 1))
+                s = [(t_idx, t_tok, s_idx, s_sent[s_idx], len(s_sent)) for s_idx in r]
+                fwd_trellis[t_idx] = s
+        back_trellis = {}
+        for t_idx, t_tok in reversed(list(enumerate(t_sent))):
+            if t_tok == BOUNDARY_START:
+                back_trellis[t_idx] = [(t_idx, BOUNDARY_START, t_idx, BOUNDARY_START, len(s_sent))]
+            elif t_tok == BOUNDARY_END:
+                back_trellis[t_idx] = [(t_idx, BOUNDARY_END, len(s_sent) - 1, BOUNDARY_END, len(s_sent))]
+            else:
+                min_prev = min([item[2] for item in back_trellis[t_idx + 1]])
+                r = range(min_prev - max_jump_width if min_prev - max_jump_width >= 1 else 1, len(s_sent) - 1)
+                s = [(t_idx, t_tok, s_idx, s_sent[s_idx], len(s_sent)) for s_idx in r]
+                back_trellis[t_idx] = s
+
+        merged_trellis = {}
+        for t_idx in back_trellis:
+            s = list(set.intersection(set(fwd_trellis[t_idx]), set(back_trellis[t_idx])))
+            if len(s) > max_beam_width:
+                s_prime = sorted([(abs(item[2] - t_idx), item) for item in s])
+                s = [item for dist, item in s_prime[:max_beam_width]]
+            merged_trellis[t_idx] = s
+            if t_idx == 0:
+                pass
+            elif t_idx == len(t_sent) - 1:
+                pass
+            else:
+                merged_trellis[t_idx] += [(t_idx, t_sent[t_idx], NULL, NULL, len(s_sent))]
+
+        trellis.append(merged_trellis)
+
+
 def populate_trellis(source_corpus, target_corpus):
     global trellis, max_jump_width
     for s_sent, t_sent in zip(source_corpus, target_corpus):
@@ -363,7 +416,6 @@ def populate_trellis(source_corpus, target_corpus):
                 current_trellis[t_idx] = [(t_idx, t_tok, s_idx + start, s_tok, len(s_sent)) for s_idx, s_tok in
                                           enumerate(s_sent[start:end]) if
                                           (s_tok != BOUNDARY_START and s_tok != BOUNDARY_END)]
-                # current_trellis[t_idx] += [(t_idx, t_tok, NULL, NULL, len(s_sent))]
         trellis.append(current_trellis)
 
 
@@ -431,7 +483,8 @@ if __name__ == "__main__":
     model_type = options.model
     source = [s.strip().split() for s in open(options.source_corpus, 'r').readlines() if s.strip() != '']
     target = [s.strip().split() for s in open(options.target_corpus, 'r').readlines() if s.strip() != '']
-    populate_trellis(source, target)
+    populate_trellis_proper(source, target)
+    # populate_trellis(source, target)
     populate_features()
 
     snippet = "#" + str(opt.values) + "\n"
