@@ -34,7 +34,7 @@ creo que debemos mostrar respeto hacia la decisión del referéndum irlandés .
 esto era cierto antes del 11 de septiembre .
 muchas gracias por ello a la comisión , que por lo visto aún no ha llegado .
 éste tiene que constituir el punto de partida .
-no han expresado qué piensan sobre el " más europa " .
+no han expresado qué piensan sobre el &quot; más europa &quot; .
 existen muchas otras condiciones que quizá podríamos aplicar .
 cualquiera puede llegar y decir cualquier cosa .
 por este motivo , pido garantías importantes y claras de intención en dicho ámbito .
@@ -95,11 +95,10 @@ también existen acuerdos contra semejante impuesto .
 por consiguiente , mi grupo solicita que se suprima este punto del día .
 gracias , señor poettering .
 escuchemos ahora al sr . wurtz , que hablará en contra de la petición .
-y él hace lo mismo .
 no es pedir demasiado .
 señora presidenta , quiero agradecer al señor poettering la publicidad que acaba de dar a este debate .
 gracias .
-mi voto era " a favor " .
+mi voto era &quot; a favor &quot; .
 señora presidenta , la presidencia ha proclamado el resultado de la votación .
 no caben modificaciones .
 esto no ha ocurrido .
@@ -187,8 +186,6 @@ la clave ahora es consolidar y hacer permanente el progreso que se ha realizado 
 dejo constancia de ello para repetir la posición del parlamento .
 por lo que a mí personalmente respecta estoy completamente de acuerdo .
 señor presidente , yo también quiero felicitar a la ponente por el excelente trabajo que ha hecho .
-
-
 me gustaría explicar aquí lo que pensamos .
 pido a la cámara que apoye estos cambios .
 las desigualdades regionales aumentan dramáticamente en el seno de los estados miembros .
@@ -447,7 +444,6 @@ el comité de control que ya existe sólo puede controlar la independencia del d
 dicho reglamento no influiría para nada en la administración de justicia de los estados miembros .
 el tribunal de justicia se encargaría de supervisar la regularidad de los actos .
 barnier y vitorino , y también algunos estados miembros se muestran asimismo receptivos a la idea .
-
 las conclusiones del informe theato las salvaguardan perfectamente .
 señor presidente , este informe es , como ha dicho la sra . theato , decisivo .
 a veces se exagera al respecto , pero así es .
@@ -533,7 +529,7 @@ la comisión coincide totalmente con la ponente en que esta situación es inacep
 yo estoy totalmente de acuerdo con dicho comité y con la ponente en este sentido .
 votaciones
 ( el parlamento aprueba la propuesta de la comisión )
-heaton - harris ( ppe - de ).
+heaton - harris ( ppe - de ) .
 los dos versan sobre las votaciones .
 señor presidente , no me refería a esa votación determinada , sino a las votaciones en general .
 me gustaría saber si ése es el procedimiento correcto .
@@ -578,7 +574,6 @@ tras haber sido modificadas de nuevo como tales por el informe schroedter , van 
 mientras tanto , apoyemos este primer paso .
 aunque apoyo sin reservas ese objetivo , preferiría que se eliminara totalmente .
 en cambio , la ayuda estatal ilegal destruye las empresas competitivas y crea desempleo .
-
 .
 por lo general , las directrices actuales carecen de claridad y de transparencia .
 en conclusión , nos encontramos ante un documento no especialmente satisfactorio y en algunos aspectos decepcionante .
@@ -586,13 +581,12 @@ informe berend ( a5 - 0107 / 1999 )
 por consiguiente , nos limitamos a subrayar algunos aspectos .
 .
 las regiones más pobres suplen poco a poco su retraso de desarrollo .
-en 1996 era del 50 %.
+en 1996 era del 50 % .
 la progresión resulta especialmente clara en portugal e irlanda .
 la tendencia es general , de la que no se salvan ni rhône - alpes , ni alsace .
 informe von wogau ( a5 - 0069 / 1999 )
 .
 exige una actualización y una intensificación de la directiva comunitaria sobre los comités de empresa europeos .
-
 esa renacionalización parcial de la política de competencia podría tener mayores costos para los estados miembros .
 al final podría perfilarse una europa diferente .
 ¿ no es esto precisamente lo que preocupa a los socialistas del parlamento europeo ?
@@ -629,7 +623,7 @@ igual que el sea empress , igual que el braer .
 no cabe la menor duda de que los tres nos dejaron un desastre ecológico .
 ya ha pasado el momento de las resoluciones .
 ahora lo que se necesita son acciones .
-¿ cuándo volverá a estar limpia y para cuándo el fin de este accidente devastador ?"
+¿ cuándo volverá a estar limpia y para cuándo el fin de este accidente devastador ? &quot;
 debemos realmente garantizar a los ciudadanos que un desastre semejante no volverá a producirse .
 hay que crear un cuerpo europeo de inspectores que controle efectiva y eficazmente el estado de los buques .
 puedo dar testimonio de este trabajo extraordinario .
@@ -648,7 +642,6 @@ ahora bien , hoy estamos inmersos en la mayor confusión .
 hay que revisar imperativamente la cuestión de los pabellones de conveniencia en el marco de la omi .
 corresponde a los estados miembros y a la comunidad adoptar las iniciativas necesarias para ese fin .
 hay que remediar urgentemente esa carencia .
-
 en cuanto a las disposiciones de fondo que se deben establecer , deben ser particularmente claras y estrictas .
 voy a mencionar tres que nuestro grupo considera prioritarias .
 podría ser de quince años como máximo .
@@ -742,7 +735,7 @@ el erika fue construido en un astillero japonés y es de casco sencillo .
 hay todavía cuatro buques gemelos que navegan en este momento .
 algunos de ellos navegan bajo bandera maltesa .
 ¿ esperamos a la siguiente catástrofe ?
-¿ no debería haber sanciones , como ha dicho la comisaria , para la " classification society " ?
+¿ no debería haber sanciones , como ha dicho la comisaria , para la &quot; classification society &quot; ?
 la sociedad rina está ahora en entredicho .
 malta va a empezar con las negociaciones de ingreso .
 me pregunto , igual que tanta gente , dónde están los responsables .
@@ -896,7 +889,7 @@ tiene la palabra el sr . purvis para una cuestión de orden .
 ése es el orden del día y creo que debemos atenernos a él .
 espero que no lleguemos a la sesión nocturna en todo caso .
 primera parte
-pregunta nº 28 formulada por ( h - 0781 / 99 ):
+pregunta nº 28 formulada por ( h - 0781 / 99 ) :
 tiene la palabra , en nombre de la comisión , el sr . verheugen .
 según la información de que disponemos , no se ha decidido aún la elección de un licitante .
 gracias por la respuesta .
@@ -913,7 +906,7 @@ la central aún no existe .
 ya he dicho que turquía es parte del tnp y del convenio sobre la seguridad nuclear .
 creo que todo diputado al parlamento está en su derecho de manifestar sus propias preocupaciones y miedos .
 yo no tengo tales preocupaciones .
-pregunta nº 29 formulada por ( h - 0786 / 99 ):
+pregunta nº 29 formulada por ( h - 0786 / 99 ) :
 de no ser así , ¿ por qué motivos no los ha efectuado ?
 tiene la palabra , en nombre de la comisión , la sra . wallström .
 gracias , señor bowe , por su pregunta .
@@ -930,7 +923,7 @@ eso es en lo que nos basamos cuando aconsejamos a la gente sobre qué hacer .
 lo que hemos visto es que la guerra afecta al medio ambiente a largo plazo y es peligrosa .
 no puedo responder a esa pregunta .
 desde luego puedo volver y ver si podemos obtener la información necesaria .
-pregunta nº 30 formulada por ( h - 0793 / 99 ):
+pregunta nº 30 formulada por ( h - 0793 / 99 ) :
 muchos de ellos sufrieron graves congelamientos y muchos otros perecieron .
 ¿ cuándo piensa la comisión designar a un responsable para el tíbet ?
 tiene la palabra , en nombre de la comisión , el sr . patten .
@@ -946,7 +939,7 @@ como su señoría , he leído la autobiografía del dalai lama .
 la comisión , como otros , ha instado al diálogo .
 el dalai lama ha dejado claro que lo que desea es un diálogo pacífico .
 ojalá las autoridades chinas hubieran respondido de forma consecuente y positiva a esa apertura del dalai lama .
-pregunta nº 31 formulada por ( h - 0795 / 99 ):
+pregunta nº 31 formulada por ( h - 0795 / 99 ) :
 ¿ es cierta esta información ?
 tiene la palabra , en nombre de la comisión , el sr . patten .
 la comisión aprobará entonces el código en segunda lectura .
@@ -963,11 +956,11 @@ le deseo muy buenas tardes .
 segunda parte
 preguntas dirigidas al sr . nielson , a quien sustituye el sr . patten
 el sr . nielson no puede estar presente hoy por encontrarse en sudáfrica .
-pregunta nº 33 formulada por ( h - 0829 / 99 ):
+pregunta nº 33 formulada por ( h - 0829 / 99 ) :
 para conseguir este objetivo , la directrices del consejo deben aplicarse en su integridad .
 ¿ se propone la comisión aplicar estas medidas ?
 la formación se realizaría entonces automáticamente sin ser obligatoria .
-no debe considerársele como un tema " periférico " .
+no debe considerársele como un tema &quot; periférico &quot; .
 también hay que tomar medidas contra las desigualdades que se fundamentan en el género .
 parece que estamos de acuerdo en este punto .
 sólo un jefe ha participado en uno de estos cursos , medio día .
@@ -985,7 +978,7 @@ hay un aspecto ecológico al que debemos continuar dando prioridad .
 no es un hecho habitual .
 y además no le ha citado bibliografía el sr . comisario en este caso .
 muchas gracias , sr . patten , por sus intervenciones de hoy .
-pregunta nº 35 formulada por ( h - 0778 / 99 ):
+pregunta nº 35 formulada por ( h - 0778 / 99 ) :
 agradezco su respuesta a la señora comisaria .
 me dice usted que han hecho ciertas recomendaciones desde la comisión .
 lo acepto y me congratulo por ello ; ojalá que las recomendaciones sean observadas .
@@ -995,15 +988,15 @@ durante los dos años anteriores , si es que no puede darnos datos de este año 
 ¿ qué ha pasado con la formación ?
 ¿ tenemos datos ?
 lo que la comisión puede hacer atañe a las directrices concretas .
-pregunta nº 36 formulada por ( h - 0782 / 99 ):
+pregunta nº 36 formulada por ( h - 0782 / 99 ) :
 hay trabajadores que se han quejado a la comisión europea porque no tiene derecho a la jubilación .
 le estaría agradecido a la señora comisaria si pudiera profundizar en esta cuestión .
 - ( el ) creo que la respuesta es breve y precisa .
 naturalmente , es como usted acaba de decir .
 no habrá ningún problema para los ciudadanos daneses ; no está ahí el problema .
 el problema afecta a ciudadanos , daneses o no daneses , no residentes en dinamarca .
-pregunta nº 37 formulada por ( h - 0791 / 99 ):
-pregunta nº 38 formulada por ( h - 0805 / 99 ):
+pregunta nº 37 formulada por ( h - 0791 / 99 ) :
+pregunta nº 38 formulada por ( h - 0805 / 99 ) :
 ¿ quiénes son los comisarios que forman el grupo ?
 ¿ cuántas veces se ha reunido hasta ahora ?
 ¿ cuáles son las medidas concretas que han sido discutidas ?
@@ -1011,7 +1004,7 @@ pregunta nº 38 formulada por ( h - 0805 / 99 ):
 las reuniones del grupo son abiertas y la primera reunión se celebró el día 11 de enero .
 sra . diputada , se trata de una exhortación y no de una pregunta .
 pero si la sra . comisaria quiere dar doctrina o buenas intenciones ...
-pregunta nº 39 formulada por ( h - 0807 / 99 ):
+pregunta nº 39 formulada por ( h - 0807 / 99 ) :
 ¿ con qué criterios aceptará o rechazará la comisión los citados programas de los estados miembros ?
 - ( el ) la iniciativa equal no se circunscribe a determinados grupos de personas .
 se propone hacer frente a la discriminación en el espacio laboral .
@@ -1019,7 +1012,7 @@ lo menciono como aspecto importante de esta iniciativa .
 ha sido presentada al parlamento y esperamos el próximo mes el dictamen del parlamento .
 la última pregunta se refiere a la cantidad concedida .
 la iniciativa equal tiene una misión concreta .
-pregunta nº 40 formulada por ( h - 0808 / 99 ):
+pregunta nº 40 formulada por ( h - 0808 / 99 ) :
 y estas excepciones afectan a profesiones que han de ser ejercidas por personas con una especialización profesional genuina .
 y voy a poner un ejemplo muy concreto para que quede claro .
 la excepciones son , pues , de este tipo .
@@ -1027,21 +1020,21 @@ esta es una interpretación perversa de la terminación de la discriminación .
 aquí tenemos por parte de la comisión un refuerzo de la jerarquía de la opresión .
 se trata , por consiguiente , de una discriminación positiva .
 sólo este tipo de excepción puede ser aceptado .
-pregunta nº 41 formulada por ( h - 0813 / 99 ):
+pregunta nº 41 formulada por ( h - 0813 / 99 ) :
 soy buena conocedora de los programas a los que usted alude .
 le puedo asegurar que no llegamos allí donde más falta hace .
 por eso , ruego que estudien la posibilidad de aplicar políticas de microcréditos .
 la sra . comisaria asiente y toma buena nota de la intervención de la sra . izquierdo rojo .
-pregunta nº 42 formulada por ( h - 0817 / 99 ):
+pregunta nº 42 formulada por ( h - 0817 / 99 ) :
 un debate que ahora empieza , pero tendremos que tomar nota de los resultados de lisboa .
 estos resultados serán muy importantes para la configuración del programa social de la comisión .
 dado que su autor no está presente , la pregunta nº 43 decae .
-pregunta nº 44 formulada por ( h - 0819 / 99 ):
+pregunta nº 44 formulada por ( h - 0819 / 99 ) :
 agradezco a la comisaria por su respuesta .
 doy las gracias a la comisión por haber redactado un plan de acción .
 esto no ha sido impulsado todavía por el consejo ; se encuentra en fase de consultas .
 creo que semejante decisión estratégica puede tomarse en el ámbito europeo .
-pregunta nº 45 formulada por ( h - 0006 / 00 ):
+pregunta nº 45 formulada por ( h - 0006 / 00 ) :
 en caso negativo , ¿ puede indicar la comisión cómo se debe cumplir la directiva en este punto ?
 seguimos a la espera ; ya veremos cuáles serán los pasos siguientes .
 en cuanto a la pregunta que usted plantea , el problema en cuestión no lo tiene sólo dinamarca .
@@ -1280,9 +1273,9 @@ no estoy del todo de acuerdo con el sr . haarder .
 coincido en que el informe sobre los funcionarios se ha desarrollado de forma totalmente insuficiente .
 en primer lugar , no se ha hecho hincapié en la importancia de un servicio público en general .
 entre tanto , tenemos que dar un voto de confianza a la comisión .
-" prolijo " .
+&quot; prolijo &quot; .
 no voy a mencionar la extensión de este informe .
-además es " confuso " .
+además es &quot; confuso &quot; .
 en el informe llama particularmente la atención el concepto de transparencia .
 garantizar ésta es uno de nuestros principales deseos .
 la importancia de un trabajo controlable tampoco puede dejar de resaltarse .
@@ -1377,7 +1370,6 @@ se acerca la hora de la verdad .
 la paz en oriente medio nos atañe a todos .
 por eso es beneficioso que la ue apadrine al estado palestino .
 pero hoy egipto , jordania y palestina tienen una paz basada en tratados con israel .
-
 la seguridad , sin embargo , no solo afecta a israel .
 la comunidad internacional debe cumplir simplemente las resoluciones 332 , 248 , 245 y 194 .
 actualmente , ambas partes parecen haber aceptado que no se acordará nada hasta que se haya acordado todo .
@@ -1450,12 +1442,12 @@ en 1998 tuvimos 55 muertos .
 señor presidente , esta situación no puede continuar así y debe ponérsele remedio .
 señor presidente , el tratado de amsterdam ha marcado un objetivo importante a la unión .
 no les basta el euro ni el empleo , ni siquiera su seguridad .
-necesitan el " alma europea ", como dijo un insigne profesor español .
+necesitan el &quot; alma europea &quot; , como dijo un insigne profesor español .
 las palabras de este trío eran música para nuestros oídos , como ha señalado el señor ceyhun .
 como toda música , tiene que estar bien afinada y adecuadamente orquestada .
 muchos de los presentes aquí somos muy optimistas con respecto a los próximos seis meses .
 y debemos cerciorarnos de que sus detalles son aplicables , apropiados y pertinentes a los diferentes países .
-el señor schultz señaló antes que no tenía claro el concepto de " scoreboard " ( marcador ).
+el señor schultz señaló antes que no tenía claro el concepto de &quot; scoreboard &quot; ( marcador ) .
 cualquiera que sea británico o inglés o sea aficionado al cricket sabe qué es un marcador .
 estoy seguro de que el comisario vitorino se cerciorará de que sea así .
 querría resaltar tres puntos concretos .
@@ -1470,7 +1462,7 @@ basta con ver la decisión unilateral de bélgica de restablecer el control de s
 sabemos que hay incluidas cláusulas de readmisión en los acuerdos de cooperación y de asociación .
 ahora bien , éstas representan una grave amenaza para el principio de no devolución .
 sin embargo , la preocupación fundamental sigue siendo ...
-( el presidente interrumpe al orador ).
+( el presidente interrumpe al orador ) .
 les agradezco sus intervenciones en esta asamblea .
 esta medida del gobierno belga constituye una violación flagrante del acuerdo de schengen .
 por ello , el 23 de diciembre presenté una queja ante el comisario vitorino .
@@ -1491,7 +1483,7 @@ realmente , la eficiencia ha sido notable .
 espero también que se haga lo mismo en relación con el control parlamentario .
 turno de preguntas ( consejo )
 examinaremos las preguntas dirigidas al consejo .
-pregunta nº 1 formulada por ( h - 0780 / 99 ):
+pregunta nº 1 formulada por ( h - 0780 / 99 ) :
 gracias por la respuesta .
 segundo , en cuanto a la seguridad de las instalaciones .
 esta es nuestra función y este es el objetivo de mi pregunta .
@@ -1510,9 +1502,9 @@ ahora vemos que quizá esa advertencia del parlamento era justificada .
 después veremos en el nivel ministerial qué curso podremos darle .
 por nuestra parte , es así .
 veremos si conseguimos consenso a ese respecto .
-pregunta nº 5 formulada por ( h - 0785 / 99 ):
+pregunta nº 5 formulada por ( h - 0785 / 99 ) :
 yo comprendo que en esto está afectado portugal .
-pregunta nº 6 formulada por ( h - 0788 / 99 ):
+pregunta nº 6 formulada por ( h - 0788 / 99 ) :
 ¿ qué otras medidas prácticas piensa adoptar para que cese la limpieza étnica ?
 no será tolerada y deberá cesar inmediatamente .
 quisiera dar las gracias al sr . presidente en ejercicio del consejo .
@@ -1523,20 +1515,19 @@ creo que tenemos que recapacitar también sobre cual es el mejor modo de present
 nos hemos esforzado para proporcionar ayuda material .
 hemos intentado defender la paz militarmente .
 señoría , como he dicho , comprendo sus preocupaciones .
-
 por parte del consejo , nos proponemos facilitar durante la presidencia portuguesa informaciones al respecto .
 señor presidente en ejercicio del consejo , estoy totalmente de acuerdo con usted .
 ¿ piensa el consejo plantear la cuestión del estatuto definitivo de kosovo ?
 dado que su autor no está presente , la pregunta nº 7 decae .
-pregunta nº 8 formulada por ( h - 0796 / 99 ):
-pregunta nº 9 formulada por ( h - 0798 / 99 ):
+pregunta nº 8 formulada por ( h - 0796 / 99 ) :
+pregunta nº 9 formulada por ( h - 0798 / 99 ) :
 agradezco al presidente en ejercicio su respuesta .
 a ese respecto , el consejo tiene una capacidad limitada de intervención .
 señor presidente , deseo también dar la bienvenida al parlamento al presidente en ejercicio .
 ha dicho usted que en lisboa van a debatir un desarrollo más dinámico y más competitivo .
 no veo cómo va a poder contestar , si tiene opiniones de este tipo .
 y ésas son las estrategias a las que intentaremos contribuir de la mejor forma posible durante nuestro ejercicio .
-pregunta nº 12 formulada por ( h - 0801 / 99 ):
+pregunta nº 12 formulada por ( h - 0801 / 99 ) :
 pero aún quedan algunas cuestiones pendientes .
 en el programa no parece ponerse énfasis alguno en la lucha contra el sida .
 espero que el ministro se guarde cierto tiempo para acometer este particular asunto .
@@ -1569,7 +1560,6 @@ se trata de la inestabilidad en los mercados como consecuencia de especulaciones
 lo considero como la vía errónea .
 ¿ porqué rechazamos la tobin tax y la consideramos tan críticamente ?
 segundo : el capital especulativo es difícilmente identificable .
-
 se trata del apartado 9 .
 señora presidenta , el debate sobre una imposición de las transacciones financieras a corto plazo no es nuevo .
 tenemos que saber lo deseable y factible que es una fiscalización de transacciones financieras a corto plazo .
@@ -1705,7 +1695,7 @@ una y otra vez las sagradas escrituras nos advierten contra lo que se llama conf
 el segundo consiste , evidentemente , en los efectos de la energía sobre el clima .
 hay muchos factores que determinan la localización de una empresa .
 ese principio ha quedado debidamente garantizado mediante dicho dictamen .
-- recomendación aelvoet ( a 4 - 0165/98 )
+- recomendación aelvoet ( a 4 - 0165 / 98 )
 me refiero , por ejemplo , al programa life .
 yo me baso , de hecho , exclusivamente en sus propios datos .
 he aquí un ámbito de exacciones posibles mucho más justas .
@@ -1759,7 +1749,7 @@ creo que debemos mostrar respeto hacia la decisión del referéndum irlandés .
 esto era cierto antes del 11 de septiembre .
 muchas gracias por ello a la comisión , que por lo visto aún no ha llegado .
 éste tiene que constituir el punto de partida .
-no han expresado qué piensan sobre el " más europa " .
+no han expresado qué piensan sobre el &quot; más europa &quot; .
 existen muchas otras condiciones que quizá podríamos aplicar .
 cualquiera puede llegar y decir cualquier cosa .
 por este motivo , pido garantías importantes y claras de intención en dicho ámbito .
