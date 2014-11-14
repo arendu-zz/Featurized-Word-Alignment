@@ -15,6 +15,7 @@ import pdb
 global BOUNDARY_START, END_STATE, SPLIT, E_TYPE, T_TYPE, IBM_MODEL_1, HMM_MODEL, possible_states
 global cache_normalizing_decision, features_to_events, events_to_features, normalizing_decision_map
 global trellis, max_jump_width, model_type, number_of_events, EPS, snippet, max_beam_width
+global source, target
 snippet = ''
 EPS = 1e-8
 IBM_MODEL_1 = "model1"
@@ -52,10 +53,17 @@ def get_jump(aj, aj_1):
 
 
 def populate_features():
-    global trellis, feature_index
-    for treli in trellis:
+    global trellis, feature_index, source, target
+    for treli_idx, treli in enumerate(trellis):
         for idx in treli:
-            for t_idx, t_tok, s_idx, s_tok, L in treli[idx]:
+            for t_idx, s_idx, L in treli[idx]:
+                t_tok = target[treli_idx][t_idx]
+                if s_idx == NULL:
+                    s_tok = NULL
+                else:
+                    s_tok = source[treli_idx][s_idx]
+                assert t_tok == t_tok
+                assert s_tok == s_tok
                 """
                 emission features
                 """
@@ -76,7 +84,12 @@ def populate_features():
                     features_to_events[f] = f2ca
 
                 if idx > 0 and model_type == HMM_MODEL:
-                    for prev_t_idx, prev_t_tok, prev_s_idx, prev_s_tok, L in treli[idx - 1]:
+                    for prev_t_idx, prev_s_idx, L in treli[idx - 1]:
+
+                        prev_t_tok = target[treli_idx][prev_t_idx]
+                        prev_s_tok = source[treli_idx][prev_s_idx] if prev_s_idx is not NULL else NULL
+                        assert prev_t_tok == prev_t_tok
+                        assert prev_s_tok == prev_s_tok
                         # an arc in an hmm can have the following information:
                         # prev_s_idx, prev_s_tok, s_idx, s_tok, t_idx, t_tok
                         prev_s = (prev_s_idx, prev_s_tok)
@@ -149,7 +162,11 @@ def get_possible_states(o):
         return list(possible_states[ALL] - set([BOUNDARY_START, BOUNDARY_END]))
 
 
-def get_backwards(theta, obs, alpha_pi):
+def get_backwards(theta, obs_id, alpha_pi):
+    global max_jump_width, trellis, source, target
+    obs = trellis[obs_id]
+    src = source[obs_id]
+    tar = target[obs_id]
     n = len(obs) - 1  # index of last word
     end_state = obs[n][0]
     beta_pi = {(n, end_state): 0.0}
@@ -157,12 +174,16 @@ def get_backwards(theta, obs, alpha_pi):
     accumulate_fc(type=E_TYPE, alpha=0.0, beta=S, e=0.0, S=S, d=BOUNDARY_START, c=BOUNDARY_START)
     for k in range(n, 0, -1):
         for v in obs[k]:
-            tk, t_tok, aj, s_tok, L = v
+            tk, aj, L = v
+            t_tok = tar[tk]
+            s_tok = src[aj] if aj is not NULL else NULL
             e = get_decision_given_context(theta, E_TYPE, decision=t_tok, context=s_tok)
             pb = beta_pi[(k, v)]
             accumulate_fc(type=E_TYPE, alpha=alpha_pi[(k, v)], beta=beta_pi[k, v], e=e, S=S, d=t_tok, c=s_tok)
             for u in obs[k - 1]:
-                tk_1, t_tok_1, aj_1, s_tok_1, L = u
+                tk_1, aj_1, L = u
+                t_tok_1 = tar[tk_1]
+                s_tok_1 = src[aj_1] if aj_1 is not NULL else NULL
                 context = (aj_1, L)
                 if model_type == HMM_MODEL:
                     q = get_decision_given_context(theta, T_TYPE, decision=aj, context=context)
@@ -187,8 +208,11 @@ def get_backwards(theta, obs, alpha_pi):
     return S, beta_pi
 
 
-def get_viterbi_and_forward(theta, obs):
-    global max_jump_width
+def get_viterbi_and_forward(theta, obs_id):
+    global max_jump_width, trellis, source, target
+    src = source[obs_id]
+    tar = target[obs_id]
+    obs = trellis[obs_id]
     start_state = obs[0][0]
     pi = {(0, start_state): 0.0}
     alpha_pi = {(0, start_state): 0.0}
@@ -198,8 +222,12 @@ def get_viterbi_and_forward(theta, obs):
             max_prob_to_bt = {}
             sum_prob_to_bt = []
             for u in obs[k - 1]:  # [1]:
-                tk, t_tok, aj, s_tok, L = v
-                tk_1, t_tok_1, aj_1, s_tok_1, L = u
+                tk, aj, L = v
+                tk_1, aj_1, L = u
+                t_tok = tar[tk]
+                s_tok = src[aj] if aj is not NULL else NULL
+                t_tok_1 = tar[tk_1]
+                s_tok_1 = src[aj_1] if aj_1 is not NULL else NULL
                 if model_type == HMM_MODEL:
                     context = (aj_1, L)
                     q = get_decision_given_context(theta, T_TYPE, decision=aj, context=context)
@@ -259,7 +287,7 @@ def write_probs(theta, save_probs):
         write_probs.write(str_t.strip() + '\t' + str(round(prob, 5)) + '' + "\n")
     write_probs.flush()
     write_probs.close()
-    print 'wrote weights to:', save_probs
+    print 'wrote probs to:', save_probs
 
 
 def write_weights(theta, save_weights):
@@ -279,8 +307,8 @@ def write_alignments(theta, save_align):
     write_align = open(save_align, 'w')
     write_align.write(snippet)
     for idx, obs in enumerate(trellis[:]):
-        max_bt, max_p, alpha_pi = get_viterbi_and_forward(theta, obs)
-        w = ' '.join([str(tar_i - 1) + '-' + str(src_i - 1) for src_i, src, tar_i, tar, L in max_bt if
+        max_bt, max_p, alpha_pi = get_viterbi_and_forward(theta, idx)
+        w = ' '.join([str(tar_i - 1) + '-' + str(src_i - 1) for src_i, tar_i, L in max_bt if
                       (tar_i != NULL and tar_i > 0 and src_i > 0)])
         write_align.write(w + '\n')
     write_align.flush()
@@ -288,20 +316,21 @@ def write_alignments(theta, save_align):
     print 'wrote alignments to:', save_align
 
 
-def get_likelihood(theta, start_idx=None, end_idx=None):
+def get_likelihood(theta, display=True, start_idx=None, end_idx=None):
     global trellis
     reset_fractional_counts()
     data_likelihood = 0.0
-    st = 0 if start_idx == None else start_idx
-    end = len(trellis) if end_idx == None else end_idx
+    st = 0 if start_idx is None else start_idx
+    end = len(trellis) if end_idx is None else end_idx
     for idx, obs in enumerate(trellis[st:end]):
-        max_bt, max_p, alpha_pi = get_viterbi_and_forward(theta, obs)
-        S, beta_pi = get_backwards(theta, obs, alpha_pi)
+        max_bt, max_p, alpha_pi = get_viterbi_and_forward(theta, idx)
+        S, beta_pi = get_backwards(theta, idx, alpha_pi)
         data_likelihood += S
 
     reg = sum([t ** 2 for t in theta.values()])
     ll = data_likelihood - (0.5 * reg)
-    print 'log likelihood:', ll
+    if display:
+        print 'log likelihood:', ll
     return ll
 
 
@@ -345,8 +374,8 @@ def get_gradient(theta):
     return grad
 
 
-def populate_trellis_proper(source_corpus, target_corpus):
-    global trellis, max_jump_width
+def populate_trellis(source_corpus, target_corpus):
+    global trellis, max_jump_width, max_beam_width
     for s_sent, t_sent in zip(source_corpus, target_corpus):
         t_sent.insert(0, BOUNDARY_START)
         s_sent.insert(0, BOUNDARY_START)
@@ -357,26 +386,26 @@ def populate_trellis_proper(source_corpus, target_corpus):
         fwd_trellis = {}
         for t_idx, t_tok in enumerate(t_sent):
             if t_tok == BOUNDARY_START:
-                fwd_trellis[t_idx] = [(t_idx, BOUNDARY_START, 0, BOUNDARY_START, len(s_sent))]
+                fwd_trellis[t_idx] = [(t_idx, 0, len(s_sent))]
             elif t_tok == BOUNDARY_END:
-                fwd_trellis[t_idx] = [(t_idx, BOUNDARY_END, len(s_sent) - 1, BOUNDARY_END, len(s_sent))]
+                fwd_trellis[t_idx] = [(t_idx, len(s_sent) - 1, len(s_sent))]
             else:
                 max_prev = max([item[2] for item in fwd_trellis[t_idx - 1]])
                 r = range(1,
                           (max_prev + max_jump_width + 1) if (max_prev + max_jump_width + 1) <= len(s_sent) - 1 else (
                               len(s_sent) - 1))
-                s = [(t_idx, t_tok, s_idx, s_sent[s_idx], len(s_sent)) for s_idx in r]
+                s = [(t_idx, s_idx, len(s_sent)) for s_idx in r]
                 fwd_trellis[t_idx] = s
         back_trellis = {}
         for t_idx, t_tok in reversed(list(enumerate(t_sent))):
             if t_tok == BOUNDARY_START:
-                back_trellis[t_idx] = [(t_idx, BOUNDARY_START, t_idx, BOUNDARY_START, len(s_sent))]
+                back_trellis[t_idx] = [(t_idx, t_idx, len(s_sent))]
             elif t_tok == BOUNDARY_END:
-                back_trellis[t_idx] = [(t_idx, BOUNDARY_END, len(s_sent) - 1, BOUNDARY_END, len(s_sent))]
+                back_trellis[t_idx] = [(t_idx, len(s_sent) - 1, len(s_sent))]
             else:
                 min_prev = min([item[2] for item in back_trellis[t_idx + 1]])
                 r = range(min_prev - max_jump_width if min_prev - max_jump_width >= 1 else 1, len(s_sent) - 1)
-                s = [(t_idx, t_tok, s_idx, s_sent[s_idx], len(s_sent)) for s_idx in r]
+                s = [(t_idx, s_idx, len(s_sent)) for s_idx in r]
                 back_trellis[t_idx] = s
 
         merged_trellis = {}
@@ -391,32 +420,9 @@ def populate_trellis_proper(source_corpus, target_corpus):
             elif t_idx == len(t_sent) - 1:
                 pass
             else:
-                merged_trellis[t_idx] += [(t_idx, t_sent[t_idx], NULL, NULL, len(s_sent))]
+                merged_trellis[t_idx] += [(t_idx, NULL, len(s_sent))]
 
         trellis.append(merged_trellis)
-
-
-def populate_trellis(source_corpus, target_corpus):
-    global trellis, max_jump_width
-    for s_sent, t_sent in zip(source_corpus, target_corpus):
-        t_sent.insert(0, BOUNDARY_START)
-        s_sent.insert(0, BOUNDARY_START)
-        t_sent.append(BOUNDARY_END)
-        s_sent.append(BOUNDARY_END)
-        current_trellis = {}
-        for t_idx, t_tok in enumerate(t_sent):
-            if t_tok == BOUNDARY_START:
-                current_trellis[t_idx] = [(t_idx, BOUNDARY_START, t_idx, BOUNDARY_START, len(s_sent))]
-            elif t_tok == BOUNDARY_END:
-                current_trellis[t_idx] = [(t_idx, BOUNDARY_END, len(s_sent) - 1, BOUNDARY_END, len(s_sent))]
-            else:
-                start = t_idx - (max_jump_width) if t_idx - (max_jump_width) >= 0 else 0
-                end = t_idx + (max_jump_width) + 1
-                assert end - start <= 2 * max_jump_width + 1
-                current_trellis[t_idx] = [(t_idx, t_tok, s_idx + start, s_tok, len(s_sent)) for s_idx, s_tok in
-                                          enumerate(s_sent[start:end]) if
-                                          (s_tok != BOUNDARY_START and s_tok != BOUNDARY_END)]
-        trellis.append(current_trellis)
 
 
 def gradient_check_em():
@@ -463,6 +469,23 @@ def gradient_check_lbfgs():
         ' sign difference', utils.sign_difference(chk_grad, my_grad)
 
 
+def initialize_theta(input_weights, feature_indexes):
+    init_theta = dict((k, np.random.uniform(-1.0, 1.0)) for k in feature_indexes)
+    if input_weights is not None:
+        print 'reading initial weights...'
+        for l in open(options.input_weights, 'r').readlines():
+            l_key = tuple(l.split()[:-1])
+            if l_key in init_theta:
+                init_theta[l_key] = float(l.split()[-1:][0])
+                # print 'updated ', l_key
+            else:
+                # print 'ignored', l_key
+                pass
+    else:
+        print 'no initial weights given, random initial weights assigned...'
+    return init_theta
+
+
 if __name__ == "__main__":
     trellis = []
     possible_states = defaultdict(set)
@@ -471,6 +494,7 @@ if __name__ == "__main__":
 
     opt.add_option("-t", dest="target_corpus", default="data/small/en-toy")
     opt.add_option("-s", dest="source_corpus", default="data/small/fr-toy")
+    opt.add_option("--iw", dest="input_weights", default=None)
     opt.add_option("--ow", dest="output_weights", default="theta", help="extention of trained weights file")
     opt.add_option("--oa", dest="output_alignments", default="alignments", help="extension of alignments files")
     opt.add_option("--op", dest="output_probs", default="probs", help="extension of probabilities")
@@ -483,21 +507,18 @@ if __name__ == "__main__":
     model_type = options.model
     source = [s.strip().split() for s in open(options.source_corpus, 'r').readlines() if s.strip() != '']
     target = [s.strip().split() for s in open(options.target_corpus, 'r').readlines() if s.strip() != '']
-    populate_trellis_proper(source, target)
-    # populate_trellis(source, target)
+    populate_trellis(source, target)
     populate_features()
 
     snippet = "#" + str(opt.values) + "\n"
     print snippet
 
     if options.algorithm == "LBFGS":
-
         if options.test_gradient.lower() == "true":
             gradient_check_lbfgs()
         else:
             print 'skipping gradient check...'
-
-            init_theta = dict((k, np.random.uniform(-1.0, 1.0)) for k in feature_index)
+            init_theta = initialize_theta(options.input_weights, feature_index)
 
             F = DifferentiableFunction(get_likelihood, get_gradient)
             (fopt, theta, return_status) = F.maximize(init_theta)
@@ -507,13 +528,11 @@ if __name__ == "__main__":
             write_probs(theta, options.algorithm + '.' + model_type + '.' + options.output_probs)
 
     if options.algorithm == "EM":
-
         if options.test_gradient.lower() == "true":
             gradient_check_em()
         else:
             print 'skipping gradient check...'
-
-            init_theta = dict((k, np.random.uniform(-1.0, 1.0)) for k in feature_index)
+            init_theta = initialize_theta(options.input_weights, feature_index)
             new_e = get_likelihood(init_theta)
             old_e = float('-inf')
             converged = False
@@ -530,22 +549,26 @@ if __name__ == "__main__":
     if options.algorithm == "SGD":
         theta = dict((k, np.random.uniform(-1.0, 1.0)) for k in feature_index)
         get_likelihood(theta)
-        eta = 1.0
-        I = 1.0
-        step_size = 0.1
+        reset_fractional_counts()
+        eta0 = 0.1
+        I = 0.1
+        step_size = dict((k, 0.0) for k in feature_index)
+        ft = dict((k, 0.0) for k in feature_index)
         idxs = range(len(trellis))
         t = 0
-        for iter in xrange(500):
+        for iter in xrange(20):
             random.shuffle(idxs)
             for i in idxs:
                 t += 1
-                print idxs[i]
-                new_ll = get_likelihood(theta, start_idx=idxs[i], end_idx=idxs[i] + 1)
+
+                new_ll = get_likelihood(theta, display=False, start_idx=idxs[i], end_idx=idxs[i] + 1)
                 grad = get_gradient(theta)
                 for g in grad:
-                    theta[g] = theta[g] - (step_size * grad[g])
+                    ft[g] += grad[g] ** 2
+                    eta_for_g = eta0 / (I + ft[g])
+                    theta[g] += eta_for_g * grad[g]
 
-            print 'full ll', get_likelihood(theta)
+            print 'full ll', get_likelihood(theta, display=False)
 
 
 
