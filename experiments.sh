@@ -1,7 +1,7 @@
 #!/bin/sh
-(time python featurized_em_wa.py -a LBFGS -m model1 -s data/es20.50 -t data/en20.50) &> log1.txt
-(time python featurized_em_wa.py -a LBFGS -m model1 -s data/es20.100 -t data/en20.100) &> log2.txt
-(time python featurized_em_wa.py -a LBFGS -m model1 -s data/es20 -t data/en20) &> log3.txt
-(time python featurized_em_wa.py -a LBFGS -m hmm -s data/es20.50 -t data/en20.50) &> log4.txt
-(time python featurized_em_wa.py -a LBFGS -m hmm -s data/es20.100 -t data/en20.100) &> log5.txt
-(time python featurized_em_wa.py -a LBFGS -m hmm -s data/es20 -t data/en20) &> log6.txt
+(time python featurized_em_wa.py -a LBFGS -m model1 -s data/small/es20.50 -t data/small/en20.50) &> log.model1.50.txt
+(time python featurized_em_wa.py -a LBFGS -m model1 -s data/small/es20.100 -t data/small/en20.100) &> log.model1.100.txt
+(time python featurized_em_wa.py -a LBFGS -m model1 -s data/large/train.clean.tok.true.es -t data/large/train.clean.tok.true.en) &> log.model1.full.txt
+(time python featurized_em_wa.py -a LBFGS -m hmm -s data/small/es20.50 -t data/small/en20.50) &> log.hmm.50.txt
+(time python featurized_em_wa.py -a LBFGS -m hmm -s data/small/es20.100 -t data/small/en20.100) &> log.hmm.100.txt
+(time python featurized_em_wa.py -a LBFGS -m hmm -s data/large/train.clean.tok.true.es -t data/large/train.clean.tok.true.en) &> log.hmm.full.txt
