@@ -1,6 +1,7 @@
 __author__ = 'arenduchintala'
 from math import exp, log, pi, sqrt
 import copy
+import numpy as np
 
 
 def normpdf(x, mean, sd):
@@ -42,8 +43,11 @@ def logadd_of_list(a_list):
 
 
 def sign_difference(v1, v2):
+    assert len(v1) == len(v2)
+    assert isinstance(v1, np.ndarray)
+    assert isinstance(v2, np.ndarray)
     diff = 0.0
-    for k in v1:
+    for k in xrange(len(v1)):
         if v1[k] > 0 and v2[k] > 0:
             pass
         elif v1[k] < 0 and v2[k] < 0:
@@ -55,10 +59,12 @@ def sign_difference(v1, v2):
 
 def cosine_sim(v1, v2):
     assert len(v1) == len(v2)
+    assert isinstance(v1, np.ndarray)
+    assert isinstance(v2, np.ndarray)
     dot = 0.0
     v1_sq = 0.0
     v2_sq = 0.0
-    for i in v1:
+    for i in xrange(len(v1)):
         dot += v1[i] * v2[i]
         v1_sq += v1[i] ** 2.0
         v2_sq += v2[i] ** 2.0
@@ -70,8 +76,8 @@ def cosine_sim(v1, v2):
 
 
 def gradient_checking(theta, eps, val):
-    f_approx = {}
-    for i in theta:
+    f_approx = np.zeros(np.shape(theta))
+    for i, t in enumerate(theta):
         theta_plus = copy.deepcopy(theta)
         theta_minus = copy.deepcopy(theta)
         theta_plus[i] = theta[i] + eps

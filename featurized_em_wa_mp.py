@@ -2,10 +2,14 @@ __author__ = 'arenduchintala'
 
 from optparse import OptionParser
 from math import exp, log, sqrt
+from multiprocessing import Pool
+import multiprocessing
 from scipy.optimize import fmin_l_bfgs_b
 import numpy as np
 import FeatureEng as FE
 import utils
+from pprint import pprint
+from collections import defaultdict
 import random
 import copy
 
@@ -309,6 +313,21 @@ def write_alignments(theta, save_align):
     print 'wrote alignments to:', save_align
 
 
+def forward_backward(theta, idx):
+    max_bt, max_p, alpha_pi = get_viterbi_and_forward(theta, idx)
+    fc = {}
+    S, beta_pi, fc = get_backwards(theta, idx, alpha_pi, fc=fc)
+    return S, fc
+
+
+def accumilate_data_likelihood(result):
+    global data_likelihood, fractional_counts
+    data_likelihood += result[0]
+    fc = result[1]
+    for k in fc:
+        fractional_counts[k] = utils.logadd(fc[k], fractional_counts.get(k, float('-inf')))
+
+
 def get_likelihood(theta, display=True, start_idx=None, end_idx=None):
     assert isinstance(theta, np.ndarray)
     global trellis, data_likelihood
@@ -316,10 +335,11 @@ def get_likelihood(theta, display=True, start_idx=None, end_idx=None):
     data_likelihood = 0.0
     st = 0 if start_idx is None else start_idx
     end = len(trellis) if end_idx is None else end_idx
+    pool = Pool(processes=multiprocessing.cpu_count())  # uses all available CPUs
     for idx, obs in enumerate(trellis[st:end]):
-        max_bt, max_p, alpha_pi = get_viterbi_and_forward(theta, idx)
-        S, beta_pi = get_backwards(theta, idx, alpha_pi)
-        data_likelihood += S
+        pool.apply_async(forward_backward, args=(theta, idx), callback=accumilate_data_likelihood)
+    pool.close()
+    pool.join()
     reg = np.sum(theta ** 2)
     ll = data_likelihood - (0.5 * reg)
     if display:
@@ -339,19 +359,32 @@ def get_likelihood_with_expected_counts(theta):
     return sum_likelihood - (0.5 * reg)
 
 
+def event_mutliproc(event_j, theta):
+    (t, dj, cj) = event_j
+    a_dp_ct = exp(get_decision_given_context(theta, decision=dj, context=cj, type=t))
+    sum_feature_j = 0.0
+    norm_events = [(t, dp, cj) for dp in normalizing_decision_map[t, cj]]
+    for event_i in norm_events:
+        A_dct = exp(fractional_counts.get(event_i, 0.0))
+        fj = 1.0 if event_i == event_j else 0.0
+        sum_feature_j += A_dct * (fj - a_dp_ct)
+    return event_j, sum_feature_j  # - abs(theta[event_j])  # this is the regularizing term
+
+
+def accumilate_sum_feature_j(result):
+    global event_grad
+    (event_j, sum_feature_j) = result
+    event_grad[event_j] = sum_feature_j
+
+
 def get_gradient(theta):
     global fractional_counts, feature_index, event_grad
     event_grad = {}
+    pool = Pool(processes=multiprocessing.cpu_count())
     for event_j in fractional_counts.keys():
-        (t, dj, cj) = event_j
-        a_dp_ct = exp(get_decision_given_context(theta, decision=dj, context=cj, type=t))
-        sum_feature_j = 0.0
-        norm_events = [(t, dp, cj) for dp in normalizing_decision_map[t, cj]]
-        for event_i in norm_events:
-            A_dct = exp(fractional_counts.get(event_i, 0.0))
-            fj = 1.0 if event_i == event_j else 0.0
-            sum_feature_j += A_dct * (fj - a_dp_ct)
-        event_grad[event_j] = sum_feature_j  # - abs(theta[event_j])  # this is the regularizing term
+        pool.apply_async(event_mutliproc, args=(event_j, theta), callback=accumilate_sum_feature_j)
+    pool.close()
+    pool.join()
 
     grad = -theta  # l2 regularization with lambda 0.5
     for e in event_grad:
