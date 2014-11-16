@@ -1,7 +1,8 @@
 __author__ = 'arenduchintala'
 
 from optparse import OptionParser
-from math import exp, log, sqrt
+from math import exp, log
+import sys
 from multiprocessing import Pool
 import multiprocessing
 from scipy.optimize import fmin_l_bfgs_b
@@ -571,19 +572,16 @@ if __name__ == "__main__":
 
     if options.algorithm == "SGD":
         theta = initialize_theta(options.input_weights)
-        get_likelihood(theta)
-        reset_fractional_counts()
         eta0 = 0.5
         I = 1.0
         step_size = np.zeros(np.shape(theta))  # dict((k, 0.0) for k in feature_index)
         ft = np.zeros(np.shape(theta))  # dict((k, 0.0) for k in feature_index)
         idxs = range(len(trellis))
-        t = 0
-        for iter in xrange(5):
+        for iter in xrange(2):
             random.shuffle(idxs)
             for i in idxs:
-                t += 1
-
+                # sys.stdout.write('%d\r' % i)
+                # sys.stdout.flush()
                 new_ll = get_likelihood(theta, display=False, start_idx=idxs[i], end_idx=idxs[i] + 1)
                 grad = get_gradient(theta)
                 ft += grad ** 2
