@@ -85,9 +85,14 @@ We plan to apply our method to 3 tasks - word alignment , POS tagging and word s
 
 \section{Milestones}
 \subsection{Must achieve}
-Word Alignment for at least one language pair is something we intend to complete. This would include incorporating features that emulate IBM-Model1 word alignment and HMM word alignment \cite{vogel1996hmm} and the extend these to use more features that would go beyond HMM word alignment.
+As we have mentioned at the beginning of the proposal, we would like to implement a featurized version of baum-welch algorithm. We will incorporate the features that emulate IBM-Model1 word alignment and HMM word alignment and run word alignment test to prove that this implementation is correct. At this stage our implementation should give equivalent results compared to the baseline HMM word alignment model.
+
+% Word Alignment for at least one language pair is something we intend to complete. This would include incorporating features that emulate IBM-Model1 word alignment and HMM word alignment \cite{vogel1996hmm} and the extend these to use more features that would go beyond HMM word alignment.
+\subsection{Expected to achieve}
+We would like to make use of the property of featurized model and incorporate more features that go beyond HMM word alignment. In this way we are able to achieve results somewhat higher than the baseline.
+
 \subsection{Would like to achieve}
-Beyond what we expect to achieve we would like to explore the performance of this model on Chinese word segmentation and POS tagging.
+Beyond what we expect to achieve we would also like to explore the performance of this model on Chinese word segmentation and POS tagging.
 
 
 \section{Final Writeup}
