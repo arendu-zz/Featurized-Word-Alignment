@@ -41,14 +41,15 @@ for k, sentence_source in enumerate(corpus_source):
     corpus_source[k] = tokens_source
     corpus_target[k] = tokens_target
     for e in tokens_source:
-        n_e = initial_translation.get(e, set()) # making a set of all possible target tokens that appear with source
-        n_e.update(tokens_target) # adding all tokens of the target sentence a potential translations for source token 'e'
-        initial_translation[e] = n_e  #saving in a map
+        n_e = initial_translation.get(e, set())  # making a set of all possible target tokens that appear with source
+        n_e.update(
+            tokens_target)  # adding all tokens of the target sentence a potential translations for source token 'e'
+        initial_translation[e] = n_e  # saving in a map
 if method == 'uniform':
     for k, v in initial_translation.iteritems():  # walking through the map and setting initial translation probability uniformaly.
         for v_es in v:
             translations[v_es, k] = 1.0 / len(v)
-            #print 'initial t:'
+            # print 'initial t:'
             #pp(translations)
 else:
     """
@@ -62,10 +63,11 @@ else:
         sum_edr = sum(edr_k)
         for v_es, edr_es in zip(v, edr_k):
             translations[v_es, k] = edr_es / sum_edr
-
+TYPE = "EMISSION"
 writer = open(save, 'w')
-for k, v in translations.iteritems():
-    writer.write(str(' '.join(k)) + '\t' + str(v) + '\n')
+for k in sorted(translations):
+    v = translations[k]
+    writer.write(TYPE + '\t' + str('\t'.join(k)) + '\t' + str(v) + '\n')
 writer.flush()
 writer.close()
 
