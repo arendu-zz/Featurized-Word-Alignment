@@ -43,7 +43,7 @@
 
 \section{Abstract}
 % Clearly explain your idea.
-In this project we propose to implement a featurized version of baum-welch training of HMMs. Our implementation will closely follow \cite{berg2010painless}. The basic idea is to replace the probabilities in an HMM model with probabilities estimated using a log linear modeling technique. We would like to apply this model to the following common NLP tasks - Word Alignment, POS tagging and Word Segmentation.
+In this project we propose to implement a featurized version of baum-welch training of HMMs. Our implementation will closely follow \cite{berg2010painless}. The basic idea is to replace the probabilities in an HMM model with probabilities estimated using a log linear modeling technique. We have 3 sets of goals that we would like to accomplish. First is to created a baseline featureized model for word alignment. Secondly we would like to experiment with ways to speed up the learning process for example using Stochastic Gradient Descent or optimization using mini-batch. Finally we would like to apply our model to other common NLP tasks such as POS tagging and Word Segmentation.
 
 \section{Methods}
 In this section we will discuss how the training of such a model will work. \\
@@ -85,14 +85,14 @@ We plan to apply our method to 3 tasks - word alignment , POS tagging and word s
 
 \section{Milestones}
 \subsection{Must achieve}
-As we have mentioned at the beginning of the proposal, we would like to implement a featurized version of baum-welch algorithm. We will incorporate the features that emulate IBM-Model1 word alignment and HMM word alignment and run word alignment test to prove that this implementation is correct. At this stage our implementation should give equivalent results compared to the baseline HMM word alignment model.
+As we have mentioned at the beginning of the proposal, we would like to implement a featurized version of baum-welch algorithm. We will incorporate the features that emulate IBM-Model1 word alignment and HMM word alignment and run word alignment test to prove that this implementation is correct. At this stage our implementation should give equivalent results compared to the baseline HMM word alignment model. This is our first goal. We would also like to experiment with SGD and mini-batch gradient descent for learning our parameters. These methods would provide us a way to scale to larger datasets, which is our second goal.
 
 % Word Alignment for at least one language pair is something we intend to complete. This would include incorporating features that emulate IBM-Model1 word alignment and HMM word alignment \cite{vogel1996hmm} and the extend these to use more features that would go beyond HMM word alignment.
 \subsection{Expected to achieve}
 We would like to make use of the property of featurized model and incorporate more features that go beyond HMM word alignment. In this way we are able to achieve results somewhat higher than the baseline.
 
 \subsection{Would like to achieve}
-Beyond what we expect to achieve we would also like to explore the performance of this model on Chinese word segmentation and POS tagging.
+Finally our third goal is to go beyond just the word alignment task. We would also like to explore the performance of this model on Chinese word segmentation and POS tagging.
 
 
 \section{Final Writeup}
