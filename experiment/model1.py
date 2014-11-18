@@ -71,7 +71,7 @@ if __name__ == "__main__":
     #corpus_target = corpus_target[:100]
 
     for line in init_translation:
-        [t, s, p] = line.split()
+        [typ, t, s, p] = line.split()
         translations[t, s] = float(p)
 
     """
