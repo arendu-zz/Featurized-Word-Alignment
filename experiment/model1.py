@@ -23,6 +23,7 @@ for debugging purposes
 https://class.coursera.org/nlangp-001/forum/thread?thread_id=940#post-4052
 """
 import numpy as np
+from math import log
 import sys
 
 
@@ -67,12 +68,15 @@ if __name__ == "__main__":
     corpus_source = open(source, 'r').readlines()
     corpus_target = open(target, 'r').readlines()
     init_translation = open(init_translation, 'r').readlines()
-    #corpus_source = corpus_source[:100]
-    #corpus_target = corpus_target[:100]
+    # corpus_source = corpus_source[:100]
+    # corpus_target = corpus_target[:100]
 
     for line in init_translation:
-        [t, s, p] = line.split()
-        translations[t, s] = float(p)
+        if line[0] is '#':
+            pass  # it is a comment
+        else:
+            [emission, t, s, p] = line.split()
+            translations[t, s] = np.exp(float(p))
 
     """
     EM iterations
@@ -80,8 +84,9 @@ if __name__ == "__main__":
     for iter in range(5):
         counts = dict.fromkeys(counts.iterkeys(), 0.0)
         for k, source_sentence in enumerate(corpus_source):
-            #print iter, k, len(delta), len(translations)
-            sys.stdout.write('iteration: %d sentence %d len delta %d len translations %d\r' % (iter, k, len(delta), len(translations)))
+            # print iter, k, len(delta), len(translations)
+            sys.stdout.write('iteration: %d sentence %d len delta %d len translations %d\r' % (
+                iter, k, len(delta), len(translations)))
             sys.stdout.flush()
             target_sentence = corpus_target[k]
             source_tokens = source_sentence.split()
@@ -97,7 +102,8 @@ if __name__ == "__main__":
             for j in range(0, len(source_tokens)):
                 for i in range(0, len(target_tokens)):
                     delta[k, i, j] = t_mat[i][j] / t_sum[i]
-                    counts[target_tokens[i], source_tokens[j]] = counts.get((target_tokens[i], source_tokens[j]), 0.0) + delta[k, i, j]
+                    counts[target_tokens[i], source_tokens[j]] = counts.get((target_tokens[i], source_tokens[j]), 0.0) + \
+                                                                 delta[k, i, j]
                     counts[source_tokens[j]] = counts.get(source_tokens[j], 0.0) + delta[k, i, j]
                     #print tokens_es[i], tokens_en[j], counts[tokens_es[i], tokens_en[j]]
                     #print tokens_en[j], counts[tokens_en[j]]
@@ -125,14 +131,15 @@ if __name__ == "__main__":
         display_best_alignment(829, corpus_en[829], corpus_es[829])
         display_best_alignment(2204, corpus_en[2204], corpus_es[2204])
         display_best_alignment(4942, corpus_en[4942], corpus_es[4942])"""
+    TYPE="EMISSION"
     writer = open(save_trans, 'w')
     for k in sorted(translations):
-	v = np.log(translations[k])
-        writer.write(str(' '.join(k)) + '\t' + str(v) + '\n')
+        v = np.log(translations[k])
+        writer.write(TYPE+'\t' + str('\t'.join(k)) + '\t' + str(v) + '\n')
     writer.flush()
     writer.close()
-    writer = open(ali_out, 'w')
 
+    writer = open(ali_out, 'w')
     test_source = open(ali_source, 'r').readlines()
     test_target = open(ali_target, 'r').readlines()
     for dk in range(len(test_source)):
@@ -150,4 +157,24 @@ if __name__ == "__main__":
                 writer.write(str(dk + 1) + ' ' + str(max_j) + ' ' + str(i + 1) + '\n')
     writer.flush()
     writer.close()
+
+    writer = open(ali_out+'.token', 'w')
+    test_source = open(ali_source, 'r').readlines()
+    test_target = open(ali_target, 'r').readlines()
+    for dk in range(len(test_source)):
+        source_tokens = test_source[dk].split()
+        source_tokens.insert(0, 'NULL')
+        target_tokens = test_target[dk].split()
+        for i, token_target in enumerate(target_tokens):
+            max_p = 0.0
+            max_j = 0.0
+            for j, token_source in enumerate(source_tokens):
+                if translations[token_target, token_source] > max_p:
+                    max_p = translations[token_target, token_source]
+                    max_j = j
+            if max_j > 0:
+                writer.write(str(dk + 1) + ' ' + str(source_tokens[max_j]) + ' ' + str(target_tokens[i]) + '\n')
+    writer.flush()
+    writer.close()
+
 
