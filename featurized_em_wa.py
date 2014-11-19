@@ -63,8 +63,6 @@ def populate_features():
                     s_tok = NULL
                 else:
                     s_tok = source[treli_idx][s_idx]
-                assert t_tok == t_tok
-                assert s_tok == s_tok
                 """
                 emission features
                 """
@@ -89,8 +87,6 @@ def populate_features():
 
                         prev_t_tok = target[treli_idx][prev_t_idx]
                         prev_s_tok = source[treli_idx][prev_s_idx] if prev_s_idx is not NULL else NULL
-                        assert prev_t_tok == prev_t_tok
-                        assert prev_s_tok == prev_s_tok
                         # an arc in an hmm can have the following information:
                         # prev_s_idx, prev_s_tok, s_idx, s_tok, t_idx, t_tok
                         prev_s = (prev_s_idx, prev_s_tok)
@@ -142,7 +138,7 @@ def get_decision_given_context(theta, type, decision, context):
         # print log_prob, type, decision, context
         # pdb.set_trace()
         log_prob = 0.0
-        # raise Exception
+        raise Exception
     return log_prob
 
 
@@ -560,8 +556,8 @@ if __name__ == "__main__":
     (options, _) = opt.parse_args()
 
     model_type = options.model
-    source = [s.strip().split() for s in open(options.source_corpus, 'r').readlines() if s.strip() != '']
-    target = [s.strip().split() for s in open(options.target_corpus, 'r').readlines() if s.strip() != '']
+    source = [s.strip().split() for s in open(options.source_corpus, 'r').readlines()]
+    target = [s.strip().split() for s in open(options.target_corpus, 'r').readlines()]
     trellis = populate_trellis_new(source, target)
     # populate_trellis_bk(source, target)
     populate_features()

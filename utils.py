@@ -84,3 +84,11 @@ def gradient_checking(theta, eps, val):
         theta_minus[i] = theta[i] - eps
         f_approx[i] = (val(theta_plus) - val(theta_minus)) / (2 * eps)
     return f_approx
+
+
+if __name__ == '__main__':
+    v1 = np.array([float(l.split()[-1]) for l in open('v1', 'r').readlines() if l[0] != '#'])
+    v2 = np.array([float(l.split()[-1]) for l in open('v2', 'r').readlines() if l[0] != '#'])
+    print 'difference v1-v2'
+    print 'cosine sim', cosine_sim(v1, v2)
+    print 'sign diff ', sign_difference(v1, v2)
