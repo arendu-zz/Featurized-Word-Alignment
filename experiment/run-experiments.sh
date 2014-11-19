@@ -1,21 +1,19 @@
-SOURCE="toy.en"
-TARGET="toy.fr"
-KEY="toy.key"
+SOURCE="data/dev.small.en"
+TARGET="data/dev.small.es"
+KEY="data/dev.small.key"
 MODEL="model1"
 
-python ../convert_align.py $KEY toy.out.key
 python initial_translation.py  -s $SOURCE -t $TARGET  -o initial.trans -m uniform
-python convert_trans.py initial.trans
+python ../convert_trans.py initial.trans
 
 python ../featurized_em_wa.py -s $SOURCE -t $TARGET -a 'LBFGS' -m $MODEL --iw initial.trans.out
-python ../convert_align.py LBFGS.$MODEL.alignments
 echo ""
 echo "*********LBFGS********"
 echo ""
-python eval_alignment.py toy.out.key LBFGS.$MODEL.alignments.out
+python eval_alignment.py $KEY LBFGS.$MODEL.alignments.col
 
 python model1.py -s $SOURCE -t $TARGET -i initial.trans -p model1.probs -a model1.alignments -as $SOURCE -at $TARGET
 echo ""
 echo "********Baseline********"
 echo ""
-python eval_alignment.py toy.out.key model1.alignments
+python eval_alignment.py $KEY model1.alignments

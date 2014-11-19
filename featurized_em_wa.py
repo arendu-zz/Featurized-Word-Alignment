@@ -126,18 +126,17 @@ def get_decision_given_context(theta, type, decision, context):
         theta_dot_normalizing_features = cache_normalizing_decision[type, context]
     else:
         normalizing_decisions = normalizing_decision_map[type, context]
-        theta_dot_normalizing_features = float('-inf')
+        theta_dot_normalizing_features = 0
         for d in normalizing_decisions:
             d_features = FE.get_wa_features_fired(type=type, context=context, decision=d)
-            theta_dot_normalizing_features = utils.logadd(theta_dot_normalizing_features,
-                                                          sum([theta[feature_index[f]] for f in d_features]))
+            theta_dot_normalizing_features += exp(sum([theta[feature_index[f]] for f in d_features]))
 
+	theta_dot_normalizing_features = log(theta_dot_normalizing_features)
         cache_normalizing_decision[type, context] = theta_dot_normalizing_features
     log_prob = round(theta_dot_features - theta_dot_normalizing_features, 10)
     if log_prob > 0.0:
-        # print log_prob, type, decision, context
-        # pdb.set_trace()
-        log_prob = 0.0
+        print "log_prob = ", log_prob, type, decision, context
+        pdb.set_trace()
         raise Exception
     return log_prob
 
@@ -299,12 +298,12 @@ def write_alignments_col_tok(theta, save_align):
     save_align += '.col.tokens'
     global trellis, feature_index, source, target
     write_align = open(save_align, 'w')
-    write_align.write(snippet)
+    # write_align.write(snippet)
     for idx, obs in enumerate(trellis[:]):
         max_bt, max_p, alpha_pi = get_viterbi_and_forward(theta, idx)
-        for src_i, tar_i in max_bt:
-            # if tar_i != NULL and tar_i > 0 and src_i > 0:
-            write_align.write(str(idx + 1) + ' ' + source[idx][src_i] + ' ' + target[idx][tar_i] + '\n')
+        for tar_i, src_i in max_bt:
+            if src_i != NULL and src_i > 0 and tar_i > 0:
+                write_align.write(str(idx + 1) + ' ' + source[idx][src_i] + ' ' + target[idx][tar_i] + '\n')
     write_align.flush()
     write_align.close()
     print 'wrote alignments to:', save_align
@@ -314,12 +313,12 @@ def write_alignments_col(theta, save_align):
     save_align += '.col'
     global trellis, feature_index
     write_align = open(save_align, 'w')
-    write_align.write(snippet)
+    # write_align.write(snippet)
     for idx, obs in enumerate(trellis[:]):
         max_bt, max_p, alpha_pi = get_viterbi_and_forward(theta, idx)
-        for src_i, tar_i in max_bt:
-            # if tar_i != NULL and tar_i > 0 and src_i > 0:
-            write_align.write(str(idx + 1) + ' ' + str(src_i) + ' ' + str(tar_i) + '\n')
+        for tar_i, src_i in max_bt:
+            if src_i != NULL and tar_i > 0 and src_i > 0:
+                write_align.write(str(idx + 1) + ' ' + str(src_i) + ' ' + str(tar_i) + '\n')
     write_align.flush()
     write_align.close()
     print 'wrote alignments to:', save_align
@@ -328,10 +327,10 @@ def write_alignments_col(theta, save_align):
 def write_alignments(theta, save_align):
     global trellis, feature_index
     write_align = open(save_align, 'w')
-    write_align.write(snippet)
+    # write_align.write(snippet)
     for idx, obs in enumerate(trellis[:]):
         max_bt, max_p, alpha_pi = get_viterbi_and_forward(theta, idx)
-        w = ' '.join([str(src_i) + '-' + str(tar_i) for src_i, tar_i in max_bt])
+        w = ' '.join([str(src_i) + '-' + str(tar_i) for tar_i, src_i in max_bt if src_i != NULL and tar_i > 0 and src_i > 0])
         write_align.write(w + '\n')
     write_align.flush()
     write_align.close()
@@ -573,6 +572,7 @@ if __name__ == "__main__":
             init_theta = initialize_theta(options.input_weights)
             t1 = minimize(get_likelihood, init_theta, method='L-BFGS-B', jac=get_gradient, tol=1e-5,
                           options={'maxfun': 15})
+            reset_fractional_counts()
             theta = t1.x
             write_alignments(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
             write_alignments_col(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
