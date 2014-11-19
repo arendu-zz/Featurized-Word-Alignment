@@ -4,9 +4,8 @@ KEY="data/dev.key"
 MODEL="model1"
 
 python initial_translation.py  -s $SOURCE -t $TARGET  -o initial.trans -m uniform
-python ../convert_trans.py initial.trans
 
-python ../featurized_em_wa.py -s $SOURCE -t $TARGET -a 'LBFGS' -m $MODEL --iw initial.trans.out
+python ../featurized_em_wa.py -s $SOURCE -t $TARGET -a 'LBFGS' -m $MODEL --iw initial.trans.log
 echo ""
 echo "*********LBFGS********"
 echo ""

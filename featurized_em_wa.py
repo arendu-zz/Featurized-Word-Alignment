@@ -15,12 +15,13 @@ from pprint import pprint
 
 global BOUNDARY_START, END_STATE, SPLIT, E_TYPE, T_TYPE, IBM_MODEL_1, HMM_MODEL
 global cache_normalizing_decision, features_to_events, events_to_features, normalizing_decision_map
-global trellis, max_jump_width, model_type, number_of_events, EPS, snippet, max_beam_width
+global trellis, max_jump_width, model_type, number_of_events, EPS, snippet, max_beam_width, rc
 global source, target, data_likelihood, event_grad
 event_grad = {}
 data_likelihood = 0.0
 snippet = ''
 EPS = 1e-8
+rc = 0.25
 IBM_MODEL_1 = "model1"
 HMM_MODEL = "hmm"
 max_jump_width = 10
@@ -344,7 +345,7 @@ def write_alignments(theta, save_align):
 def get_likelihood(theta, batch=None, display=True):
     assert isinstance(theta, np.ndarray)
     assert len(theta) == len(feature_index)
-    global trellis, data_likelihood
+    global trellis, data_likelihood, rc
     reset_fractional_counts()
     data_likelihood = 0.0
 
@@ -355,8 +356,8 @@ def get_likelihood(theta, batch=None, display=True):
         max_bt, max_p, alpha_pi = get_viterbi_and_forward(theta, idx)
         S, beta_pi = get_backwards(theta, idx, alpha_pi)
         data_likelihood += S
-    # reg = np.sum(theta ** 2)
-    ll = data_likelihood  # - (0.5 * reg)
+    reg = np.sum(theta ** 2)
+    ll = data_likelihood - (rc * reg)
     if display:
         print 'log likelihood:', ll
     return -ll
@@ -377,7 +378,7 @@ def get_likelihood_with_expected_counts(theta, batch=None, display=False):
 
 
 def get_gradient(theta, batch=None, display=True):
-    global fractional_counts, feature_index, event_grad
+    global fractional_counts, feature_index, event_grad, rc
     assert len(theta) == len(feature_index)
     event_grad = {}
     for event_j in fractional_counts.keys():
@@ -391,8 +392,8 @@ def get_gradient(theta, batch=None, display=True):
             sum_feature_j += A_dct * (fj - a_dp_ct)
         event_grad[event_j] = sum_feature_j  # - abs(theta[event_j])  # this is the regularizing term
 
-    grad = np.zeros_like(theta)
-    # grad = -theta  # l2 regularization with lambda 0.5
+    # grad = np.zeros_like(theta)
+    grad = -2 * rc * theta  # l2 regularization with lambda 0.5
     for e in event_grad:
         feats = events_to_features[e]
         for f in feats:
@@ -401,6 +402,7 @@ def get_gradient(theta, batch=None, display=True):
     # for s in seen_index:
     # grad[s] += -theta[s]  # l2 regularization with lambda 0.5
     assert len(grad) == len(feature_index)
+    reset_fractional_counts()
     return -grad
 
 
@@ -578,7 +580,7 @@ if __name__ == "__main__":
             init_theta = initialize_theta(options.input_weights)
             t1 = minimize(get_likelihood, init_theta, method='L-BFGS-B', jac=get_gradient, tol=1e-5,
                           options={'maxfun': 15})
-            reset_fractional_counts()
+            # reset_fractional_counts()
             theta = t1.x
             write_alignments(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
             write_alignments_col(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)

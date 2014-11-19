@@ -9,6 +9,7 @@ Model1 can load this saved file are begin doing iterations
 
 """
 import sys
+from math import log
 import editdistance as ed
 
 
@@ -67,6 +68,13 @@ TYPE = "EMISSION"
 writer = open(save, 'w')
 for k in sorted(translations):
     v = translations[k]
+    writer.write(TYPE + '\t' + str('\t'.join(k)) + '\t' + str(v) + '\n')
+writer.flush()
+writer.close()
+
+writer = open(save + ".log", 'w')
+for k in sorted(translations):
+    v = log(translations[k])
     writer.write(TYPE + '\t' + str('\t'.join(k)) + '\t' + str(v) + '\n')
 writer.flush()
 writer.close()
