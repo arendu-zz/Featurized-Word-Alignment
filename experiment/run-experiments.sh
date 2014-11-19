@@ -1,6 +1,6 @@
-SOURCE="data/dev.small.en"
-TARGET="data/dev.small.es"
-KEY="data/dev.small.key"
+SOURCE="data/dev.en"
+TARGET="data/dev.es"
+KEY="data/dev.key"
 MODEL="model1"
 
 python initial_translation.py  -s $SOURCE -t $TARGET  -o initial.trans -m uniform
