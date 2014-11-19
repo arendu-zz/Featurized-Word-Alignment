@@ -20,7 +20,7 @@ global source, target, data_likelihood, event_grad
 event_grad = {}
 data_likelihood = 0.0
 snippet = ''
-EPS = 1e-8
+EPS = 1e-5
 rc = 0.25
 IBM_MODEL_1 = "model1"
 HMM_MODEL = "hmm"
@@ -141,7 +141,7 @@ def get_decision_given_context(theta, type, decision, context):
         if options.algorithm == 'LBFGS':
             raise Exception
         else:
-            log_prob = 0.0
+            log_prob = 0.0  # TODO figure out why in the EM algorithm this error happens?
     return log_prob
 
 
@@ -371,10 +371,11 @@ def get_likelihood_with_expected_counts(theta, batch=None, display=False):
         A_dct = exp(fractional_counts[event])
         a_dct = get_decision_given_context(theta=theta, type=t, decision=d, context=c)
         sum_likelihood += A_dct * a_dct
-    # reg = np.sum(theta ** 2)
+    reg = np.sum(theta ** 2)
+    sum_likelihood -= (rc * reg)
     if display:
         print '\tec log likelihood:', sum_likelihood
-    return -sum_likelihood  # - (0.5 * reg)
+    return -sum_likelihood
 
 
 def get_gradient(theta, batch=None, display=True):
@@ -495,7 +496,7 @@ def gradient_check_em():
         val_minus = get_likelihood_with_expected_counts(theta_minus)
         f_approx[f] = (val_plus - val_minus) / (2 * EPS)
 
-    my_grad = -get_gradient(init_theta)
+    my_grad = get_gradient(init_theta)
     diff = []
     for k in sorted(f_approx):
         diff.append(abs(my_grad[feature_index[k]] - f_approx[k]))
@@ -516,11 +517,12 @@ def gradient_check_lbfgs():
     chk_grad = utils.gradient_checking(init_theta, EPS, get_likelihood)
     my_grad = get_gradient(init_theta)
     diff = []
-    for k in xrange(len(chk_grad)):
+    for f in sorted(feature_index):  # xrange(len(chk_grad)):
+        k = feature_index[f]
         diff.append(abs(my_grad[k] - chk_grad[k]))
         print str(round(my_grad[k] - chk_grad[k], 5)).center(10), str(
             round(my_grad[k], 5)).center(10), \
-            str(round(chk_grad[k], 5)).center(10), k
+            str(round(chk_grad[k], 5)).center(10), f
 
     print 'component difference:', round(sum(diff), 3), \
         'cosine similarity:', utils.cosine_sim(chk_grad, my_grad), \
@@ -557,11 +559,12 @@ if __name__ == "__main__":
     opt.add_option("--oa", dest="output_alignments", default="alignments", help="extension of alignments files")
     opt.add_option("--op", dest="output_probs", default="probs", help="extension of probabilities")
     opt.add_option("-g", dest="test_gradient", default="false")
+    opt.add_option("-r", dest="regularization_coeff", default="0.25")
     opt.add_option("-a", dest="algorithm", default="LBFGS",
                    help="use 'EM' 'LBFGS' 'SGD'")
     opt.add_option("-m", dest="model", default=IBM_MODEL_1, help="'model1' or 'hmm'")
     (options, _) = opt.parse_args()
-
+    rc = float(options.regularization_coeff)
     model_type = options.model
     source = [s.strip().split() for s in open(options.source_corpus, 'r').readlines()]
     target = [s.strip().split() for s in open(options.target_corpus, 'r').readlines()]
