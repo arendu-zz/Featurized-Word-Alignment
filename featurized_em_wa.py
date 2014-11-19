@@ -131,13 +131,16 @@ def get_decision_given_context(theta, type, decision, context):
             d_features = FE.get_wa_features_fired(type=type, context=context, decision=d)
             theta_dot_normalizing_features += exp(sum([theta[feature_index[f]] for f in d_features]))
 
-	theta_dot_normalizing_features = log(theta_dot_normalizing_features)
+        theta_dot_normalizing_features = log(theta_dot_normalizing_features)
         cache_normalizing_decision[type, context] = theta_dot_normalizing_features
     log_prob = round(theta_dot_features - theta_dot_normalizing_features, 10)
     if log_prob > 0.0:
         print "log_prob = ", log_prob, type, decision, context
-        pdb.set_trace()
-        raise Exception
+        # pdb.set_trace()
+        if options.algorithm == 'LBFGS':
+            raise Exception
+        else:
+            log_prob = 0.0
     return log_prob
 
 
@@ -330,7 +333,8 @@ def write_alignments(theta, save_align):
     # write_align.write(snippet)
     for idx, obs in enumerate(trellis[:]):
         max_bt, max_p, alpha_pi = get_viterbi_and_forward(theta, idx)
-        w = ' '.join([str(src_i) + '-' + str(tar_i) for tar_i, src_i in max_bt if src_i != NULL and tar_i > 0 and src_i > 0])
+        w = ' '.join(
+            [str(src_i) + '-' + str(tar_i) for tar_i, src_i in max_bt if src_i != NULL and tar_i > 0 and src_i > 0])
         write_align.write(w + '\n')
     write_align.flush()
     write_align.close()
@@ -358,7 +362,7 @@ def get_likelihood(theta, batch=None, display=True):
     return -ll
 
 
-def get_likelihood_with_expected_counts(theta):
+def get_likelihood_with_expected_counts(theta, batch=None, display=False):
     global fractional_counts
     sum_likelihood = 0.0
     for event in fractional_counts:
@@ -366,8 +370,10 @@ def get_likelihood_with_expected_counts(theta):
         A_dct = exp(fractional_counts[event])
         a_dct = get_decision_given_context(theta=theta, type=t, decision=d, context=c)
         sum_likelihood += A_dct * a_dct
-    reg = np.sum(theta ** 2)
-    return sum_likelihood - (0.5 * reg)
+    # reg = np.sum(theta ** 2)
+    if display:
+        print '\tec log likelihood:', sum_likelihood
+    return -sum_likelihood  # - (0.5 * reg)
 
 
 def get_gradient(theta, batch=None, display=True):
@@ -542,8 +548,8 @@ if __name__ == "__main__":
 
     opt = OptionParser()
 
-    opt.add_option("-t", dest="target_corpus", default="experiment/data/toy1.fr")
-    opt.add_option("-s", dest="source_corpus", default="experiment/data/toy1.en")
+    opt.add_option("-t", dest="target_corpus", default="experiment/data/toy.fr")
+    opt.add_option("-s", dest="source_corpus", default="experiment/data/toy.en")
     opt.add_option("--iw", dest="input_weights", default=None)
     opt.add_option("--ow", dest="output_weights", default="theta", help="extention of trained weights file")
     opt.add_option("--oa", dest="output_alignments", default="alignments", help="extension of alignments files")
@@ -586,18 +592,22 @@ if __name__ == "__main__":
             gradient_check_em()
         else:
             print 'skipping gradient check...'
-            init_theta = initialize_theta(options.input_weights)
-            new_e = get_likelihood(init_theta)
+            theta = initialize_theta(options.input_weights)
+            new_e = get_likelihood(theta)
+            exp_new_e = get_likelihood_with_expected_counts(theta)
             old_e = float('-inf')
             converged = False
             while not converged:
-                t1 = minimize(get_likelihood, init_theta, method='L-BFGS-B', jac=get_gradient, tol=1e-5,
-                              options={'maxfun': 5})
+                t1 = minimize(get_likelihood_with_expected_counts, theta, method='L-BFGS-B', jac=get_gradient, tol=1e-3,
+                              options={'maxfun': 15})
                 theta = t1.x
                 new_e = get_likelihood(theta)  # this will also update expected counts
                 converged = round(abs(old_e - new_e), 2) == 0.0
                 old_e = new_e
             write_alignments(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
+            write_alignments_col(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
+            write_alignments_col_tok(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
+
             write_weights(theta, options.algorithm + '.' + model_type + '.' + options.output_weights)
             write_probs(theta, options.algorithm + '.' + model_type + '.' + options.output_probs)
 
