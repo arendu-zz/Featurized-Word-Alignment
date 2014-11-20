@@ -403,7 +403,6 @@ def get_gradient(theta, batch=None, display=True):
     # for s in seen_index:
     # grad[s] += -theta[s]  # l2 regularization with lambda 0.5
     assert len(grad) == len(feature_index)
-    reset_fractional_counts()
     return -grad
 
 
@@ -508,7 +507,7 @@ if __name__ == "__main__":
     opt.add_option("--oa", dest="output_alignments", default="alignments", help="extension of alignments files")
     opt.add_option("--op", dest="output_probs", default="probs", help="extension of probabilities")
     opt.add_option("-g", dest="test_gradient", default="false")
-    opt.add_option("-r", dest="regularization_coeff", default="0.25")
+    opt.add_option("-r", dest="regularization_coeff", default="0.0")
     opt.add_option("-a", dest="algorithm", default="LBFGS",
                    help="use 'EM' 'LBFGS' 'SGD'")
     opt.add_option("-m", dest="model", default=IBM_MODEL_1, help="'model1' or 'hmm'")
@@ -530,9 +529,9 @@ if __name__ == "__main__":
         else:
             print 'skipping gradient check...'
             init_theta = initialize_theta(options.input_weights)
-            t1 = minimize(get_likelihood, init_theta, method='L-BFGS-B', jac=get_gradient, tol=1e-5,
-                          options={'maxfun': 15})
-            # reset_fractional_counts()
+            t1 = minimize(get_likelihood, init_theta, method='L-BFGS-B', jac=get_gradient, tol=1e-3,
+                          options={'maxfun': 150})
+
             theta = t1.x
             write_alignments(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
             write_alignments_col(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
@@ -552,8 +551,8 @@ if __name__ == "__main__":
             old_e = float('-inf')
             converged = False
             while not converged:
-                t1 = minimize(get_likelihood_with_expected_counts, theta, method='L-BFGS-B', jac=get_gradient, tol=1e-3,
-                              options={'maxfun': 15})
+                t1 = minimize(get_likelihood_with_expected_counts, theta, method='L-BFGS-B', jac=get_gradient, tol=1e-2,
+                              options={'maxfun': 150})
                 theta = t1.x
                 new_e = get_likelihood(theta)  # this will also update expected counts
                 converged = round(abs(old_e - new_e), 2) == 0.0

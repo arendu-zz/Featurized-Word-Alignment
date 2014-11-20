@@ -1,11 +1,11 @@
-SOURCE="data/dev.en"
-TARGET="data/dev.es"
-KEY="data/dev.key"
+SOURCE="data/dev.small.en"
+TARGET="data/dev.small.es"
+KEY="data/dev.small.key"
 MODEL="model1"
 
 python initial_translation.py  -s $SOURCE -t $TARGET  -o initial.trans -m uniform
 
-python ../featurized_em_wa.py -s $SOURCE -t $TARGET -a 'LBFGS' -m $MODEL --iw initial.trans.log
+time python ../featurized_em_wa_mp.py -s $SOURCE -t $TARGET -a 'LBFGS' -m $MODEL --iw initial.trans.log
 echo ""
 echo "*********LBFGS********"
 echo ""

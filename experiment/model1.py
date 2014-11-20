@@ -131,6 +131,7 @@ if __name__ == "__main__":
         display_best_alignment(829, corpus_en[829], corpus_es[829])
         display_best_alignment(2204, corpus_en[2204], corpus_es[2204])
         display_best_alignment(4942, corpus_en[4942], corpus_es[4942])"""
+
     TYPE="EMISSION"
     writer = open(save_trans, 'w')
     for k in sorted(translations):
