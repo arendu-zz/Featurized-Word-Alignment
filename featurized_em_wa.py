@@ -382,7 +382,7 @@ def get_gradient(theta, batch=None, display=True):
     global fractional_counts, feature_index, event_grad, rc
     assert len(theta) == len(feature_index)
     event_grad = {}
-    for event_j in fractional_counts.keys():
+    for event_j in fractional_counts:
         (t, dj, cj) = event_j
         a_dp_ct = exp(get_decision_given_context(theta, decision=dj, context=cj, type=t))
         sum_feature_j = 0.0
@@ -407,7 +407,7 @@ def get_gradient(theta, batch=None, display=True):
     return -grad
 
 
-def populate_trellis_new(source_corpus, target_corpus):
+def populate_trellis(source_corpus, target_corpus):
     global max_jump_width, max_beam_width
     new_trellis = []
     for s_sent, t_sent in zip(source_corpus, target_corpus):
@@ -428,57 +428,6 @@ def populate_trellis_new(source_corpus, target_corpus):
             trelli[t_idx] = state_options
         new_trellis.append(trelli)
     return new_trellis
-
-
-def populate_trellis_bk(source_corpus, target_corpus):
-    global trellis, max_jump_width, max_beam_width
-    for s_sent_original, t_sent_original in zip(source_corpus, target_corpus):
-        t_sent = [BOUNDARY_START] + [t for t in t_sent_original]
-        s_sent = [BOUNDARY_START] + [s for s in s_sent_original]
-
-        t_sent = [t for t in t_sent] + [BOUNDARY_END]
-        s_sent = [s for s in s_sent] + [BOUNDARY_END]
-        L = len(s_sent)
-        fwd_trellis = {}
-        for t_idx, t_tok in enumerate(t_sent):
-            if t_tok == BOUNDARY_START:
-                fwd_trellis[t_idx] = [(t_idx, 0)]
-            elif t_tok == BOUNDARY_END:
-                fwd_trellis[t_idx] = [(t_idx, L)]
-            else:
-                max_prev = max([item[1] for item in fwd_trellis[t_idx - 1]])
-                r = range(1,
-                          (max_prev + max_jump_width + 1) if (max_prev + max_jump_width + 1) <= L else (
-                              L))
-                s = [(t_idx, s_idx) for s_idx in r]
-                fwd_trellis[t_idx] = s
-        back_trellis = {}
-        for t_idx, t_tok in reversed(list(enumerate(t_sent))):
-            if t_tok == BOUNDARY_START:
-                back_trellis[t_idx] = [(t_idx, t_idx)]
-            elif t_tok == BOUNDARY_END:
-                back_trellis[t_idx] = [(t_idx, L)]
-            else:
-                min_prev = min([item[1] for item in back_trellis[t_idx + 1]])
-                r = range(min_prev - max_jump_width if min_prev - max_jump_width >= 1 else 1, L)
-                s = [(t_idx, s_idx) for s_idx in r]
-                back_trellis[t_idx] = s
-
-        merged_trellis = {}
-        for t_idx in back_trellis:
-            s = sorted(list(set.intersection(set(fwd_trellis[t_idx]), set(back_trellis[t_idx]))))
-            if len(s) > max_beam_width:
-                s_prime = sorted([(abs(item[1] - t_idx), item) for item in s])
-                s = sorted([item for dist, item in s_prime[:max_beam_width]])
-            merged_trellis[t_idx] = s
-            if t_idx == 0:
-                pass
-            elif t_idx == len(t_sent) - 1:
-                pass
-            else:
-                merged_trellis[t_idx] += [(t_idx, NULL)]
-
-        trellis.append(merged_trellis)
 
 
 def gradient_check_em():
@@ -568,7 +517,7 @@ if __name__ == "__main__":
     model_type = options.model
     source = [s.strip().split() for s in open(options.source_corpus, 'r').readlines()]
     target = [s.strip().split() for s in open(options.target_corpus, 'r').readlines()]
-    trellis = populate_trellis_new(source, target)
+    trellis = populate_trellis(source, target)
     # populate_trellis_bk(source, target)
     populate_features()
 
