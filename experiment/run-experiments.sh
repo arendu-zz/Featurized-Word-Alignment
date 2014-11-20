@@ -16,7 +16,7 @@ cat $TARGET_TRAIN >> $TARGET_FULL
 
 python initial_translation.py  -s $SOURCE_FULL -t $TARGET_FULL  -o initial.trans -m uniform
 
-time python ../featurized_em_wa_mp.py -s $SOURCE_FULL -t $TARGET_FULL -a 'LBFGS' -m $MODEL --iw initial.trans.log --st $SOURCE_TEST --tt $TARGET_TEST
+time python ../featurized_em_wa_mp.py -s $SOURCE_FULL -t $TARGET_FULL -a 'LBFGS' -m $MODEL --iw initial.trans.log --ts $SOURCE_TEST --tt $TARGET_TEST
 echo ""
 echo "*********LBFGS********"
 echo ""
