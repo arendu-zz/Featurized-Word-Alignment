@@ -43,15 +43,7 @@ features_to_events = {}
 feature_index = {}
 conditional_arc_index = {}
 normalizing_decision_map = {}
-
-
-def get_jump(aj, aj_1):
-    if aj != NULL and aj_1 != NULL:
-        jump = abs(aj_1 - aj)
-        assert jump <= 2 * max_jump_width + 1
-    else:
-        jump = NULL
-    return jump
+pause_on_tie = False
 
 
 def populate_features():
@@ -85,19 +77,9 @@ def populate_features():
 
                 if idx > 0 and model_type == HMM_MODEL:
                     for prev_t_idx, prev_s_idx in treli[idx - 1]:
-
-                        prev_t_tok = target[treli_idx][prev_t_idx]
-                        prev_s_tok = source[treli_idx][prev_s_idx] if prev_s_idx is not NULL else NULL
-                        # an arc in an hmm can have the following information:
-                        # prev_s_idx, prev_s_tok, s_idx, s_tok, t_idx, t_tok
-                        prev_s = (prev_s_idx, prev_s_tok)
-                        curr_s = (s_idx, s_tok)
-                        curr_t = (t_idx, t_tok)
-                        # arc = (prev_s, curr_s, curr_t)
-
-                        # transition features
-
-                        # jump = get_jump(s_idx, prev_s_idx)
+                        """
+                        transition features
+                        """
                         transition_context = prev_s_idx
                         transition_decision = s_idx
                         transition_event = (T_TYPE, transition_decision, transition_context)
@@ -228,7 +210,11 @@ def get_viterbi_and_forward(theta, obs_id):
                     bt = [arg_pi[(k - 1, u)], u]
                 max_prob_to_bt[p] = bt
                 sum_prob_to_bt.append(alpha_p)
-
+            smp = sorted(max_prob_to_bt)
+            if pause_on_tie and len(smp) > 1:
+                if smp[-1] == smp[-2]:
+                    print 'breaking ties'
+                    pdb.set_trace()
             max_bt = max_prob_to_bt[max(max_prob_to_bt)]
             new_pi_key = (k, v)
             pi[new_pi_key] = max(max_prob_to_bt)
@@ -502,6 +488,9 @@ if __name__ == "__main__":
 
     opt.add_option("-t", dest="target_corpus", default="experiment/data/toy.fr")
     opt.add_option("-s", dest="source_corpus", default="experiment/data/toy.en")
+    opt.add_option("--tt", dest="target_test", default="experiment/data/toy.fr")
+    opt.add_option("--ts", dest="source_test", default="experiment/data/toy.en")
+
     opt.add_option("--iw", dest="input_weights", default=None)
     opt.add_option("--ow", dest="output_weights", default="theta", help="extention of trained weights file")
     opt.add_option("--oa", dest="output_alignments", default="alignments", help="extension of alignments files")
@@ -516,8 +505,9 @@ if __name__ == "__main__":
     model_type = options.model
     source = [s.strip().split() for s in open(options.source_corpus, 'r').readlines()]
     target = [s.strip().split() for s in open(options.target_corpus, 'r').readlines()]
+    source += [s.strip().split() for s in open(options.source_test, 'r').readlines()]
+    target += [t.strip().split() for t in open(options.target_test, 'r').readlines()]
     trellis = populate_trellis(source, target)
-    # populate_trellis_bk(source, target)
     populate_features()
 
     snippet = "#" + str(opt.values) + "\n"
@@ -530,17 +520,10 @@ if __name__ == "__main__":
             print 'skipping gradient check...'
             init_theta = initialize_theta(options.input_weights)
             t1 = minimize(get_likelihood, init_theta, method='L-BFGS-B', jac=get_gradient, tol=1e-3,
-                          options={'maxfun': 150})
+                          options={'maxfun': 50})
 
             theta = t1.x
-            write_alignments(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
-            write_alignments_col(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
-            write_alignments_col_tok(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
-
-            write_weights(theta, options.algorithm + '.' + model_type + '.' + options.output_weights)
-            write_probs(theta, options.algorithm + '.' + model_type + '.' + options.output_probs)
-
-    if options.algorithm == "EM":
+    elif options.algorithm == "EM":
         if options.test_gradient.lower() == "true":
             gradient_check_em()
         else:
@@ -557,14 +540,7 @@ if __name__ == "__main__":
                 new_e = get_likelihood(theta)  # this will also update expected counts
                 converged = round(abs(old_e - new_e), 2) == 0.0
                 old_e = new_e
-            write_alignments(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
-            write_alignments_col(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
-            write_alignments_col_tok(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
-
-            write_weights(theta, options.algorithm + '.' + model_type + '.' + options.output_weights)
-            write_probs(theta, options.algorithm + '.' + model_type + '.' + options.output_probs)
-
-    if options.algorithm == "SGD":
+    elif options.algorithm == "SGD":
         batch_size = len(trellis)
         theta = initialize_theta(options.input_weights)
         get_likelihood(theta, display=True)
@@ -581,6 +557,18 @@ if __name__ == "__main__":
                               options={'maxfun': 15})
                 theta = t1.x
             get_likelihood(theta, display=True)
-        write_alignments(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
-        write_weights(theta, options.algorithm + '.' + model_type + '.' + options.output_weights)
-        write_probs(theta, options.algorithm + '.' + model_type + '.' + options.output_probs)
+    else:
+        print 'wrong algorithm option'
+        exit()
+
+    pause_on_tie = True
+    write_weights(theta, options.algorithm + '.' + model_type + '.' + options.output_weights)
+    write_probs(theta, options.algorithm + '.' + model_type + '.' + options.output_probs)
+
+    source = [s.strip().split() for s in open(options.source_test, 'r').readlines()]
+    target = [t.strip().split() for t in open(options.target_test, 'r').readlines()]
+    trellis = populate_trellis(source, target)
+
+    write_alignments(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
+    write_alignments_col(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
+    write_alignments_col_tok(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
