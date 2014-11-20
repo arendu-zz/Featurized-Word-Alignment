@@ -17,7 +17,8 @@ from pprint import pprint
 global BOUNDARY_START, END_STATE, SPLIT, E_TYPE, T_TYPE, IBM_MODEL_1, HMM_MODEL
 global cache_normalizing_decision, features_to_events, events_to_features, normalizing_decision_map
 global trellis, max_jump_width, model_type, number_of_events, EPS, snippet, max_beam_width, rc
-global source, target, data_likelihood, event_grad, feature_index, event_index
+global source, target, data_likelihood, event_grad, feature_index, event_index,itercount
+itercount =0
 event_grad = {}
 data_likelihood = 0.0
 snippet = ''
@@ -123,7 +124,7 @@ def get_decision_given_context(theta, type, decision, context):
         cache_normalizing_decision[type, context] = theta_dot_normalizing_features
     log_prob = round(theta_dot_features - theta_dot_normalizing_features, 10)
     if log_prob > 0.0:
-        log_prob = 0.0  # this happens if we truncate the LBFGS alg with maxfun
+        log_prob = 0.0  # this happens if we truncate the LBFGS alg with maxiter
     return log_prob
 
 
@@ -332,7 +333,7 @@ def batch_accumilate_likelihood(result):
 def get_likelihood(theta, display=True):
     assert isinstance(theta, np.ndarray)
     assert len(theta) == len(feature_index)
-    global trellis, data_likelihood, rc
+    global trellis, data_likelihood, rc, itercount
     reset_fractional_counts()
     data_likelihood = 0.0
     cpu_count = multiprocessing.cpu_count()
@@ -346,7 +347,8 @@ def get_likelihood(theta, display=True):
     reg = np.sum(theta ** 2)
     ll = data_likelihood - (rc * reg)
     if display:
-        print 'log likelihood:', ll
+        print itercount,'log likelihood:', ll
+    itercount+=1
     return -ll
 
 
@@ -535,8 +537,8 @@ if __name__ == "__main__":
         else:
             print 'skipping gradient check...'
             init_theta = initialize_theta(options.input_weights)
-            t1 = minimize(get_likelihood, init_theta, method='L-BFGS-B', jac=get_gradient, tol=1e-1,
-                          options={'maxfun': 50})
+            t1 = minimize(get_likelihood, init_theta, method='L-BFGS-B', jac=get_gradient, tol=1e-4,
+                          options={'maxiter': 1000})
             theta = t1.x
     elif options.algorithm == "EM":
         if options.test_gradient.lower() == "true":
@@ -550,7 +552,7 @@ if __name__ == "__main__":
             converged = False
             while not converged:
                 t1 = minimize(get_likelihood_with_expected_counts, theta, method='L-BFGS-B', jac=get_gradient, tol=1e-3,
-                              options={'maxfun': 150})
+                              options={'maxiter': 150})
                 theta = t1.x
                 new_e = get_likelihood(theta)  # this will also update expected counts
                 converged = round(abs(old_e - new_e), 2) == 0.0
@@ -569,7 +571,7 @@ if __name__ == "__main__":
                 b_id += 1
                 t1 = minimize(get_likelihood, theta, method='L-BFGS-B', jac=get_gradient, args=(batch_idx, False),
                               tol=1e-5,
-                              options={'maxfun': 150})
+                              options={'maxiter': 150})
                 theta = t1.x
             get_likelihood(theta, display=True)
     else:
