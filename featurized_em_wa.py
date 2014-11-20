@@ -488,8 +488,8 @@ if __name__ == "__main__":
 
     opt.add_option("-t", dest="target_corpus", default="experiment/data/toy.fr")
     opt.add_option("-s", dest="source_corpus", default="experiment/data/toy.en")
-    opt.add_option("--tt", dest="target_test", default="experiment/data/toy.fr")
-    opt.add_option("--ts", dest="source_test", default="experiment/data/toy.en")
+    opt.add_option("--tt", dest="target_test", default="experiment/data/toy1.fr")
+    opt.add_option("--ts", dest="source_test", default="experiment/data/toy1.en")
 
     opt.add_option("--iw", dest="input_weights", default=None)
     opt.add_option("--ow", dest="output_weights", default="theta", help="extention of trained weights file")
@@ -505,8 +505,6 @@ if __name__ == "__main__":
     model_type = options.model
     source = [s.strip().split() for s in open(options.source_corpus, 'r').readlines()]
     target = [s.strip().split() for s in open(options.target_corpus, 'r').readlines()]
-    source += [s.strip().split() for s in open(options.source_test, 'r').readlines()]
-    target += [t.strip().split() for t in open(options.target_test, 'r').readlines()]
     trellis = populate_trellis(source, target)
     populate_features()
 
@@ -561,13 +559,13 @@ if __name__ == "__main__":
         print 'wrong algorithm option'
         exit()
 
-    pause_on_tie = True
     write_weights(theta, options.algorithm + '.' + model_type + '.' + options.output_weights)
     write_probs(theta, options.algorithm + '.' + model_type + '.' + options.output_probs)
 
-    source = [s.strip().split() for s in open(options.source_test, 'r').readlines()]
-    target = [t.strip().split() for t in open(options.target_test, 'r').readlines()]
-    trellis = populate_trellis(source, target)
+    if options.source_test is not None and options.target_test is not None:
+        source = [s.strip().split() for s in open(options.source_test, 'r').readlines()]
+        target = [t.strip().split() for t in open(options.target_test, 'r').readlines()]
+        trellis = populate_trellis(source, target)
 
     write_alignments(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
     write_alignments_col(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)

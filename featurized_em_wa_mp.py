@@ -123,12 +123,7 @@ def get_decision_given_context(theta, type, decision, context):
         cache_normalizing_decision[type, context] = theta_dot_normalizing_features
     log_prob = round(theta_dot_features - theta_dot_normalizing_features, 10)
     if log_prob > 0.0:
-        print "log_prob = ", log_prob, type, decision, context
-        # pdb.set_trace()
-        if options.algorithm == 'LBFGS':
-            raise Exception
-        else:
-            log_prob = 0.0  # TODO figure out why in the EM algorithm this error happens?
+        log_prob = 0.0  # this happens if we truncate the LBFGS alg with maxfun
     return log_prob
 
 
@@ -340,9 +335,10 @@ def get_likelihood(theta, display=True):
     global trellis, data_likelihood, rc
     reset_fractional_counts()
     data_likelihood = 0.0
-    pool = Pool(processes=multiprocessing.cpu_count())  # uses all available CPUs
+    cpu_count = multiprocessing.cpu_count()
+    pool = Pool(processes=cpu_count)  # uses all available CPUs
     full = range(0, len(trellis))
-    batches = np.array_split(full, multiprocessing.cpu_count())
+    batches = np.array_split(full, cpu_count)
     for batch in batches:
         pool.apply_async(batch_likelihood, args=(theta, batch), callback=batch_accumilate_likelihood)
     pool.close()
@@ -383,8 +379,9 @@ def get_gradient(theta):
     global fractional_counts, event_index, feature_index, event_grad, rc
     assert len(theta) == len(feature_index)
     event_grad = {}
-    batches_fractional_counts = np.array_split(range(len(event_index)), multiprocessing.cpu_count())
-    pool = Pool(processes=multiprocessing.cpu_count())  # uses all available CPUs
+    cpu_count = multiprocessing.cpu_count()
+    pool = Pool(processes=cpu_count)  # uses all available CPUs
+    batches_fractional_counts = np.array_split(range(len(event_index)), cpu_count)
     for batch_of_fc in batches_fractional_counts:
         pool.apply_async(batch_gradient, args=(theta, batch_of_fc), callback=batch_accumilate_gradient)
     pool.close()
@@ -511,6 +508,9 @@ if __name__ == "__main__":
     opt = OptionParser()
     opt.add_option("-t", dest="target_corpus", default="experiment/data/toy.fr")
     opt.add_option("-s", dest="source_corpus", default="experiment/data/toy.en")
+    opt.add_option("--tt", dest="target_test", default="experiment/data/toy.fr")
+    opt.add_option("--ts", dest="source_test", default="experiment/data/toy.en")
+
     opt.add_option("--iw", dest="input_weights", default=None)
     opt.add_option("--ow", dest="output_weights", default="theta", help="extention of trained weights file")
     opt.add_option("--oa", dest="output_alignments", default="alignments", help="extension of alignments files")
@@ -535,7 +535,7 @@ if __name__ == "__main__":
         else:
             print 'skipping gradient check...'
             init_theta = initialize_theta(options.input_weights)
-            t1 = minimize(get_likelihood, init_theta, method='L-BFGS-B', jac=get_gradient, tol=1e-4,
+            t1 = minimize(get_likelihood, init_theta, method='L-BFGS-B', jac=get_gradient, tol=1e-1,
                           options={'maxfun': 50})
             theta = t1.x
     elif options.algorithm == "EM":
@@ -576,8 +576,14 @@ if __name__ == "__main__":
         print 'wrong option for algorithm...'
         exit()
 
+    write_weights(theta, options.algorithm + '.' + model_type + '.' + options.output_weights)
+    write_probs(theta, options.algorithm + '.' + model_type + '.' + options.output_probs)
+
+    if options.source_test is not None and options.target_test is not None:
+        source = [s.strip().split() for s in open(options.source_test, 'r').readlines()]
+        target = [t.strip().split() for t in open(options.target_test, 'r').readlines()]
+        trellis = populate_trellis(source, target)
+
     write_alignments(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
     write_alignments_col(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
     write_alignments_col_tok(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
-    write_weights(theta, options.algorithm + '.' + model_type + '.' + options.output_weights)
-    write_probs(theta, options.algorithm + '.' + model_type + '.' + options.output_probs)

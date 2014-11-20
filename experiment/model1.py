@@ -97,8 +97,8 @@ if __name__ == "__main__":
                 for i in range(0, len(target_tokens)):
                     t_mat[i][j] = translations[target_tokens[i], source_tokens[j]]
             t_sum = np.sum(t_mat, 1)
-            #print t_mat
-            #print t_sum
+            # print t_mat
+            # print t_sum
             for j in range(0, len(source_tokens)):
                 for i in range(0, len(target_tokens)):
                     delta[k, i, j] = t_mat[i][j] / t_sum[i]
@@ -132,11 +132,11 @@ if __name__ == "__main__":
         display_best_alignment(2204, corpus_en[2204], corpus_es[2204])
         display_best_alignment(4942, corpus_en[4942], corpus_es[4942])"""
 
-    TYPE="EMISSION"
+    TYPE = "EMISSION"
     writer = open(save_trans, 'w')
     for k in sorted(translations):
         v = np.log(translations[k])
-        writer.write(TYPE+'\t' + str('\t'.join(k)) + '\t' + str(v) + '\n')
+        writer.write(TYPE + '\t' + str('\t'.join(k)) + '\t' + str(v) + '\n')
     writer.flush()
     writer.close()
 
@@ -159,7 +159,7 @@ if __name__ == "__main__":
     writer.flush()
     writer.close()
 
-    writer = open(ali_out+'.token', 'w')
+    writer = open(ali_out + '.token', 'w')
     test_source = open(ali_source, 'r').readlines()
     test_target = open(ali_target, 'r').readlines()
     for dk in range(len(test_source)):
