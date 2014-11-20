@@ -1,11 +1,11 @@
 #!/bin/sh
 SOURCE_FULL="source_full.tmp"
 TARGET_FULL="target_full.tmp"
-SOURCE_TRAIN="data/dev.en"
-TARGET_TRAIN="data/dev.es"
-SOURCE_TEST="data/dev.small.en"
-TARGET_TEST="data/dev.small.es"
-KEY="data/dev.small.key"
+SOURCE_TRAIN="data/train.clean.tok.true.en"
+TARGET_TRAIN="data/train.clean.tok.true.es"
+SOURCE_TEST="data/dev.en"
+TARGET_TEST="data/dev.es"
+KEY="data/dev.key"
 MODEL="model1"
 touch $SOURCE_FULL
 touch $TARGET_FULL
@@ -27,6 +27,12 @@ echo ""
 echo "********Baseline********"
 echo ""
 python eval_alignment.py $KEY model1.alignments
+
+time python ../featurized_em_wa_mp.py -s $SOURCE_FULL -t $TARGET_FULL -a 'LBFGS' -m $MODEL --iw model1.probs --ts $SOURCE_TEST --tt $TARGET_TEST
+echo ""
+echo "*********LBFGS+model1********"
+echo ""
+python eval_alignment.py $KEY LBFGS.$MODEL.alignments.col
 
 rm $SOURCE_FULL
 rm $TARGET_FULL
