@@ -85,9 +85,9 @@ if __name__ == "__main__":
         counts = dict.fromkeys(counts.iterkeys(), 0.0)
         for k, source_sentence in enumerate(corpus_source):
             # print iter, k, len(delta), len(translations)
-            sys.stdout.write('iteration: %d sentence %d len delta %d len translations %d\r' % (
-                iter, k, len(delta), len(translations)))
-            sys.stdout.flush()
+            # sys.stdout.write('iteration: %d sentence %d len delta %d len translations %d\r' % (
+            # iter, k, len(delta), len(translations)))
+            # sys.stdout.flush()
             target_sentence = corpus_target[k]
             source_tokens = source_sentence.split()
             source_tokens.insert(0, 'NULL')
@@ -105,9 +105,9 @@ if __name__ == "__main__":
                     counts[target_tokens[i], source_tokens[j]] = counts.get((target_tokens[i], source_tokens[j]), 0.0) + \
                                                                  delta[k, i, j]
                     counts[source_tokens[j]] = counts.get(source_tokens[j], 0.0) + delta[k, i, j]
-                    #print tokens_es[i], tokens_en[j], counts[tokens_es[i], tokens_en[j]]
-                    #print tokens_en[j], counts[tokens_en[j]]
-                    #print 'iteration:', iter, 'sentence', k
+                    # print tokens_es[i], tokens_en[j], counts[tokens_es[i], tokens_en[j]]
+                    # print tokens_en[j], counts[tokens_en[j]]
+                    # print 'iteration:', iter, 'sentence', k
         """
         update translations
         """
