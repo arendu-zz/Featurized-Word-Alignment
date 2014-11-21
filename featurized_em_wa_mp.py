@@ -24,7 +24,7 @@ data_likelihood = 0.0
 snippet = ''
 EPS = 1e-5
 rc = 0.25
-itermediate_log = False
+itermediate_log = 0
 IBM_MODEL_1 = "model1"
 HMM_MODEL = "hmm"
 max_jump_width = 10
@@ -350,7 +350,7 @@ def get_likelihood(theta, display=True):
     if display:
         print itercount, 'log likelihood:', ll
     itercount += 1
-    if itercount % 20 == 0 and itermediate_log:
+    if itermediate_log > 0 and itercount % itermediate_log == 0:
         write_logs(theta, itercount)
     return -ll
 
@@ -511,7 +511,9 @@ def initialize_theta(input_weights):
 def write_logs(theta, current_iter):
     global trellis
     name_prefix = '.'.join(
-        [options.algorithm, str(rc), model_type, str(current_iter if current_iter is not None else '')])
+        [options.algorithm, str(rc), model_type])
+    if itermediate_log > 0:
+        name_prefix += '.' + str(current_iter)
     write_weights(theta, name_prefix + '.' + options.output_weights)
     write_probs(theta, name_prefix + '.' + options.output_probs)
 
@@ -532,7 +534,7 @@ if __name__ == "__main__":
     opt.add_option("-s", dest="source_corpus", default="experiment/data/toy.en")
     opt.add_option("--tt", dest="target_test", default="experiment/data/toy.fr")
     opt.add_option("--ts", dest="source_test", default="experiment/data/toy.en")
-    opt.add_option("--il", dest="intermediate_log", default="false")
+    opt.add_option("--il", dest="intermediate_log", default="0")
     opt.add_option("--iw", dest="input_weights", default=None)
     opt.add_option("--ow", dest="output_weights", default="theta", help="extention of trained weights file")
     opt.add_option("--oa", dest="output_alignments", default="alignments", help="extension of alignments files")
@@ -544,7 +546,7 @@ if __name__ == "__main__":
     opt.add_option("-m", dest="model", default=IBM_MODEL_1, help="'model1' or 'hmm'")
     (options, _) = opt.parse_args()
     rc = float(options.regularization_coeff)
-    itermediate_log = options.intermediate_log.lower() == 'true'
+    itermediate_log = int(options.intermediate_log)
     model_type = options.model
     source = [s.strip().split() for s in open(options.source_corpus, 'r').readlines()]
     target = [s.strip().split() for s in open(options.target_corpus, 'r').readlines()]
