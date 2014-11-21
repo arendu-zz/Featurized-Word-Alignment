@@ -578,14 +578,15 @@ if __name__ == "__main__":
         print 'wrong option for algorithm...'
         exit()
 
-    write_weights(theta, options.algorithm + '.' + model_type + '.' + options.output_weights)
-    write_probs(theta, options.algorithm + '.' + model_type + '.' + options.output_probs)
+    name_prefix = options.algorithm +'.' +str(rc) +'.'+model_type
+    write_weights(theta, name_prefix+ '.' + options.output_weights)
+    write_probs(theta, name_prefix + '.' + options.output_probs)
 
     if options.source_test is not None and options.target_test is not None:
         source = [s.strip().split() for s in open(options.source_test, 'r').readlines()]
         target = [t.strip().split() for t in open(options.target_test, 'r').readlines()]
         trellis = populate_trellis(source, target)
 
-    write_alignments(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
-    write_alignments_col(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
-    write_alignments_col_tok(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
+    write_alignments(theta, name_prefix+ '.' + options.output_alignments)
+    write_alignments_col(theta, name_prefix+ '.' + options.output_alignments)
+    write_alignments_col_tok(theta, name_prefix + '.' + options.output_alignments)
