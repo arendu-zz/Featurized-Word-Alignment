@@ -1,0 +1,11 @@
+Trained on dev.en dev.es (200 sentences)
+Tested on dev.small.en and dev.small.es
+python eval_alignment.py data/dev.small.key LBFGS.model1.alignments.col
+      Type       Total   Precision      Recall     F1-Score
+===============================================================
+     total         568     0.219        0.215        0.217
+GRAD-X:/users/arenduc1/MachineTranslation/Featurized-EM/experiment>python eval_alignment.py data/dev.small.key model1.alignments
+      Type       Total   Precision      Recall     F1-Score
+===============================================================
+     total         568     0.281        0.275        0.278
+

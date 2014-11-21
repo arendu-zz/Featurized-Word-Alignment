@@ -1,0 +1,124 @@
+#{'output_probs': 'probs', 'source_corpus': 'source_full.tmp', 'algorithm': 'LBFGS', 'source_test': 'data/dev.en', 'input_weights': 'initial.trans.log', 'target_test': 'data/dev.es', 'test_gradient': 'false', 'output_weights': 'theta', 'regularization_coeff': '0.0', 'target_corpus': 'target_full.tmp', 'output_alignments': 'alignments', 'model': 'model1'}
+
+skipping gradient check...
+reading initial weights...
+log likelihood: -132104.346298
+log likelihood: -132033.123934
+log likelihood: -131745.545274
+log likelihood: -130542.716376
+log likelihood: -122896.524303
+log likelihood: -117686.353414
+log likelihood: -115192.008043
+log likelihood: -108880.002064
+log likelihood: -105732.298752
+log likelihood: -102767.410361
+log likelihood: -101071.775451
+log likelihood: -100222.386764
+log likelihood: -99211.3943721
+log likelihood: -98593.220905
+log likelihood: -98088.8634854
+log likelihood: -97691.7875723
+log likelihood: -97361.942311
+log likelihood: -97078.8316476
+log likelihood: -96804.6820579
+log likelihood: -96897.5269444
+log likelihood: -96705.8661359
+log likelihood: -96518.890946
+log likelihood: -96304.1855348
+log likelihood: -96328.0050698
+log likelihood: -96223.2099528
+log likelihood: -96128.9009519
+log likelihood: -96012.6961097
+log likelihood: -95893.7418747
+log likelihood: -95783.9871409
+log likelihood: -95707.145601
+log likelihood: -95640.5067381
+log likelihood: -95578.9692241
+log likelihood: -95526.8137803
+log likelihood: -95481.1954662
+log likelihood: -95438.7288315
+log likelihood: -95398.2456306
+log likelihood: -95365.3858888
+log likelihood: -95345.7046423
+log likelihood: -95321.5418227
+log likelihood: -95307.650712
+log likelihood: -95288.8169919
+log likelihood: -95261.649056
+log likelihood: -95239.2921999
+log likelihood: -95220.2293365
+log likelihood: -95201.7545793
+log likelihood: -95189.4098785
+log likelihood: -95183.0286627
+log likelihood: -95175.4863055
+log likelihood: -95160.9764575
+log likelihood: -95149.1642626
+log likelihood: -95142.7698948
+wrote weights to: LBFGS.model1.theta
+wrote probs to: LBFGS.model1.probs
+wrote alignments to: LBFGS.model1.alignments
+wrote alignments to: LBFGS.model1.alignments.col
+wrote alignments to: LBFGS.model1.alignments.col.tokens
+
+*********LBFGS********
+
+      Type       Total   Precision      Recall     F1-Score
+===============================================================
+     total        5920     0.293        0.292        0.293
+
+********Baseline********
+
+      Type       Total   Precision      Recall     F1-Score
+===============================================================
+     total        5920     0.371        0.382        0.377
+#{'output_probs': 'probs', 'source_corpus': 'source_full.tmp', 'algorithm': 'LBFGS', 'source_test': 'data/dev.en', 'input_weights': 'model1.probs', 'target_test': 'data/dev.es', 'test_gradient': 'false', 'output_weights': 'theta', 'regularization_coeff': '0.0', 'target_corpus': 'target_full.tmp', 'output_alignments': 'alignments', 'model': 'model1'}
+
+skipping gradient check...
+reading initial weights...
+log likelihood: -95113.0193738
+log likelihood: -95017.6752406
+log likelihood: -94828.5922299
+log likelihood: -94779.1500374
+log likelihood: -94725.4746325
+log likelihood: -94698.6858048
+log likelihood: -94623.7372749
+log likelihood: -94577.1963226
+log likelihood: -94535.5318808
+log likelihood: -94496.5036362
+log likelihood: -94482.3131561
+log likelihood: -94455.4058024
+log likelihood: -94420.2371963
+log likelihood: -94358.3544063
+log likelihood: -94297.4532636
+log likelihood: -94253.3451761
+log likelihood: -94223.9329524
+log likelihood: -94183.027251
+log likelihood: -94156.9907739
+log likelihood: -94132.1916064
+log likelihood: -94107.4892701
+log likelihood: -94081.2721924
+log likelihood: -94039.7633138
+log likelihood: -94016.7465279
+log likelihood: -93991.8392959
+log likelihood: -93980.3689338
+log likelihood: -93960.6304519
+log likelihood: -93928.7213058
+log likelihood: -93965.0667093
+log likelihood: -93914.5510711
+log likelihood: -93892.1038952
+log likelihood: -93872.8686936
+log likelihood: -93852.4751944
+log likelihood: -93833.6242943
+log likelihood: -93814.5074721
+log likelihood: -93797.6383439
+log likelihood: -93795.4433362
+wrote weights to: LBFGS.model1.theta
+wrote probs to: LBFGS.model1.probs
+wrote alignments to: LBFGS.model1.alignments
+wrote alignments to: LBFGS.model1.alignments.col
+wrote alignments to: LBFGS.model1.alignments.col.tokens
+
+*********LBFGS+model1********
+
+      Type       Total   Precision      Recall     F1-Score
+===============================================================
+     total        5920     0.371        0.380        0.375
