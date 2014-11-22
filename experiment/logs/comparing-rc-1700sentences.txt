@@ -1,0 +1,50 @@
+training files: data/train.en , data/train.es
+testing  files: data/dev.en , data/dev.es
+
+*********LBFGS RC:0.01********
+
+      Type       Total   Precision      Recall     F1-Score
+===============================================================
+     total        5920     0.315        0.324        0.320
+
+*********LBFGS RC:0.1********
+
+      Type       Total   Precision      Recall     F1-Score
+===============================================================
+     total        5920     0.301        0.311        0.306
+
+*********LBFGS RC:0.2********
+
+      Type       Total   Precision      Recall     F1-Score
+===============================================================
+     total        5920     0.282        0.291        0.286
+
+*********LBFGS RC:0.0********
+
+      Type       Total   Precision      Recall     F1-Score
+===============================================================
+     total        5920     0.293        0.292        0.293
+
+********Baseline********
+
+      Type       Total   Precision      Recall     F1-Score
+===============================================================
+     total        5920     0.371        0.382        0.377
+
+*********LBFGS RC:0.001********
+
+      Type       Total   Precision      Recall     F1-Score
+===============================================================
+     total        5920     0.316        0.327        0.322
+
+*********LBFGS RC:0.005********
+
+      Type       Total   Precision      Recall     F1-Score
+===============================================================
+     total        5920     0.340        0.351        0.345
+
+*********LBFGS RC:0.009********
+
+      Type       Total   Precision      Recall     F1-Score
+===============================================================
+     total        5920     0.325        0.336        0.330
