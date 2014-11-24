@@ -555,7 +555,7 @@ if __name__ == "__main__":
                               options={'maxiter': 150})
                 theta = t1.x
                 new_e = get_likelihood(theta)  # this will also update expected counts
-                converged = round(abs(old_e - new_e), 2) == 0.0
+                converged = round(abs(old_e - new_e), 1) == 0.0
                 old_e = new_e
     elif options.algorithm == "SGD":
         batch_size = len(trellis)
