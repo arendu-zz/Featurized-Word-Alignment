@@ -17,13 +17,14 @@ from pprint import pprint
 global BOUNDARY_START, END_STATE, SPLIT, E_TYPE, T_TYPE, IBM_MODEL_1, HMM_MODEL
 global cache_normalizing_decision, features_to_events, events_to_features, normalizing_decision_map
 global trellis, max_jump_width, model_type, number_of_events, EPS, snippet, max_beam_width, rc
-global source, target, data_likelihood, event_grad, feature_index, event_index,itercount
-itercount =0
+global source, target, data_likelihood, event_grad, feature_index, event_index, itercount, itermediate_log
+itercount = 0
 event_grad = {}
 data_likelihood = 0.0
 snippet = ''
 EPS = 1e-5
 rc = 0.25
+itermediate_log = 0
 IBM_MODEL_1 = "model1"
 HMM_MODEL = "hmm"
 max_jump_width = 10
@@ -347,8 +348,10 @@ def get_likelihood(theta, display=True):
     reg = np.sum(theta ** 2)
     ll = data_likelihood - (rc * reg)
     if display:
-        print itercount,'log likelihood:', ll
-    itercount+=1
+        print itercount, 'log likelihood:', ll
+    itercount += 1
+    if itermediate_log > 0 and itercount % itermediate_log == 0:
+        write_logs(theta, itercount)
     return -ll
 
 
@@ -505,6 +508,25 @@ def initialize_theta(input_weights):
     return init_theta
 
 
+def write_logs(theta, current_iter):
+    global trellis
+    name_prefix = '.'.join(
+        [options.algorithm, str(rc), model_type])
+    if itermediate_log > 0:
+        name_prefix += '.' + str(current_iter)
+    write_weights(theta, name_prefix + '.' + options.output_weights)
+    write_probs(theta, name_prefix + '.' + options.output_probs)
+
+    if options.source_test is not None and options.target_test is not None:
+        source = [s.strip().split() for s in open(options.source_test, 'r').readlines()]
+        target = [t.strip().split() for t in open(options.target_test, 'r').readlines()]
+        trellis = populate_trellis(source, target)
+
+    write_alignments(theta, name_prefix + '.' + options.output_alignments)
+    write_alignments_col(theta, name_prefix + '.' + options.output_alignments)
+    write_alignments_col_tok(theta, name_prefix + '.' + options.output_alignments)
+
+
 if __name__ == "__main__":
     trellis = []
     opt = OptionParser()
@@ -512,7 +534,7 @@ if __name__ == "__main__":
     opt.add_option("-s", dest="source_corpus", default="experiment/data/toy.en")
     opt.add_option("--tt", dest="target_test", default="experiment/data/toy.fr")
     opt.add_option("--ts", dest="source_test", default="experiment/data/toy.en")
-
+    opt.add_option("--il", dest="intermediate_log", default="0")
     opt.add_option("--iw", dest="input_weights", default=None)
     opt.add_option("--ow", dest="output_weights", default="theta", help="extention of trained weights file")
     opt.add_option("--oa", dest="output_alignments", default="alignments", help="extension of alignments files")
@@ -524,6 +546,7 @@ if __name__ == "__main__":
     opt.add_option("-m", dest="model", default=IBM_MODEL_1, help="'model1' or 'hmm'")
     (options, _) = opt.parse_args()
     rc = float(options.regularization_coeff)
+    itermediate_log = int(options.intermediate_log)
     model_type = options.model
     source = [s.strip().split() for s in open(options.source_corpus, 'r').readlines()]
     target = [s.strip().split() for s in open(options.target_corpus, 'r').readlines()]
@@ -578,15 +601,4 @@ if __name__ == "__main__":
         print 'wrong option for algorithm...'
         exit()
 
-    name_prefix = options.algorithm +'.' +str(rc) +'.'+model_type
-    write_weights(theta, name_prefix+ '.' + options.output_weights)
-    write_probs(theta, name_prefix + '.' + options.output_probs)
-
-    if options.source_test is not None and options.target_test is not None:
-        source = [s.strip().split() for s in open(options.source_test, 'r').readlines()]
-        target = [t.strip().split() for t in open(options.target_test, 'r').readlines()]
-        trellis = populate_trellis(source, target)
-
-    write_alignments(theta, name_prefix+ '.' + options.output_alignments)
-    write_alignments_col(theta, name_prefix+ '.' + options.output_alignments)
-    write_alignments_col_tok(theta, name_prefix + '.' + options.output_alignments)
+    write_logs(theta, current_iter=None)
