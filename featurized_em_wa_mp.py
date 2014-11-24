@@ -512,7 +512,7 @@ def write_logs(theta, current_iter):
     global trellis
     name_prefix = '.'.join(
         [options.algorithm, str(rc), model_type])
-    if itermediate_log > 0:
+    if current_iter is not None:
         name_prefix += '.' + str(current_iter)
     write_weights(theta, name_prefix + '.' + options.output_weights)
     write_probs(theta, name_prefix + '.' + options.output_probs)
