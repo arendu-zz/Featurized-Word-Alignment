@@ -56,7 +56,7 @@ if __name__ == "__main__":
 		outfile = sys.stdout
 	else:
 		outfile = open(args.out)
-	outfile.write("foreign\t\twrong\t\tcorrect\t\twrank\tcrank\twprob\t\tcprob\t\tdiff\n")
+	outfile.write("foreign\t\twrong\t\tcorrect\t\twrank\tcrank\trankdiff\tvocabsize\twprob\t\tcprob\t\tprobdiff\n")
 	sys1line = sys1file.readline().strip()
 	sys2line = sys2file.readline().strip()
 	goldline = goldfile.readline().strip()
@@ -173,6 +173,8 @@ if __name__ == "__main__":
 
 			line += (str(wrong_rank) + "\t")
 			line += (str(correct_rank) + "\t")
+			line += (str(correct_rank - wrong_rank) + "\t\t")
+			line += (str(len(problist2)) + "\t\t")
 			line += (str(wrong_prob) + "\t")
 			if len(str(wrong_prob)) < 8:
 				line += "\t"
