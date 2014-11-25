@@ -404,19 +404,40 @@ def get_gradient(theta):
     return -grad
 
 
-def get_likelihood_with_expected_counts(theta, batch=None, display=False):
-    global fractional_counts
-    sum_likelihood = 0.0
-    for event in fractional_counts:
-        (t, d, c) = event
+def batch_likelihood_with_expected_counts(theta, batch):
+    global event_index
+    batch_sum_likelihood = 0.0
+    for idx in batch:
+        event = event_index[idx]
+        (t, d, c) = event_index[idx]
         A_dct = exp(fractional_counts[event])
         a_dct = get_decision_given_context(theta=theta, type=t, decision=d, context=c)
-        sum_likelihood += A_dct * a_dct
+        batch_sum_likelihood += A_dct * a_dct
+    return batch_sum_likelihood
+
+
+def batch_accumilate_likelihood_with_expected_counts(results):
+    global data_likelihood
+    data_likelihood += results
+
+
+def get_likelihood_with_expected_counts(theta, display=True):
+    global fractional_counts, data_likelihood, event_index
+    data_likelihood = 0.0
+    cpu_count = multiprocessing.cpu_count()
+    pool = Pool(processes=cpu_count)  # uses all available CPUs
+    batches_fractional_counts = np.array_split(range(len(event_index)), cpu_count)
+    for batch_of_fc in batches_fractional_counts:
+        pool.apply_async(batch_likelihood_with_expected_counts, args=(theta, batch_of_fc),
+                         callback=batch_accumilate_likelihood_with_expected_counts)
+    pool.close()
+    pool.join()
+
     reg = np.sum(theta ** 2)
-    sum_likelihood -= (rc * reg)
+    data_likelihood -= (rc * reg)
     if display:
-        print '\tec log likelihood:', sum_likelihood
-    return -sum_likelihood
+        print '\tec:', data_likelihood
+    return -data_likelihood
 
 
 def populate_trellis(source_corpus, target_corpus):
@@ -561,7 +582,7 @@ if __name__ == "__main__":
             print 'skipping gradient check...'
             init_theta = initialize_theta(options.input_weights)
             t1 = minimize(get_likelihood, init_theta, method='L-BFGS-B', jac=get_gradient, tol=1e-4,
-                          options={'maxiter': 300})
+                          options={'maxiter': 200})
             theta = t1.x
     elif options.algorithm == "EM":
         if options.test_gradient.lower() == "true":
@@ -574,8 +595,8 @@ if __name__ == "__main__":
             old_e = float('-inf')
             converged = False
             while not converged:
-                t1 = minimize(get_likelihood_with_expected_counts, theta, method='L-BFGS-B', jac=get_gradient, tol=1e-3,
-                              options={'maxiter': 150})
+                t1 = minimize(get_likelihood_with_expected_counts, theta, method='L-BFGS-B', jac=get_gradient, tol=1e-4,
+                              options={'maxiter': 20})
                 theta = t1.x
                 new_e = get_likelihood(theta)  # this will also update expected counts
                 converged = round(abs(old_e - new_e), 2) == 0.0
