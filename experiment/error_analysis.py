@@ -55,7 +55,7 @@ if __name__ == "__main__":
 	if args.out == None:
 		outfile = sys.stdout
 	else:
-		outfile = open(args.out)
+		outfile = open(args.out, 'w')
 	outfile.write("foreign\t\twrong\t\tcorrect\t\twrank\tcrank\trankdiff\tvocabsize\twprob\t\tcprob\t\tprobdiff\n")
 	sys1line = sys1file.readline().strip()
 	sys2line = sys2file.readline().strip()
@@ -185,10 +185,18 @@ if __name__ == "__main__":
 			line += "\n"
 			outfile.write(line)
 		sentN += 1
-	line = "average rank difference: " + str(float(rank_difference_sum) / valid_errorN) + "\n"
+	if valid_errorN == 0:
+		line = "average rank difference: 0.0\n"
+	else:
+		line = "average rank difference: " + str(float(rank_difference_sum) / valid_errorN) + "\n"
 	outfile.write(line)
-	line = "average prob difference: " + str(float(prob_difference_sum) / valid_errorN) + "\n"
+
+	if valid_errorN == 0:
+		line = "average prob difference: 0.0\n"
+	else:
+		line = "average prob difference: " + str(float(prob_difference_sum) / valid_errorN) + "\n"
 	outfile.write(line)
+
 	sys1file.close()
 	sys2file.close()
 	goldfile.close()
