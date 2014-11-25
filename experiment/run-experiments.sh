@@ -1,12 +1,13 @@
 #!/bin/sh
 SOURCE_FULL="source_full.tmp"
 TARGET_FULL="target_full.tmp"
-SOURCE_TRAIN="data/train.en"
-TARGET_TRAIN="data/train.es"
+SOURCE_TRAIN="data/dev.en"
+TARGET_TRAIN="data/dev.es"
 SOURCE_TEST="data/dev.en"
 TARGET_TEST="data/dev.es"
 KEY="data/dev.key"
 MODEL="model1"
+ALGO="EM"
 echo "training files:" $SOURCE_TRAIN ","  $TARGET_TRAIN
 echo "testing  files:" $SOURCE_TEST "," $TARGET_TEST
 touch $SOURCE_FULL
@@ -17,9 +18,9 @@ cat $TARGET_TEST > $TARGET_FULL
 cat $TARGET_TRAIN >> $TARGET_FULL
 
 python initial_translation.py  -s $SOURCE_FULL -t $TARGET_FULL  -o initial.trans -m uniform
-for RC in 0.001 0.005 0.009
+for RC in 0.0 0.001 0.005 0.009
 do
-  time python ../featurized_em_wa_mp.py -s $SOURCE_FULL -t $TARGET_FULL -a 'LBFGS' -m $MODEL --iw initial.trans.log --ts $SOURCE_TEST --tt $TARGET_TEST -r $RC
+  time python ../featurized_em_wa_mp.py -s $SOURCE_FULL -t $TARGET_FULL -a $ALGO -m $MODEL --iw initial.trans.log --ts $SOURCE_TEST --tt $TARGET_TEST -r $RC
 done
 
 python model1.py -s $SOURCE_FULL -t $TARGET_FULL -i initial.trans -p model1.probs -a model1.alignments -as $SOURCE_TEST -at $TARGET_TEST
@@ -28,18 +29,18 @@ echo "********Baseline********"
 echo ""
 python eval_alignment.py $KEY model1.alignments
 
-for RC in 0.001 0.005 0.009
+for RC in 0.0 0.001 0.005 0.009
 do
   echo ""
-  echo "*********LBFGS RC:"$RC"********"
+  echo "*********"$ALGO " RC:"$RC"********"
   echo ""
-  python eval_alignment.py $KEY LBFGS.$RC.$MODEL.alignments.col
+  python eval_alignment.py $KEY $ALGO.$RC.$MODEL.alignments.col
 done
-#time python ../featurized_em_wa_mp.py -s $SOURCE_FULL -t $TARGET_FULL -a 'LBFGS' -m $MODEL --iw model1.probs --ts $SOURCE_TEST --tt $TARGET_TEST
+#time python ../featurized_em_wa_mp.py -s $SOURCE_FULL -t $TARGET_FULL -a '$ALGO' -m $MODEL --iw model1.probs --ts $SOURCE_TEST --tt $TARGET_TEST
 #echo ""
-#echo "*********LBFGS+model1********"
+#echo "*********$ALGO+model1********"
 #echo ""
-#python eval_alignment.py $KEY LBFGS.$MODEL.alignments.col
+#python eval_alignment.py $KEY $ALGO.$MODEL.alignments.col
 
 rm $SOURCE_FULL
 rm $TARGET_FULL
