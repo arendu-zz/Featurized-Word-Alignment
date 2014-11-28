@@ -118,7 +118,7 @@ def get_decision_given_context(theta, type, decision, context):
         cache_normalizing_decision[type, context] = theta_dot_normalizing_features
     log_prob = round(theta_dot_features - theta_dot_normalizing_features, 10)
     if log_prob > 0.0:
-        print "log_prob = ", log_prob, type, decision, context
+        # print "log_prob = ", log_prob, type, decision, context
         # pdb.set_trace()
         if options.algorithm == 'LBFGS':
             raise Exception
@@ -159,6 +159,7 @@ def get_backwards(theta, obs_id, alpha_pi, fc=None):
                                        S=S, fc=fc)
                 else:
                     q = log(1.0 / len(obs[k]))
+                    # q = 0.0
 
                 p = q + e
                 beta_p = pb + p  # The beta includes the emission probability
@@ -199,6 +200,7 @@ def get_viterbi_and_forward(theta, obs_id):
                     q = get_decision_given_context(theta, T_TYPE, decision=aj, context=context)
                 else:
                     q = log(1.0 / len(obs[k]))
+                    # q = 0.0
 
                 e = get_decision_given_context(theta, E_TYPE, decision=t_tok, context=s_tok)
 
@@ -349,6 +351,28 @@ def get_likelihood(theta, batch=None, display=True):
     return -ll
 
 
+def get_likelihood_with_expected_counts_fwd(theta, batch=None, display=False):
+    global cache_normalizing_decision
+    cache_normalizing_decision = {}
+    sum_likelihood = 0.0
+    if batch is None:
+        batch = range(0, len(trellis))
+
+    for idx in batch:
+        max_bt, max_p, alpha_pi = get_viterbi_and_forward(theta, idx)
+        obs = trellis[idx]
+        n = len(obs) - 1  # index of last word
+        end_state = obs[n][0]
+        S = alpha_pi[(n, end_state)]  # from line 13 in pseudo code
+        sum_likelihood += S
+
+    reg = np.sum(theta ** 2)
+    sum_likelihood -= (rc * reg)
+    if display:
+        print '\tec log likelihood:', sum_likelihood
+    return -sum_likelihood
+
+
 def get_likelihood_with_expected_counts(theta, batch=None, display=False):
     global fractional_counts
     sum_likelihood = 0.0
@@ -409,8 +433,34 @@ def populate_trellis(source_corpus, target_corpus):
             else:
                 state_options = [(t_idx, s_idx) for s_idx, s_tok in enumerate(s_sent) if
                                  s_tok != BOUNDARY_END and s_tok != BOUNDARY_START]
-                state_options += [(t_idx, NULL)]
             trelli[t_idx] = state_options
+        # print 'fwd prune'
+        for t_idx in sorted(trelli.keys())[1:-1]:
+            # print t_idx
+            p_t_idx = t_idx - 1
+            p_max_s_idx = max(trelli[p_t_idx])[1]
+            p_min_s_idx = min(trelli[p_t_idx])[1]
+            j_max_s_idx = p_max_s_idx + max_jump_width
+            j_min_s_idx = p_min_s_idx - max_jump_width if p_min_s_idx - max_jump_width >= 1 else 1
+            c_filtered = [(t, s) for t, s in trelli[t_idx] if (j_max_s_idx >= s >= j_min_s_idx)]
+            trelli[t_idx] = c_filtered
+        # print 'rev prune'
+        for t_idx in sorted(trelli.keys(), reverse=True)[1:-1]:
+            # print t_idx
+            p_t_idx = t_idx + 1
+            try:
+                p_max_s_idx = max(trelli[p_t_idx])[1]
+                p_min_s_idx = min(trelli[p_t_idx])[1]
+            except ValueError:
+                raise BaseException("Jump value too small to form trellis")
+            # print 'max', 'min', p_max_s_idx, p_min_s_idx
+            j_max_s_idx = p_max_s_idx + max_jump_width
+            j_min_s_idx = p_min_s_idx - max_jump_width if p_min_s_idx - max_jump_width >= 1 else 1
+            # print 'jmax', 'jmin', j_max_s_idx, j_min_s_idx
+            c_filtered = [(t, s) for t, s in trelli[t_idx] if (j_max_s_idx >= s >= j_min_s_idx)]
+            trelli[t_idx] = c_filtered
+        for t_idx in sorted(trelli.keys())[1:-1]:
+            trelli[t_idx] += [(t_idx, NULL)]
         new_trellis.append(trelli)
     return new_trellis
 
@@ -486,10 +536,10 @@ if __name__ == "__main__":
 
     opt = OptionParser()
 
-    opt.add_option("-t", dest="target_corpus", default="experiment/data/toy.fr")
-    opt.add_option("-s", dest="source_corpus", default="experiment/data/toy.en")
-    opt.add_option("--tt", dest="target_test", default="experiment/data/toy1.fr")
-    opt.add_option("--ts", dest="source_test", default="experiment/data/toy1.en")
+    opt.add_option("-t", dest="target_corpus", default="experiment/data/dev.small.es")
+    opt.add_option("-s", dest="source_corpus", default="experiment/data/dev.small.en")
+    opt.add_option("--tt", dest="target_test", default="experiment/data/dev.small.es")
+    opt.add_option("--ts", dest="source_test", default="experiment/data/dev.small.en")
 
     opt.add_option("--iw", dest="input_weights", default=None)
     opt.add_option("--ow", dest="output_weights", default="theta", help="extention of trained weights file")
@@ -532,7 +582,8 @@ if __name__ == "__main__":
             old_e = float('-inf')
             converged = False
             while not converged:
-                t1 = minimize(get_likelihood_with_expected_counts, theta, method='L-BFGS-B', jac=get_gradient, tol=1e-2,
+                t1 = minimize(get_likelihood_with_expected_counts_fwd, theta, method='L-BFGS-B', jac=get_gradient,
+                              tol=1e-1,
                               options={'maxfun': 150})
                 theta = t1.x
                 new_e = get_likelihood(theta)  # this will also update expected counts
@@ -559,14 +610,15 @@ if __name__ == "__main__":
         print 'wrong algorithm option'
         exit()
 
-    write_weights(theta, options.algorithm + '.' + model_type + '.' + options.output_weights)
-    write_probs(theta, options.algorithm + '.' + model_type + '.' + options.output_probs)
+    if options.test_gradient.lower() != "true":
+        write_weights(theta, options.algorithm + '.' + model_type + '.' + options.output_weights)
+        write_probs(theta, options.algorithm + '.' + model_type + '.' + options.output_probs)
 
-    if options.source_test is not None and options.target_test is not None:
-        source = [s.strip().split() for s in open(options.source_test, 'r').readlines()]
-        target = [t.strip().split() for t in open(options.target_test, 'r').readlines()]
-        trellis = populate_trellis(source, target)
+        if options.source_test is not None and options.target_test is not None:
+            source = [s.strip().split() for s in open(options.source_test, 'r').readlines()]
+            target = [t.strip().split() for t in open(options.target_test, 'r').readlines()]
+            trellis = populate_trellis(source, target)
 
-    write_alignments(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
-    write_alignments_col(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
-    write_alignments_col_tok(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
+        write_alignments(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
+        write_alignments_col(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
+        write_alignments_col_tok(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
