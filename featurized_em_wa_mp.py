@@ -27,7 +27,7 @@ rc = 0.25
 itermediate_log = 0
 IBM_MODEL_1 = "model1"
 HMM_MODEL = "hmm"
-max_jump_width = 10
+max_jump_width = 2
 max_beam_width = 20  # creates a span of +/- span centered around current token
 trellis = []
 cache_normalizing_decision = {}
@@ -457,8 +457,34 @@ def populate_trellis(source_corpus, target_corpus):
             else:
                 state_options = [(t_idx, s_idx) for s_idx, s_tok in enumerate(s_sent) if
                                  s_tok != BOUNDARY_END and s_tok != BOUNDARY_START]
-                state_options += [(t_idx, NULL)]
             trelli[t_idx] = state_options
+        # print 'fwd prune'
+        for t_idx in sorted(trelli.keys())[1:-1]:
+            # print t_idx
+            p_t_idx = t_idx - 1
+            p_max_s_idx = max(trelli[p_t_idx])[1]
+            p_min_s_idx = min(trelli[p_t_idx])[1]
+            j_max_s_idx = p_max_s_idx + max_jump_width
+            j_min_s_idx = p_min_s_idx - max_jump_width if p_min_s_idx - max_jump_width >= 1 else 1
+            c_filtered = [(t, s) for t, s in trelli[t_idx] if (j_max_s_idx >= s >= j_min_s_idx)]
+            trelli[t_idx] = c_filtered
+        # print 'rev prune'
+        for t_idx in sorted(trelli.keys(), reverse=True)[1:-1]:
+            # print t_idx
+            p_t_idx = t_idx + 1
+            try:
+                p_max_s_idx = max(trelli[p_t_idx])[1]
+                p_min_s_idx = min(trelli[p_t_idx])[1]
+            except ValueError:
+                raise BaseException("Jump value too small to form trellis")
+            # print 'max', 'min', p_max_s_idx, p_min_s_idx
+            j_max_s_idx = p_max_s_idx + max_jump_width
+            j_min_s_idx = p_min_s_idx - max_jump_width if p_min_s_idx - max_jump_width >= 1 else 1
+            # print 'jmax', 'jmin', j_max_s_idx, j_min_s_idx
+            c_filtered = [(t, s) for t, s in trelli[t_idx] if (j_max_s_idx >= s >= j_min_s_idx)]
+            trelli[t_idx] = c_filtered
+        for t_idx in sorted(trelli.keys())[1:-1]:
+            trelli[t_idx] += [(t_idx, NULL)]
         new_trellis.append(trelli)
     return new_trellis
 
