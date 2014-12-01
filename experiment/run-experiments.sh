@@ -17,13 +17,16 @@ cat $TARGET_TEST > $TARGET_FULL
 cat $TARGET_TRAIN >> $TARGET_FULL
 
 python initial_translation.py  -s $SOURCE_FULL -t $TARGET_FULL  -o initial.trans -m uniform
-for RC in 0.0 0.01 0.1 0.2
+for RC in 0.001 0.005 0.009
 do
   time python ../featurized_em_wa_mp.py -s $SOURCE_FULL -t $TARGET_FULL -a 'LBFGS' -m $MODEL --iw initial.trans.log --ts $SOURCE_TEST --tt $TARGET_TEST -r $RC
+<<<<<<< HEAD
   echo ""
   echo "*********LBFGS RC:"$RC"********"
   echo ""
   python eval_alignment.py $KEY LBFGS.$MODEL.alignments.col
+=======
+>>>>>>> f15caaa67e4ace627513f6fe08c6d65f6197e8de
 done
 
 python model1.py -s $SOURCE_FULL -t $TARGET_FULL -i initial.trans -p model1.probs -a model1.alignments -as $SOURCE_TEST -at $TARGET_TEST
@@ -32,6 +35,13 @@ echo "********Baseline********"
 echo ""
 python eval_alignment.py $KEY model1.alignments
 
+for RC in 0.001 0.005 0.009
+do
+  echo ""
+  echo "*********LBFGS RC:"$RC"********"
+  echo ""
+  python eval_alignment.py $KEY LBFGS.$RC.$MODEL.alignments.col
+done
 #time python ../featurized_em_wa_mp.py -s $SOURCE_FULL -t $TARGET_FULL -a 'LBFGS' -m $MODEL --iw model1.probs --ts $SOURCE_TEST --tt $TARGET_TEST
 #echo ""
 #echo "*********LBFGS+model1********"

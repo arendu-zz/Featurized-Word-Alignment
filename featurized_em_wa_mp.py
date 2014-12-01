@@ -17,13 +17,14 @@ from pprint import pprint
 global BOUNDARY_START, END_STATE, SPLIT, E_TYPE, T_TYPE, IBM_MODEL_1, HMM_MODEL
 global cache_normalizing_decision, features_to_events, events_to_features, normalizing_decision_map
 global trellis, max_jump_width, model_type, number_of_events, EPS, snippet, max_beam_width, rc
-global source, target, data_likelihood, event_grad, feature_index, event_index,itercount
-itercount =0
+global source, target, data_likelihood, event_grad, feature_index, event_index, itercount, itermediate_log
+itercount = 0
 event_grad = {}
 data_likelihood = 0.0
 snippet = ''
 EPS = 1e-5
 rc = 0.25
+itermediate_log = 0
 IBM_MODEL_1 = "model1"
 HMM_MODEL = "hmm"
 max_jump_width = 10
@@ -347,8 +348,10 @@ def get_likelihood(theta, display=True):
     reg = np.sum(theta ** 2)
     ll = data_likelihood - (rc * reg)
     if display:
-        print itercount,'log likelihood:', ll
-    itercount+=1
+        print itercount, 'log likelihood:', ll
+    itercount += 1
+    if itermediate_log > 0 and itercount % itermediate_log == 0:
+        write_logs(theta, itercount)
     return -ll
 
 
@@ -401,19 +404,40 @@ def get_gradient(theta):
     return -grad
 
 
-def get_likelihood_with_expected_counts(theta, batch=None, display=False):
-    global fractional_counts
-    sum_likelihood = 0.0
-    for event in fractional_counts:
-        (t, d, c) = event
+def batch_likelihood_with_expected_counts(theta, batch):
+    global event_index
+    batch_sum_likelihood = 0.0
+    for idx in batch:
+        event = event_index[idx]
+        (t, d, c) = event_index[idx]
         A_dct = exp(fractional_counts[event])
         a_dct = get_decision_given_context(theta=theta, type=t, decision=d, context=c)
-        sum_likelihood += A_dct * a_dct
+        batch_sum_likelihood += A_dct * a_dct
+    return batch_sum_likelihood
+
+
+def batch_accumilate_likelihood_with_expected_counts(results):
+    global data_likelihood
+    data_likelihood += results
+
+
+def get_likelihood_with_expected_counts(theta, display=True):
+    global fractional_counts, data_likelihood, event_index
+    data_likelihood = 0.0
+    cpu_count = multiprocessing.cpu_count()
+    pool = Pool(processes=cpu_count)  # uses all available CPUs
+    batches_fractional_counts = np.array_split(range(len(event_index)), cpu_count)
+    for batch_of_fc in batches_fractional_counts:
+        pool.apply_async(batch_likelihood_with_expected_counts, args=(theta, batch_of_fc),
+                         callback=batch_accumilate_likelihood_with_expected_counts)
+    pool.close()
+    pool.join()
+
     reg = np.sum(theta ** 2)
-    sum_likelihood -= (rc * reg)
+    data_likelihood -= (rc * reg)
     if display:
-        print '\tec log likelihood:', sum_likelihood
-    return -sum_likelihood
+        print '\tec:', data_likelihood
+    return -data_likelihood
 
 
 def populate_trellis(source_corpus, target_corpus):
@@ -505,6 +529,25 @@ def initialize_theta(input_weights):
     return init_theta
 
 
+def write_logs(theta, current_iter):
+    global trellis
+    name_prefix = '.'.join(
+        [options.algorithm, str(rc), model_type])
+    if current_iter is not None:
+        name_prefix += '.' + str(current_iter)
+    write_weights(theta, name_prefix + '.' + options.output_weights)
+    write_probs(theta, name_prefix + '.' + options.output_probs)
+
+    if options.source_test is not None and options.target_test is not None:
+        source = [s.strip().split() for s in open(options.source_test, 'r').readlines()]
+        target = [t.strip().split() for t in open(options.target_test, 'r').readlines()]
+        trellis = populate_trellis(source, target)
+
+    write_alignments(theta, name_prefix + '.' + options.output_alignments)
+    write_alignments_col(theta, name_prefix + '.' + options.output_alignments)
+    write_alignments_col_tok(theta, name_prefix + '.' + options.output_alignments)
+
+
 if __name__ == "__main__":
     trellis = []
     opt = OptionParser()
@@ -512,7 +555,7 @@ if __name__ == "__main__":
     opt.add_option("-s", dest="source_corpus", default="experiment/data/toy.en")
     opt.add_option("--tt", dest="target_test", default="experiment/data/toy.fr")
     opt.add_option("--ts", dest="source_test", default="experiment/data/toy.en")
-
+    opt.add_option("--il", dest="intermediate_log", default="0")
     opt.add_option("--iw", dest="input_weights", default=None)
     opt.add_option("--ow", dest="output_weights", default="theta", help="extention of trained weights file")
     opt.add_option("--oa", dest="output_alignments", default="alignments", help="extension of alignments files")
@@ -524,6 +567,7 @@ if __name__ == "__main__":
     opt.add_option("-m", dest="model", default=IBM_MODEL_1, help="'model1' or 'hmm'")
     (options, _) = opt.parse_args()
     rc = float(options.regularization_coeff)
+    itermediate_log = int(options.intermediate_log)
     model_type = options.model
     source = [s.strip().split() for s in open(options.source_corpus, 'r').readlines()]
     target = [s.strip().split() for s in open(options.target_corpus, 'r').readlines()]
@@ -551,8 +595,8 @@ if __name__ == "__main__":
             old_e = float('-inf')
             converged = False
             while not converged:
-                t1 = minimize(get_likelihood_with_expected_counts, theta, method='L-BFGS-B', jac=get_gradient, tol=1e-3,
-                              options={'maxiter': 150})
+                t1 = minimize(get_likelihood_with_expected_counts, theta, method='L-BFGS-B', jac=get_gradient, tol=1e-4,
+                              options={'maxiter': 20})
                 theta = t1.x
                 new_e = get_likelihood(theta)  # this will also update expected counts
                 converged = round(abs(old_e - new_e), 2) == 0.0
@@ -578,14 +622,4 @@ if __name__ == "__main__":
         print 'wrong option for algorithm...'
         exit()
 
-    write_weights(theta, options.algorithm + '.' + model_type + '.' + options.output_weights)
-    write_probs(theta, options.algorithm + '.' + model_type + '.' + options.output_probs)
-
-    if options.source_test is not None and options.target_test is not None:
-        source = [s.strip().split() for s in open(options.source_test, 'r').readlines()]
-        target = [t.strip().split() for t in open(options.target_test, 'r').readlines()]
-        trellis = populate_trellis(source, target)
-
-    write_alignments(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
-    write_alignments_col(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
-    write_alignments_col_tok(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
+    write_logs(theta, current_iter=None)
