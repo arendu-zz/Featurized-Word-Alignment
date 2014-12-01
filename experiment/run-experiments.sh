@@ -1,8 +1,8 @@
 #!/bin/sh
 SOURCE_FULL="source_full.tmp"
 TARGET_FULL="target_full.tmp"
-SOURCE_TRAIN="data/train.en"
-TARGET_TRAIN="data/train.es"
+SOURCE_TRAIN="data/train.full.en"
+TARGET_TRAIN="data/train.full.es"
 SOURCE_TEST="data/dev.en"
 TARGET_TEST="data/dev.es"
 KEY="data/dev.key"
@@ -19,7 +19,7 @@ cat $TARGET_TRAIN >> $TARGET_FULL
 python initial_translation.py  -s $SOURCE_FULL -t $TARGET_FULL  -o initial.trans -m uniform
 for RC in 0.0 0.01 0.1 0.2
 do
-  time python ../featurized_em_wa_mp.py -s $SOURCE_FULL -t $TARGET_FULL -a 'LBFGS' -m $MODEL --iw initial.trans.log --ts $SOURCE_TEST --tt $TARGET_TEST
+  time python ../featurized_em_wa_mp.py -s $SOURCE_FULL -t $TARGET_FULL -a 'LBFGS' -m $MODEL --iw initial.trans.log --ts $SOURCE_TEST --tt $TARGET_TEST -r $RC
   echo ""
   echo "*********LBFGS RC:"$RC"********"
   echo ""
