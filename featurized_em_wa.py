@@ -66,7 +66,7 @@ def populate_features():
                 emission_decision = t_tok
                 emission_event = (E_TYPE, emission_decision, emission_context)
                 ff_e = FE.get_wa_features_fired(type=E_TYPE, decision=emission_decision, context=emission_context)
-                for f in ff_e:
+                for f_wt, f in ff_e:
                     feature_index[f] = len(feature_index) if f not in feature_index else feature_index[f]
                     ca2f = events_to_features.get(emission_event, set([]))
                     ca2f.add(f)
@@ -89,7 +89,7 @@ def populate_features():
                         ndm = normalizing_decision_map.get((T_TYPE, transition_context), set([]))
                         ndm.add(transition_decision)
                         normalizing_decision_map[T_TYPE, transition_context] = ndm
-                        for f in ff_t:
+                        for f_wt, f in ff_t:
                             feature_index[f] = len(feature_index) if f not in feature_index else feature_index[f]
                             ca2f = events_to_features.get(transition_event, set([]))
                             ca2f.add(f)
@@ -103,7 +103,7 @@ def get_decision_given_context(theta, type, decision, context):
     global normalizing_decision_map, cache_normalizing_decision, feature_index
     fired_features = FE.get_wa_features_fired(type=type, context=context, decision=decision)
 
-    theta_dot_features = sum([theta[feature_index[f]] for f in fired_features])
+    theta_dot_features = sum([theta[feature_index[f]] * f_wt for f_wt, f in fired_features])
 
     if (type, context) in cache_normalizing_decision:
         theta_dot_normalizing_features = cache_normalizing_decision[type, context]
@@ -112,7 +112,7 @@ def get_decision_given_context(theta, type, decision, context):
         theta_dot_normalizing_features = 0
         for d in normalizing_decisions:
             d_features = FE.get_wa_features_fired(type=type, context=context, decision=d)
-            theta_dot_normalizing_features += exp(sum([theta[feature_index[f]] for f in d_features]))
+            theta_dot_normalizing_features += exp(sum([theta[feature_index[f]] * f_wt for f_wt, f in d_features]))
 
         theta_dot_normalizing_features = log(theta_dot_normalizing_features)
         cache_normalizing_decision[type, context] = theta_dot_normalizing_features
@@ -542,6 +542,7 @@ if __name__ == "__main__":
     opt.add_option("--ts", dest="source_test", default="experiment/data/dev.small.en")
 
     opt.add_option("--iw", dest="input_weights", default=None)
+    opt.add_option("--fv", dest="feature_values", default=None)
     opt.add_option("--ow", dest="output_weights", default="theta", help="extention of trained weights file")
     opt.add_option("--oa", dest="output_alignments", default="alignments", help="extension of alignments files")
     opt.add_option("--op", dest="output_probs", default="probs", help="extension of probabilities")
@@ -557,10 +558,9 @@ if __name__ == "__main__":
     target = [s.strip().split() for s in open(options.target_corpus, 'r').readlines()]
     trellis = populate_trellis(source, target)
     populate_features()
-
+    FE.load_feature_values(options.feature_values)
     snippet = "#" + str(opt.values) + "\n"
-    print snippet
-
+   
     if options.algorithm == "LBFGS":
         if options.test_gradient.lower() == "true":
             gradient_check_lbfgs()

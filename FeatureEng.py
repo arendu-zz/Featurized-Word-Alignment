@@ -3,14 +3,31 @@ __author__ = 'arenduchintala'
 import featurized_em as fe
 import featurized_em_wa as fe_w
 
+global feature_values
+feature_values = {}
+
+
+def load_feature_values(valpath=None):
+    global feature_values
+    try:
+        feature_values = {}
+        for l in open(valpath, 'r').readlines():
+            [t, fr, en, val] = l.split()
+            feature_values[t, fr, en] = float(val)
+        print 'loaded feature values...'
+    except BaseException:
+        print 'binary feature values assumed...'
+
 
 def get_wa_features_fired(type, decision, context):
+    global feature_values
     fired_features = []
     if type == fe_w.E_TYPE:
-        fired_features = [(fe_w.E_TYPE, decision, context)]
+        val = feature_values.get((fe_w.E_TYPE, decision, context), 1.0)
+        fired_features = [(val, (fe_w.E_TYPE, decision, context))]
 
         # if decision == context:
-        #    fired_features += [("IS_SAME", decision, context)]
+        # fired_features += [("IS_SAME", decision, context)]
 
         """if decision[0].isupper() and context[0].isupper() and context != fe_w.NULL:
             fired_features += [("IS_UPPER", decision, context)]"""
