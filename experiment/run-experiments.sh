@@ -17,7 +17,8 @@ cat $TARGET_TEST > $TARGET_FULL
 cat $TARGET_TRAIN >> $TARGET_FULL
 
 python initial_translation.py  -s $SOURCE_FULL -t $TARGET_FULL  -o initial.trans -m uniform
-for RC in 0.001 0.005 0.009
+python editdistance.py -i initial.trans > initial.feature.values
+for RC in 0.001 0.005 
 do
   time python ../featurized_em_wa_mp.py -s $SOURCE_FULL -t $TARGET_FULL -a 'LBFGS' -m $MODEL --iw initial.trans.log --ts $SOURCE_TEST --tt $TARGET_TEST -r $RC
 done
@@ -28,7 +29,7 @@ echo "********Baseline********"
 echo ""
 python eval_alignment.py $KEY model1.alignments
 
-for RC in 0.001 0.005 0.009
+for RC in 0.001 0.005
 do
   echo ""
   echo "*********LBFGS RC:"$RC"********"
