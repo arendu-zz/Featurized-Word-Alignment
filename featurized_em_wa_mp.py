@@ -18,6 +18,7 @@ global BOUNDARY_START, END_STATE, SPLIT, E_TYPE, T_TYPE, IBM_MODEL_1, HMM_MODEL
 global cache_normalizing_decision, features_to_events, events_to_features, normalizing_decision_map
 global trellis, max_jump_width, model_type, number_of_events, EPS, snippet, max_beam_width, rc
 global source, target, data_likelihood, event_grad, feature_index, event_index, itercount, itermediate_log
+global events_per_trellis, event_to_event_index
 itercount = 0
 event_grad = {}
 data_likelihood = 0.0
@@ -45,13 +46,15 @@ events_to_features = {}
 features_to_events = {}
 feature_index = {}
 event_index = []
+event_to_event_index = {}
 conditional_arc_index = {}
 normalizing_decision_map = {}
 
 
 def populate_features():
-    global trellis, feature_index, source, target, event_index
+    global trellis, feature_index, source, target, event_index, event_to_event_index
     event_index = set([])
+
     for treli_idx, treli in enumerate(trellis):
         for idx in treli:
             for t_idx, s_idx in treli[idx]:
@@ -104,6 +107,8 @@ def populate_features():
                             f2ca.add(transition_event)
                             features_to_events[f] = f2ca
     event_index = sorted(list(event_index))
+    for ei, e in enumerate(event_index):
+        event_to_event_index[e] = ei
 
 
 def get_decision_given_context(theta, type, decision, context):
@@ -440,6 +445,33 @@ def get_likelihood_with_expected_counts(theta, display=True):
     return -data_likelihood
 
 
+def populate_events_per_trellis():
+    global event_index, trellis, events_per_trellis
+    events_per_trellis = []
+    for obs_id, obs in enumerate(trellis):
+        events_observed = []
+        obs = trellis[obs_id]
+        src = source[obs_id]
+        tar = target[obs_id]
+        for k in range(1, len(obs)):  # the words are numbered from 1 to n, 0 is special start character
+            for v in obs[k]:  # [1]:
+                for u in obs[k - 1]:  # [1]:
+                    tk, aj = v
+                    tk_1, aj_1 = u
+                    t_tok = tar[tk]
+                    s_tok = src[aj] if aj is not NULL else NULL
+                    if model_type == HMM_MODEL:
+                        context = aj_1
+                        ei = event_to_event_index[(T_TYPE, aj, context)]
+                        event_observed.append(ei)
+                    else:
+                        pass
+
+                    ei = event_to_event_index[(E_TYPE, t_tok, s_tok)]
+                    events_observed.append(ei)
+        events_per_trellis.append(list(set(events_observed)))
+
+
 def populate_trellis(source_corpus, target_corpus):
     global max_jump_width, max_beam_width
     new_trellis = []
@@ -601,6 +633,7 @@ if __name__ == "__main__":
     source = [s.strip().split() for s in open(options.source_corpus, 'r').readlines()]
     target = [s.strip().split() for s in open(options.target_corpus, 'r').readlines()]
     trellis = populate_trellis(source, target)
+
     populate_features()
     FE.load_feature_values(options.feature_values)
     snippet = "#" + str(opt.values) + "\n"
@@ -624,30 +657,53 @@ if __name__ == "__main__":
             exp_new_e = get_likelihood_with_expected_counts(theta)
             old_e = float('-inf')
             converged = False
-            while not converged:
+            iterations = 0
+            while not converged and iterations < 20:
                 t1 = minimize(get_likelihood_with_expected_counts, theta, method='L-BFGS-B', jac=get_gradient, tol=1e-4,
                               options={'maxiter': 20})
                 theta = t1.x
                 new_e = get_likelihood(theta)  # this will also update expected counts
                 converged = round(abs(old_e - new_e), 1) == 0.0
                 old_e = new_e
-    elif options.algorithm == "SGD":
-        batch_size = len(trellis)
-        theta = initialize_theta(options.input_weights)
-        get_likelihood(theta, display=True)
-        reset_fractional_counts()
-        batch_idxs = np.array_split(range(len(trellis)), len(trellis) / batch_size)
-        for iter in xrange(3):
-            random.shuffle(batch_idxs)
-            b_id = 0
-            for batch_idx in batch_idxs:
-                print b_id
-                b_id += 1
-                t1 = minimize(get_likelihood, theta, method='L-BFGS-B', jac=get_gradient, args=(batch_idx, False),
-                              tol=1e-5,
-                              options={'maxiter': 150})
-                theta = t1.x
-            get_likelihood(theta, display=True)
+                iterations += 1
+    elif options.algorithm == "EM-SGD":
+        if options.test_gradient.lower() == "true":
+            gradient_check_em()
+        else:
+            print 'skipping gradient check...'
+            print 'populating events per trellis...'
+            populate_events_per_trellis()
+            print 'done...'
+            theta = initialize_theta(options.input_weights)
+            new_e = get_likelihood(theta)
+            exp_new_e = get_likelihood_with_expected_counts(theta)
+            old_e = float('-inf')
+            converged = False
+            iterations = 0
+            ids = range(len(trellis))
+
+            while not converged and iterations < 20:
+                eta0 = 1.0
+                sum_square_grad = np.zeros(np.shape(theta))
+                I = 1.0
+                random.shuffle(ids)
+                for obs_id in ids:
+                    print _, obs_id
+                    event_observed = events_per_trellis[obs_id]
+                    eg = batch_gradient(theta, event_observed)
+                    grad = -2 * rc * theta  # l2 regularization with lambda 0.5
+                    for e in eg:
+                        feats = events_to_features[e]
+                        for f in feats:
+                            grad[feature_index[f]] += eg[e]
+                    sum_square_grad += (grad ** 2)
+                    eta_t = eta0 / np.sqrt(I + sum_square_grad)
+                    theta += np.multiply(eta_t, grad)
+
+                new_e = get_likelihood(theta)  # this will also update expected counts
+                converged = round(abs(old_e - new_e), 2) == 0.0
+                old_e = new_e
+                iterations += 1
     else:
         print 'wrong option for algorithm...'
         exit()
