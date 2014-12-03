@@ -686,19 +686,20 @@ if __name__ == "__main__":
                 eta0 = 1.0
                 sum_square_grad = np.zeros(np.shape(theta))
                 I = 1.0
-                random.shuffle(ids)
-                for obs_id in ids:
-                    print _, obs_id
-                    event_observed = events_per_trellis[obs_id]
-                    eg = batch_gradient(theta, event_observed)
-                    grad = -2 * rc * theta  # l2 regularization with lambda 0.5
-                    for e in eg:
-                        feats = events_to_features[e]
-                        for f in feats:
-                            grad[feature_index[f]] += eg[e]
-                    sum_square_grad += (grad ** 2)
-                    eta_t = eta0 / np.sqrt(I + sum_square_grad)
-                    theta += np.multiply(eta_t, grad)
+                for _ in range(2):
+                    random.shuffle(ids)
+                    for obs_id in ids:
+                        print _, obs_id
+                        event_observed = events_per_trellis[obs_id]
+                        eg = batch_gradient(theta, event_observed)
+                        grad = -2 * rc * theta  # l2 regularization with lambda 0.5
+                        for e in eg:
+                            feats = events_to_features[e]
+                            for f in feats:
+                                grad[feature_index[f]] += eg[e]
+                        sum_square_grad += (grad ** 2)
+                        eta_t = eta0 / np.sqrt(I + sum_square_grad)
+                        theta += np.multiply(eta_t, grad)
 
                 new_e = get_likelihood(theta)  # this will also update expected counts
                 converged = round(abs(old_e - new_e), 2) == 0.0
