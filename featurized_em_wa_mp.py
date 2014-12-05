@@ -627,6 +627,33 @@ def write_logs(theta, current_iter):
     write_alignments_col_tok(theta, name_prefix + '.' + options.output_alignments)
 
 
+def batch_sgd(obs_id, sgd_theta, sum_square_grad):
+    # print _, obs_id
+    eo = events_per_trellis[obs_id]
+    eg = batch_gradient(sgd_theta, eo)
+    gdu = np.array([float('inf')] * len(sgd_theta))
+    grad = np.zeros(np.shape(sgd_theta))  # -2 * rc * theta  # l2 regularization with lambda 0.5
+    for e in eg:
+        feats = events_to_features[e]
+        for f in feats:
+            grad[feature_index[f]] += eg[e]
+            gdu[feature_index[f]] = du[feature_index[f]]
+
+    grad_du = -2 * rc * np.divide(sgd_theta, gdu)
+
+    grad += grad_du
+    sum_square_grad += (grad ** 2)
+    eta_t = eta0 / np.sqrt(I + sum_square_grad)
+    sgd_theta += np.multiply(eta_t, grad)
+    return obs_id
+
+
+def batch_sgd_accumilate(obs_id):
+    print obs_id
+
+
+import sharedmem
+
 if __name__ == "__main__":
     trellis = []
     opt = OptionParser()
@@ -726,6 +753,7 @@ if __name__ == "__main__":
                 converged = round(abs(old_e - new_e), 2) == 0.0
                 old_e = new_e
                 iterations += 1
+
     elif options.algorithm == "EM-SGD-PARALLEL":
         if options.test_gradient.lower() == "true":
             gradient_check_em()
@@ -734,41 +762,39 @@ if __name__ == "__main__":
             print 'populating events per trellis...'
             populate_events_per_trellis()
             print 'done...'
-            theta = initialize_theta(options.input_weights)
-            new_e = get_likelihood(theta)
-            exp_new_e = get_likelihood_with_expected_counts(theta)
+
+            init_theta = initialize_theta(options.input_weights)
+            shared_sgd_theta = sharedmem.zeros(np.shape(init_theta))
+            shared_sgd_theta += init_theta
+            new_e = get_likelihood(shared_sgd_theta)
+            exp_new_e = get_likelihood_with_expected_counts(shared_sgd_theta)
             old_e = float('-inf')
             converged = False
             iterations = 0
             ids = range(len(trellis))
             while not converged and iterations < 5:
                 eta0 = 1.0
-                sum_square_grad = np.zeros(np.shape(theta))
+                shared_sum_squared_grad = sharedmem.zeros(np.shape(shared_sgd_theta))
                 I = 1.0
                 for _ in range(2):
                     random.shuffle(ids)
+
+                    cpu_count = multiprocessing.cpu_count()
+                    pool = Pool(processes=cpu_count)
                     for obs_id in ids:
-                        print _, obs_id
-                        event_observed = events_per_trellis[obs_id]
-                        eg = batch_gradient(theta, event_observed)
-                        gdu = np.array([float('inf')] * len(theta))
-                        for e in eg:
-                            feats = events_to_features[e]
-                            for f in feats:
-                                grad[feature_index[f]] += eg[e]
-                                gdu[feature_index[f]] = du[feature_index[f]]
-
-                        grad_du = -2 * rc * np.divide(theta, gdu)
-                        grad = np.zeros(np.shape(theta))  # -2 * rc * theta  # l2 regularization with lambda 0.5
-                        grad += grad_du
-                        sum_square_grad += (grad ** 2)
-                        eta_t = eta0 / np.sqrt(I + sum_square_grad)
-                        theta += np.multiply(eta_t, grad)
-
-                new_e = get_likelihood(theta)  # this will also update expected counts
+                        pool.apply_async(batch_sgd, args=(obs_id, shared_sgd_theta, shared_sum_squared_grad),
+                                         callback=batch_sgd_accumilate)
+                    pool.close()
+                    pool.join()
+                    """
+                    for obs_id in ids:
+                        batch_sgd(obs_id)
+                    """
+                new_e = get_likelihood(shared_sgd_theta)  # this will also update expected counts
                 converged = round(abs(old_e - new_e), 2) == 0.0
                 old_e = new_e
                 iterations += 1
+            theta = shared_sgd_theta
     else:
         print 'wrong option for algorithm...'
         exit()
