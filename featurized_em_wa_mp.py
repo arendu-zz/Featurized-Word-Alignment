@@ -703,14 +703,14 @@ if __name__ == "__main__":
             iterations = 0
             ids = range(len(trellis))
 
-            while not converged and iterations < 10:
+            while not converged and iterations < 5:
                 eta0 = 1.0
                 sum_square_grad = np.zeros(np.shape(theta))
                 I = 1.0
                 for _ in range(2):
                     random.shuffle(ids)
                     for obs_id in ids:
-                        # print _, obs_id
+                        print _, obs_id
                         event_observed = events_per_trellis[obs_id]
                         eg = batch_gradient(theta, event_observed)
                         grad = -2 * rc * theta  # l2 regularization with lambda 0.5
@@ -741,14 +741,14 @@ if __name__ == "__main__":
             converged = False
             iterations = 0
             ids = range(len(trellis))
-            while not converged and iterations < 10:
+            while not converged and iterations < 5:
                 eta0 = 1.0
                 sum_square_grad = np.zeros(np.shape(theta))
                 I = 1.0
                 for _ in range(2):
                     random.shuffle(ids)
                     for obs_id in ids:
-                        # print _, obs_id
+                        print _, obs_id
                         event_observed = events_per_trellis[obs_id]
                         eg = batch_gradient(theta, event_observed)
                         gdu = np.array([float('inf')] * len(theta))
