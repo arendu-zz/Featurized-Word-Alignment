@@ -18,7 +18,8 @@ global BOUNDARY_START, END_STATE, SPLIT, E_TYPE, T_TYPE, IBM_MODEL_1, HMM_MODEL
 global cache_normalizing_decision, features_to_events, events_to_features, normalizing_decision_map
 global trellis, max_jump_width, model_type, number_of_events, EPS, snippet, max_beam_width, rc
 global source, target, data_likelihood, event_grad, feature_index, event_index, itercount, itermediate_log
-global events_per_trellis, event_to_event_index
+global events_per_trellis, event_to_event_index, has_pos, event_counts, du
+has_pos = False
 itercount = 0
 event_grad = {}
 data_likelihood = 0.0
@@ -45,15 +46,19 @@ number_of_events = 0
 events_to_features = {}
 features_to_events = {}
 feature_index = {}
+feature_counts = {}
+du = []
 event_index = []
 event_to_event_index = {}
+event_counts = {}
 conditional_arc_index = {}
 normalizing_decision_map = {}
 
 
 def populate_features():
-    global trellis, feature_index, source, target, event_index, event_to_event_index
+    global trellis, feature_index, source, target, event_index, event_to_event_index, event_counts, du
     event_index = set([])
+    event_counts = {}
 
     for treli_idx, treli in enumerate(trellis):
         for idx in treli:
@@ -73,6 +78,7 @@ def populate_features():
                 emission_decision = t_tok
                 emission_event = (E_TYPE, emission_decision, emission_context)
                 event_index.add(emission_event)
+                event_counts[emission_event] = event_counts.get(emission_event, 1.0)
                 ff_e = FE.get_wa_features_fired(type=E_TYPE, decision=emission_decision, context=emission_context)
                 for f_wt, f in ff_e:
                     feature_index[f] = len(feature_index) if f not in feature_index else feature_index[f]
@@ -82,6 +88,7 @@ def populate_features():
                     f2ca = features_to_events.get(f, set([]))
                     f2ca.add(emission_event)
                     features_to_events[f] = f2ca
+                    feature_counts[f] = feature_counts.get(f, 0.0) + 1.0
 
                 if idx > 0 and model_type == HMM_MODEL:
                     for prev_t_idx, prev_s_idx in treli[idx - 1]:
@@ -92,6 +99,7 @@ def populate_features():
                         transition_decision = s_idx
                         transition_event = (T_TYPE, transition_decision, transition_context)
                         event_index.add(transition_event)
+                        event_counts[transition_event] = event_counts.get(transition_event, 1.0)
                         ff_t = FE.get_wa_features_fired(type=T_TYPE, decision=transition_decision,
                                                         context=transition_context)
 
@@ -106,6 +114,14 @@ def populate_features():
                             f2ca = features_to_events.get(f, set([]))
                             f2ca.add(transition_event)
                             features_to_events[f] = f2ca
+                            feature_counts[f] = feature_counts.get(f, 0.0) + 1.0
+
+    du = np.zeros(len(feature_index))
+    for f in feature_index:
+        i = feature_index[f]
+        c = feature_counts[f]
+        du[i] = c
+
     event_index = sorted(list(event_index))
     for ei, e in enumerate(event_index):
         event_to_event_index[e] = ei
@@ -339,7 +355,7 @@ def batch_accumilate_likelihood(result):
 def get_likelihood(theta, display=True):
     assert isinstance(theta, np.ndarray)
     assert len(theta) == len(feature_index)
-    global trellis, data_likelihood, rc, itercount
+    global trellis, data_likelihood, rc, itercount, N
     reset_fractional_counts()
     data_likelihood = 0.0
     cpu_count = multiprocessing.cpu_count()
@@ -351,7 +367,7 @@ def get_likelihood(theta, display=True):
     pool.close()
     pool.join()
     reg = np.sum(theta ** 2)
-    ll = data_likelihood - (rc * reg)
+    ll = (data_likelihood - (rc * reg))
     if display:
         print itercount, 'log likelihood:', ll
     itercount += 1
@@ -386,7 +402,7 @@ def batch_accumilate_gradient(result):
 
 
 def get_gradient(theta):
-    global fractional_counts, event_index, feature_index, event_grad, rc
+    global fractional_counts, event_index, feature_index, event_grad, rc, N
     assert len(theta) == len(feature_index)
     event_grad = {}
     cpu_count = multiprocessing.cpu_count()
@@ -398,6 +414,7 @@ def get_gradient(theta):
     pool.join()
     # grad = np.zeros_like(theta)
     grad = -2 * rc * theta  # l2 regularization with lambda 0.5
+
     for e in event_grad:
         feats = events_to_features[e]
         for f in feats:
@@ -553,7 +570,7 @@ def gradient_check_em():
 
 def gradient_check_lbfgs():
     global EPS, feature_index
-    init_theta = initialize_theta(None)
+    init_theta = initialize_theta(None, True)
     chk_grad = utils.gradient_checking(init_theta, EPS, get_likelihood)
     my_grad = get_gradient(init_theta)
     diff = []
@@ -569,9 +586,12 @@ def gradient_check_lbfgs():
         ' sign difference', utils.sign_difference(chk_grad, my_grad)
 
 
-def initialize_theta(input_weights):
+def initialize_theta(input_weights, rand=False):
     global feature_index
-    init_theta = np.random.uniform(1.0, 1.0, len(feature_index))
+    if rand:
+        init_theta = np.random.uniform(-1.0, 1.0, len(feature_index))
+    else:
+        init_theta = np.random.uniform(1.0, 1.0, len(feature_index))
     if input_weights is not None:
         print 'reading initial weights...'
         for l in open(options.input_weights, 'r').readlines():
@@ -632,6 +652,7 @@ if __name__ == "__main__":
 
     source = [s.strip().split() for s in open(options.source_corpus, 'r').readlines()]
     target = [s.strip().split() for s in open(options.target_corpus, 'r').readlines()]
+
     trellis = populate_trellis(source, target)
 
     populate_features()
@@ -689,7 +710,7 @@ if __name__ == "__main__":
                 for _ in range(2):
                     random.shuffle(ids)
                     for obs_id in ids:
-                        print _, obs_id
+                        # print _, obs_id
                         event_observed = events_per_trellis[obs_id]
                         eg = batch_gradient(theta, event_observed)
                         grad = -2 * rc * theta  # l2 regularization with lambda 0.5
@@ -705,8 +726,54 @@ if __name__ == "__main__":
                 converged = round(abs(old_e - new_e), 2) == 0.0
                 old_e = new_e
                 iterations += 1
+    elif options.algorithm == "EM-SGD-PARALLEL":
+        if options.test_gradient.lower() == "true":
+            gradient_check_em()
+        else:
+            print 'skipping gradient check...'
+            print 'populating events per trellis...'
+            populate_events_per_trellis()
+            print 'done...'
+            theta = initialize_theta(options.input_weights)
+            new_e = get_likelihood(theta)
+            exp_new_e = get_likelihood_with_expected_counts(theta)
+            old_e = float('-inf')
+            converged = False
+            iterations = 0
+            ids = range(len(trellis))
+            while not converged and iterations < 10:
+                eta0 = 1.0
+                sum_square_grad = np.zeros(np.shape(theta))
+                I = 1.0
+                for _ in range(2):
+                    random.shuffle(ids)
+                    for obs_id in ids:
+                        # print _, obs_id
+                        event_observed = events_per_trellis[obs_id]
+                        eg = batch_gradient(theta, event_observed)
+                        gdu = np.array([float('inf')] * len(theta))
+                        for e in eg:
+                            feats = events_to_features[e]
+                            for f in feats:
+                                grad[feature_index[f]] += eg[e]
+                                gdu[feature_index[f]] = du[feature_index[f]]
+
+                        grad_du = -2 * rc * np.divide(theta, gdu)
+                        grad = np.zeros(np.shape(theta))  # -2 * rc * theta  # l2 regularization with lambda 0.5
+                        grad += grad_du
+                        sum_square_grad += (grad ** 2)
+                        eta_t = eta0 / np.sqrt(I + sum_square_grad)
+                        theta += np.multiply(eta_t, grad)
+
+                new_e = get_likelihood(theta)  # this will also update expected counts
+                converged = round(abs(old_e - new_e), 2) == 0.0
+                old_e = new_e
+                iterations += 1
     else:
         print 'wrong option for algorithm...'
         exit()
 
-    write_logs(theta, current_iter=None)
+    if options.test_gradient.lower() == "true":
+        pass
+    else:
+        write_logs(theta, current_iter=None)
