@@ -692,7 +692,7 @@ if __name__ == "__main__":
         else:
             print 'skipping gradient check...'
             init_theta = initialize_theta(options.input_weights)
-            t1 = minimize(get_likelihood, init_theta, method='L-BFGS-B', jac=get_gradient, tol=1e-4,
+            t1 = minimize(get_likelihood, init_theta, method='L-BFGS-B', jac=get_gradient, tol=1e-5,
                           options={'maxiter': 10})
             theta = t1.x
     elif options.algorithm == "EM":
@@ -730,7 +730,7 @@ if __name__ == "__main__":
             iterations = 0
             ids = range(len(trellis))
 
-            while not converged and iterations < 5:
+            while not converged and iterations < 10:
                 eta0 = 1.0
                 sum_square_grad = np.zeros(np.shape(theta))
                 I = 1.0
