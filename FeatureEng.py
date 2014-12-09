@@ -26,8 +26,8 @@ def get_wa_features_fired(type, decision, context):
         val = feature_values.get((fe_w.E_TYPE, decision, context), 1.0)
         fired_features = [(val, (fe_w.E_TYPE, decision, context))]
 
-        # if decision == context:
-        # fired_features += [("IS_SAME", decision, context)]
+        if decision == context:
+            fired_features += [(1.0, ("IS_SAME", decision, context))]
 
         """if decision[0].isupper() and context[0].isupper() and context != fe_w.NULL:
             fired_features += [("IS_UPPER", decision, context)]"""
