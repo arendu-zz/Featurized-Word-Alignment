@@ -657,10 +657,10 @@ import sharedmem
 if __name__ == "__main__":
     trellis = []
     opt = OptionParser()
-    opt.add_option("-t", dest="target_corpus", default="experiment/data/dev.small.es")
-    opt.add_option("-s", dest="source_corpus", default="experiment/data/dev.small.en")
-    opt.add_option("--tt", dest="target_test", default="experiment/data/dev.small.es")
-    opt.add_option("--ts", dest="source_test", default="experiment/data/dev.small.en")
+    opt.add_option("-t", dest="target_corpus", default="experiment/data/toy.fr")
+    opt.add_option("-s", dest="source_corpus", default="experiment/data/toy.en")
+    opt.add_option("--tt", dest="target_test", default="experiment/data/toy.fr")
+    opt.add_option("--ts", dest="source_test", default="experiment/data/toy.en")
     opt.add_option("--il", dest="intermediate_log", default="0")
     opt.add_option("--iw", dest="input_weights", default=None)
     opt.add_option("--fv", dest="feature_values", default=None)
@@ -692,7 +692,7 @@ if __name__ == "__main__":
         else:
             print 'skipping gradient check...'
             init_theta = initialize_theta(options.input_weights)
-            t1 = minimize(get_likelihood, init_theta, method='L-BFGS-B', jac=get_gradient, tol=1e-4,
+            t1 = minimize(get_likelihood, init_theta, method='L-BFGS-B', jac=get_gradient, tol=1e-5,
                           options={'maxiter': 10})
             theta = t1.x
     elif options.algorithm == "EM":
@@ -730,7 +730,7 @@ if __name__ == "__main__":
             iterations = 0
             ids = range(len(trellis))
 
-            while not converged and iterations < 5:
+            while not converged and iterations < 10:
                 eta0 = 1.0
                 sum_square_grad = np.zeros(np.shape(theta))
                 I = 1.0
