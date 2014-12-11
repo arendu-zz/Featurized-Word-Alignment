@@ -6,6 +6,7 @@
 \documentclass[11pt,letterpaper]{article}
 \usepackage{naaclhlt2010}
 \usepackage{times}
+\usepackage{graphicx}
 \usepackage{latexsym}
 \setlength\titlebox{6.5cm}    % Expanding the titlebox
 \usepackage{amsmath,amsfonts,amsthm}
@@ -210,9 +211,9 @@ We would also like to see how different factors (e.g. optimization algorithm, it
 \hline 
 \bf template & \bf description \\
 \hline
-\texttt{BASE} & \makecell[l]{binary feature, fires for each\\ source and target pairs in the\\ alignment} \\
-\texttt{IS\_SAME} & \makecell[l]{binary feature, fires when\\ the source and the target token\\ is same}\\
-\texttt{EDIT\_DIST} & \makecell[l]{real-valued feature, gives the\\ edit distance between the source\\ and target token}\\
+\texttt{BASE(B)} & \makecell[l]{binary feature, fires for each\\ source and target pairs in the\\ alignment} \\
+\texttt{IS\_SAME (S)} & \makecell[l]{binary feature, fires when\\ the source and the target token\\ is same}\\
+\texttt{EDIT\_DIST (ED)} & \makecell[l]{real-valued feature, gives the\\ edit distance between the source\\ and target token}\\
 \hline
 \end{tabular}
 \end{center}
@@ -220,10 +221,13 @@ We would also like to see how different factors (e.g. optimization algorithm, it
 \end{table}
 
 \subsection{Results}
-\begin{table*}[t]
+The first experiment we conducted was to see if our implementation of the FEM,DGD,SGD and SGD-P all produce results that are comparable given the same basic features to train on. We find that all our algorithms perform like IBM-Model1. Choice of regularization terms affect the output more in some cases. We found that the DGD suffers large drop in performance with out properly tuned regularization coefficients. As this project is not focused purely optimizing to get best scores, we limit our experiments with just 2 arbitrary values of regularization. The results are shown in \ref{tab:rc}. 
+\begin{table}[t]
+\centering
+\resizebox{0.45\textwidth}{!}{
 \begin{tabular}{llllll}
-\textbf{Algorithm} & \textbf{Regularization} & \textbf{Iterations} & \textbf{Precision} & \textbf{Recall} & \textbf{F-score} \\
-Baseline           & -                       &                     &                    &                 &                  \\
+\textbf{Algorithm} & \textbf{Reg} & \textbf{Iter} & \textbf{Prec.} & \textbf{Rec.} & \textbf{F-score} \\
+Baseline           & -                       & 10                  & 0.376              & 0.385           & 0.380                 \\
 FEM                & 0.0                     & 10                  & 0.377              & 0.389           & 0.383            \\
 FEM                & 0.005                   & 10                  & 0.353              & 0.353           & 0.353            \\
 DGD                & 0.0                     & 10                  & 0.321              & 0.331           & 0.326            \\
@@ -231,37 +235,45 @@ DGD                & 0.005                   & 10                  & 0.294      
 FEM-SGD            & 0.0                     & 5                   & 0.366              & 0.378           & 0.372            \\
 FEM-SGD            & 0.005                   & 5                   & 0.222              & 0.229           & 0.225            \\
 FEM-SGD-P   & 0.0                     & 5                   & 0.370              & 0.381           & 0.375            \\
-FEM-SGD-P   & 0.005                   & 5                   & 0.369              & 0.381           &                 
+FEM-SGD-P   & 0.005                   & 5                   & 0.369              & 0.381           & 0.375                
 \end{tabular}
+}
 \label{tab:rc}
-\caption{Performance of the algorithms with different Regularization coefficients, trained on 2K sentences and tested on 200, only with base features}
-\end{table*}
+\caption{Comparison of the algorithms trained on 2K sentences and tested on 200, only with base features}
+\end{table}
 
-\begin{table}[h]
-\begin{tabular}{llll}
-\textbf{Algorithm} & \textbf{Regularization} & \textbf{NThreads} & \textbf{Time} \\
-FEM       & 0.0            & 24       & 65m17s  \\
-FEM       & 0.005          & 24       & 65m9s   \\
-DGD       &                & 24       &         \\
-DGD       &                & 24       &         \\
-FEM-SGD   & 0.0            & 1        & 113m14s \\
-FEM-SGD   & 0.005          & 1        &         \\
-FEM-SGD-P & 0.0            & 24       & 24m36s  \\
-FEM-SGD-P & 0.005          & 24       & 24m21s 
+Table \ref{tab:time} gives a sense of time each of these methods take to run 5 iterations. The iterations for FEM count the outerloop, the M-Step in FEM is not limited to just 5 iterations. These times still don't compare to IBM-Model which typically takes less than a minute for this training set. As mentioned there is significant slow down due to the computation of the normalization term (partition function) for each conditional probability, even for a dataset as small as 2K there are a large number of word-pairs that slow down the computation of the partition function. We do see a significant speed up with parallel sgd even though there is some over head in parallelization.
+\begin{table}[t]
+\centering
+\resizebox{0.45\textwidth}{!}{
+\begin{tabular}{lllll}
+\textbf{Algorithm} & \textbf{Reg} & \textbf{NThreads} & \textbf{Time} & \textbf{F-Score} \\
+FEM       & 0.0            & 24       & 65m17s  & 0.377 \\
+FEM       & 0.005          & 24       & 65m9s   & 0.343 \\
+DGD       & 0.0            & 24       & 17m30s  & 0.232 \\
+DGD       & 0.005          & 24       & 17m42s   & 0.231 \\
+FEM-SGD   & 0.0            & 1        & 113m14s  & 0.372 \\
+FEM-SGD   & 0.005          & 1        & 112m4s  & 0.225 \\
+FEM-SGD-P & 0.0            & 24       & 24m36s  & 0.375\\
+FEM-SGD-P & 0.005          & 24       & 24m21s  &0.375
 \end{tabular}
+}
 \label{tab:time}
 \caption{Time of the algorithms with 5 iterations 2K sentences and tested on 200, only with base features}
 \end{table}
 
-\begin{table}[h]
+\begin{table}[t]
+\centering
+\resizebox{0.45\textwidth}{!}{
 \begin{tabular}{llllll}
-\textbf{Algorithm} & \textbf{Regularization} & \textbf{Features} & \textbf{Precision} & \textbf{Recall} & \textbf{F-score} \\
+\textbf{Algorithm} & \textbf{Reg} & \textbf{Feats} & \textbf{Prec} & \textbf{Rec} & \textbf{F-score} \\
 Baseline           & -                       & -                 & 0.420              & 0.432           & 0.426            \\
-FEM-SGD-P          & 0.0                     & IS.SAME           & 0.426              & 0.440           & 0.433            \\
-FEM-SGD-P          & 0.005                   & IS.SAME           & 0.427              & 0.440           & 0.433            \\
-FEM-SGD-P          & 0.0                     & IS\_SAME + REAL   & 0.336              & 0.335           & 0.335            \\
-FEM-SGD-P          & 0.005                   & IS\_SAME          & 0.335              & 0.334           & 0.335           
+FEM-SGD-P          & 0.0                     & \texttt{B,S}           & 0.426              & 0.440           & 0.433            \\
+FEM-SGD-P          & 0.005                   & \texttt{B,S}           & 0.427              & 0.440           & 0.433            \\
+FEM-SGD-P          & 0.0                     & \texttt{B,S,ED}   & 0.336              & 0.335           & 0.335            \\
+FEM-SGD-P          & 0.005                   & \texttt{B,S,ED}          & 0.335              & 0.334           & 0.335           
 \end{tabular}
+}
 \label{tab:sgdp}
 \caption{Performance FEM-SGD-P trained on 5K sentences (5 iterations) and tested on 200}
 \end{table}
@@ -269,6 +281,6 @@ FEM-SGD-P          & 0.005                   & IS\_SAME          & 0.335        
 
 \section{Comparison with Proposal}
 \bibliographystyle{naaclhlt2010}
-\bibliography{finalbib}
+\bibliography{bib}
 
 \end{document}
