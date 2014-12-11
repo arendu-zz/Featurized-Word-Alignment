@@ -10,6 +10,8 @@
 \setlength\titlebox{6.5cm}    % Expanding the titlebox
 \usepackage{amsmath,amsfonts,amsthm}
 \usepackage{amssymb}
+\usepackage[colorlinks=true]{hyperref}
+\usepackage{makecell}
 
 \title{Unsupervised Featureized HMM Modeling}
 
@@ -161,7 +163,53 @@ $\theta_j \in \theta$.
 % make sure to clarify all the different optimization method you've used
 
 \section{Experiments}
+\subsection{setup}
+Most of our word alignment experiments are performed on a parallel corpus of English and Spanish sentences.
+The corpus contains 1768 sentences as the training set and 200 sentences as the development set.
+As there are not tuning hyper-parameters in our model, it is sensible and sufficient to evaluate the performance of our model on the development set.
+For several experiments, we also use an extra training corpus that contains 5K % TODO what is the exact scale of the 5k dataset?
+sentences.
 
+As we have mentioned in the previous part, we take traditional IBM Model1 as our baseline.
+% make sure we have mentioned this in the previous parts of our writeup
+For featurized model, we designed three feature templates (as shown in Table \ref{featureset-table}) to try out on it.
+Our general workflow is to first prove that the featurized model is able to generate a comparable result against baseline when we only use \texttt{BASE} features (because they are equivalent).
+After that, we further incorporate other additional features to see how they works.
+
+We would also like to see how different factors (e.g. optimization algorithm, iteration, regularization etc.) will effect the performance of the model.
+
+\begin{table}
+\begin{center}
+\begin{tabular}{|c|c|}
+\hline 
+\bf template & \bf description \\
+\hline
+\texttt{BASE} & \makecell[l]{binary feature, fires for each\\ source and target pairs in the\\ alignment} \\
+\texttt{IS\_SAME} & \makecell[l]{binary feature, fires when\\ the source and the target token\\ is same}\\
+\texttt{EDIT\_DIST} & \makecell[l]{real-valued feature, gives the\\ edit distance between the source\\ and target token}\\
+\hline
+\end{tabular}
+\end{center}
+\caption{\label{featureset-table} Feature templates for experiments}
+\end{table}
+
+\subsection{Results}
+\begin{table*}[t]
+\begin{center}
+\begin{tabular}{|c|c|c|c|}
+\hline \bf  & \bf Precision & \bf Recall & \bf F-score \\ \hline
+\texttt{BASELINE} & 0.374 & 0.384 & 0.379 \\
+% this is a little bit higher than the result I gave you
+% because I used more iterations and this is the converged result
+\hline
+\hline
+\texttt{EM\_DFLTITER\_RC0.0\_2K\_BASE} & 0.374 & 0.381 & 0.377 \\
+\texttt{EM\_DFLTITER\_RC0.005\_2K\_BASE} & 0.357 & 0.364 & 0.360 \\
+\hline
+\end{tabular}
+\end{center}
+\caption{\label{font-table} Font guide. }
+\end{table*}
 
 \section{Comparison with Proposal}
 \bibliographystyle{naaclhlt2010}
