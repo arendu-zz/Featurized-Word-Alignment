@@ -10,6 +10,8 @@
 \setlength\titlebox{6.5cm}    % Expanding the titlebox
 \usepackage{amsmath,amsfonts,amsthm}
 \usepackage{amssymb}
+\usepackage[colorlinks=true]{hyperref}
+\usepackage{makecell}
 
 \title{Unsupervised Featureized HMM Modeling}
 
@@ -25,7 +27,7 @@
 \begin{document}
 \maketitle
 \begin{abstract}
-In this project we present a speedup for a Featurized Word Alignment model based on the featurized EM models introduced by KirkPartrick et al in \cite{berg2010painless}. The speed up presented involves converting the M-Steps in the word alignment models to SGD and then parallelizing the SGD updates. This project does not focus on the feature engineering aspect of the models as these heavily depend on the language pair, instead we show that the speed ups result in performance comparable to the baseline generative model (IBM-Model1 \cite{})
+In this project we present a speedup for a Featurized Word Alignment model based on the featurized EM models introduced by KirkPartrick et al in \cite{berg2010painless}. The speed up presented involves converting the M-Steps in the word alignment models to SGD and then parallelizing the SGD updates. This project does not focus on the feature engineering aspect of the models as these heavily depend on the language pair, instead we show that the speed ups result in performance comparable to the baseline generative model (IBM-Model1.)
 \end{abstract}
 
 \section{Introduction}
@@ -186,7 +188,83 @@ We compute a normalization vector $d \in \mathbb{R}^D$ where $D$ is the dimensio
 \end{align*}
 In the equation above $d_j$ is the count of the number of times the $j^{th}$ feature was fired in the dataset, the parameter associated with that feature is $\theta_j$. We take the derivate of this modified cost function which now becomes our new gradient. Thus we can get close to linear speed up over a sequential SGD.
 
-\section{Experiments}
+\section{Experiments \& Results}
+\subsection{setup}
+Most of our word alignment experiments are performed on a parallel corpus of English and Spanish sentences.
+The corpus contains 1768 sentences as the training set and 200 sentences as the development set.
+As there are not tuning hyper-parameters in our model, it is sensible and sufficient to evaluate the performance of our model on the development set.
+For several experiments, we also use an extra training corpus that contains 5K % TODO what is the exact scale of the 5k dataset?
+sentences.
+
+As we have mentioned in the previous part, we take traditional IBM Model1 as our baseline.
+% make sure we have mentioned this in the previous parts of our writeup
+For featurized model, we designed three feature templates (as shown in Table \ref{featureset-table}) to try out on it.
+Our general workflow is to first prove that the featurized model is able to generate a comparable result against baseline when we only use \texttt{BASE} features (because they are equivalent).
+After that, we further incorporate other additional features to see how they works.
+
+We would also like to see how different factors (e.g. optimization algorithm, iteration, regularization etc.) will effect the performance of the model.
+
+\begin{table}
+\begin{center}
+\begin{tabular}{|c|c|}
+\hline 
+\bf template & \bf description \\
+\hline
+\texttt{BASE} & \makecell[l]{binary feature, fires for each\\ source and target pairs in the\\ alignment} \\
+\texttt{IS\_SAME} & \makecell[l]{binary feature, fires when\\ the source and the target token\\ is same}\\
+\texttt{EDIT\_DIST} & \makecell[l]{real-valued feature, gives the\\ edit distance between the source\\ and target token}\\
+\hline
+\end{tabular}
+\end{center}
+\caption{\label{featureset-table} Feature templates for experiments}
+\end{table}
+
+\subsection{Results}
+\begin{table*}[t]
+\begin{tabular}{llllll}
+\textbf{Algorithm} & \textbf{Regularization} & \textbf{Iterations} & \textbf{Precision} & \textbf{Recall} & \textbf{F-score} \\
+Baseline           & -                       &                     &                    &                 &                  \\
+FEM                & 0.0                     & 10                  & 0.377              & 0.389           & 0.383            \\
+FEM                & 0.005                   & 10                  & 0.353              & 0.353           & 0.353            \\
+DGD                & 0.0                     & 10                  & 0.321              & 0.331           & 0.326            \\
+DGD                & 0.005                   & 10                  & 0.294              & 0.293           & 0.294            \\
+FEM-SGD            & 0.0                     & 5                   & 0.366              & 0.378           & 0.372            \\
+FEM-SGD            & 0.005                   & 5                   & 0.222              & 0.229           & 0.225            \\
+FEM-SGD-P   & 0.0                     & 5                   & 0.370              & 0.381           & 0.375            \\
+FEM-SGD-P   & 0.005                   & 5                   & 0.369              & 0.381           &                 
+\end{tabular}
+\label{tab:rc}
+\caption{Performance of the algorithms with different Regularization coefficients, trained on 2K sentences and tested on 200, only with base features}
+\end{table*}
+
+\begin{table}[h]
+\begin{tabular}{llll}
+\textbf{Algorithm} & \textbf{Regularization} & \textbf{NThreads} & \textbf{Time} \\
+FEM       & 0.0            & 24       & 65m17s  \\
+FEM       & 0.005          & 24       & 65m9s   \\
+DGD       &                & 24       &         \\
+DGD       &                & 24       &         \\
+FEM-SGD   & 0.0            & 1        & 113m14s \\
+FEM-SGD   & 0.005          & 1        &         \\
+FEM-SGD-P & 0.0            & 24       & 24m36s  \\
+FEM-SGD-P & 0.005          & 24       & 24m21s 
+\end{tabular}
+\label{tab:time}
+\caption{Time of the algorithms with 5 iterations 2K sentences and tested on 200, only with base features}
+\end{table}
+
+\begin{table}[h]
+\begin{tabular}{llllll}
+\textbf{Algorithm} & \textbf{Regularization} & \textbf{Features} & \textbf{Precision} & \textbf{Recall} & \textbf{F-score} \\
+Baseline           & -                       & -                 & 0.420              & 0.432           & 0.426            \\
+FEM-SGD-P          & 0.0                     & IS.SAME           & 0.426              & 0.440           & 0.433            \\
+FEM-SGD-P          & 0.005                   & IS.SAME           & 0.427              & 0.440           & 0.433            \\
+FEM-SGD-P          & 0.0                     & IS\_SAME + REAL   & 0.336              & 0.335           & 0.335            \\
+FEM-SGD-P          & 0.005                   & IS\_SAME          & 0.335              & 0.334           & 0.335           
+\end{tabular}
+\label{tab:sgdp}
+\caption{Performance FEM-SGD-P trained on 5K sentences (5 iterations) and tested on 200}
+\end{table}
 
 
 \section{Comparison with Proposal}
