@@ -1,0 +1,319 @@
+training files: data/train.en , data/train.es
+testing  files: data/dev.en , data/dev.es
+loaded feature values...
+skipping gradient check...
+populating events per trellis...
+done...
+reading initial weights...
+0 log likelihood: -132689.206592
+	ec: -103902.573313
+1 log likelihood: -123287.013532
+2 log likelihood: -113988.048064
+3 log likelihood: -109420.157035
+4 log likelihood: -106479.749158
+5 log likelihood: -104474.944321
+wrote weights to: EM-SGD.0.0.model1.real.theta
+wrote probs to: EM-SGD.0.0.model1.real.probs
+wrote alignments to: EM-SGD.0.0.model1.real.alignments
+wrote alignments to: EM-SGD.0.0.model1.real.alignments.col
+wrote alignments to: EM-SGD.0.0.model1.real.alignments.col.tokens
+loaded feature values...
+skipping gradient check...
+populating events per trellis...
+done...
+reading initial weights...
+0 log likelihood: -163315.340928
+	ec: -134528.707649
+1 log likelihood: -129504.092385
+2 log likelihood: -121175.371834
+3 log likelihood: -116876.749506
+4 log likelihood: -115000.740501
+5 log likelihood: -113976.017644
+wrote weights to: EM-SGD.0.005.model1.real.theta
+wrote probs to: EM-SGD.0.005.model1.real.probs
+wrote alignments to: EM-SGD.0.005.model1.real.alignments
+wrote alignments to: EM-SGD.0.005.model1.real.alignments.col
+wrote alignments to: EM-SGD.0.005.model1.real.alignments.col.tokens
+loaded feature values...
+skipping gradient check...
+reading initial weights...
+0 log likelihood: -132689.206592
+	ec: -103902.573313
+	ec: -103902.573313
+	ec: -103892.088578
+	ec: -103850.226903
+	ec: -103684.062427
+	ec: -103043.438384
+	ec: -101083.997799
+	ec: -103494.184534
+	ec: -99303.9974762
+	ec: -98304.059244
+	ec: -97462.1248049
+	ec: -97034.3806953
+	ec: -96578.4448732
+	ec: -96800.2146839
+	ec: -96227.5867988
+	ec: -96371.3659325
+	ec: -96110.4491652
+	ec: -95951.1149904
+	ec: -95801.2204441
+	ec: -95626.9382483
+	ec: -95758.6033586
+	ec: -95562.6067588
+	ec: -95447.6661705
+	ec: -95383.7889439
+	ec: -95337.6397882
+	ec: -95322.3219586
+	ec: -95244.4419627
+	ec: -95186.5489775
+	ec: -95298.1163492
+	ec: -95131.3620917
+	ec: -95227.0955107
+	ec: -95096.2174981
+	ec: -95062.1977074
+	ec: -95044.2113935
+1 log likelihood: -115622.357264
+	ec: -94699.8428219
+	ec: -94619.9807655
+	ec: -94363.1659652
+	ec: -93993.9716249
+	ec: -93730.1797285
+	ec: -92821.8628882
+	ec: -92228.5018561
+	ec: -91834.2683646
+	ec: -91522.4470511
+	ec: -91125.6046108
+	ec: -90799.0969245
+	ec: -90499.0644367
+	ec: -90368.1957967
+	ec: -90219.8201279
+	ec: -90064.1444371
+	ec: -89944.4304452
+	ec: -89927.0634104
+	ec: -89810.4382541
+	ec: -89700.4448226
+	ec: -89650.6513239
+	ec: -89507.2546508
+	ec: -89423.809697
+	ec: -89321.0181451
+	ec: -89255.9426025
+2 log likelihood: -105198.668816
+	ec: -79015.9768837
+	ec: -78965.1553769
+	ec: -78651.654625
+	ec: -78482.907305
+	ec: -78208.4880288
+	ec: -78388.0657639
+	ec: -78101.1604753
+	ec: -77923.6880082
+	ec: -77764.9531833
+	ec: -77613.7569452
+	ec: -77483.8799761
+	ec: -77359.4367012
+	ec: -77257.5162001
+	ec: -77161.1056672
+	ec: -77109.1840612
+	ec: -77020.2044222
+	ec: -76934.5124785
+	ec: -76954.0898625
+	ec: -76879.6398251
+	ec: -76816.945189
+	ec: -76783.1599208
+	ec: -76695.2676225
+	ec: -76607.473371
+	ec: -76490.3127322
+	ec: -76485.3157163
+3 log likelihood: -100730.956146
+	ec: -68444.0603609
+	ec: -68393.9905987
+	ec: -68163.7676716
+	ec: -68093.2478052
+	ec: -68010.0981854
+	ec: -67878.3774774
+	ec: -67840.3078392
+	ec: -67741.1110818
+	ec: -67664.2283598
+	ec: -67634.2716618
+	ec: -67596.6557179
+	ec: -67553.305788
+	ec: -67582.7122471
+	ec: -67522.5476214
+	ec: -67485.8289758
+	ec: -67610.6049486
+	ec: -67459.1582803
+	ec: -67411.749704
+	ec: -67652.8363194
+	ec: -67388.5607009
+	ec: -67325.51267
+	ec: -67256.5071569
+	ec: -67193.4998783
+	ec: -67221.222813
+	ec: -67149.6092058
+	ec: -67063.6162352
+	ec: -67176.2477903
+	ec: -67035.2579251
+4 log likelihood: -98228.6814391
+	ec: -60695.9306307
+	ec: -60657.2451945
+	ec: -60537.4453043
+	ec: -60503.0709301
+	ec: -60468.327417
+	ec: -60422.8028212
+	ec: -60397.0269559
+	ec: -60336.3433986
+	ec: -60324.4934786
+	ec: -60283.1680546
+	ec: -60259.3949069
+	ec: -60244.206764
+	ec: -60226.9154592
+	ec: -60220.654558
+	ec: -60194.7054706
+	ec: -60170.2434254
+	ec: -60161.4617654
+	ec: -60098.2858001
+	ec: -60015.9754821
+	ec: -59937.7956389
+	ec: -59904.4947575
+	ec: -59865.8015958
+	ec: -59835.8730989
+5 log likelihood: -96568.5868889
+wrote weights to: EM.0.0.model1.real.theta
+wrote probs to: EM.0.0.model1.real.probs
+wrote alignments to: EM.0.0.model1.real.alignments
+wrote alignments to: EM.0.0.model1.real.alignments.col
+wrote alignments to: EM.0.0.model1.real.alignments.col.tokens
+loaded feature values...
+skipping gradient check...
+reading initial weights...
+0 log likelihood: -163315.340928
+	ec: -134528.707649
+	ec: -134528.707649
+	ec: -134510.577877
+	ec: -134438.228748
+	ec: -134151.59079
+	ec: -133052.154857
+	ec: -129601.805048
+	ec: -132875.813009
+	ec: -126065.464063
+	ec: -124741.466941
+	ec: -122340.053479
+	ec: -120286.74782
+	ec: -118014.320478
+	ec: -116801.100743
+	ec: -115661.186176
+	ec: -115093.346607
+	ec: -113921.209356
+	ec: -112431.015283
+	ec: -111658.213416
+	ec: -111145.730731
+	ec: -110310.793992
+	ec: -109215.327659
+	ec: -108599.599879
+	ec: -108306.959935
+	ec: -108077.709152
+	ec: -107877.941763
+	ec: -107677.924165
+	ec: -107581.060051
+	ec: -107355.203815
+1 log likelihood: -129775.593387
+	ec: -109314.369406
+	ec: -109239.531989
+	ec: -108973.116215
+	ec: -108373.286796
+	ec: -108063.640291
+	ec: -108010.878937
+	ec: -107278.250436
+	ec: -107040.635578
+	ec: -106705.611424
+	ec: -106482.794313
+	ec: -106310.062141
+	ec: -106151.686943
+	ec: -106065.186922
+	ec: -106060.508795
+2 log likelihood: -121998.769155
+	ec: -98518.7470442
+	ec: -98460.4499703
+	ec: -98067.8799338
+	ec: -97882.4122633
+	ec: -97542.417696
+	ec: -97610.5919786
+	ec: -97385.6835864
+	ec: -97223.0246584
+	ec: -97154.4163225
+	ec: -97073.7910258
+	ec: -96942.6377861
+	ec: -96817.3045818
+	ec: -96775.2986639
+	ec: -96773.7760887
+3 log likelihood: -118553.421466
+	ec: -89938.6785642
+	ec: -89884.1222857
+	ec: -89619.5736687
+	ec: -89526.2850026
+	ec: -89453.914223
+	ec: -89372.8587925
+	ec: -89306.2817966
+	ec: -89217.625196
+	ec: -89170.9667855
+	ec: -89171.9321513
+	ec: -89126.4782864
+	ec: -89184.9223415
+	ec: -89064.8228056
+	ec: -89307.9075
+	ec: -89031.4200249
+	ec: -89197.8875653
+	ec: -89003.2446333
+	ec: -89827.7763517
+	ec: -89005.3716408
+	ec: -88991.2683113
+	ec: -89239.325975
+	ec: -88974.5056269
+	ec: -89898.1260894
+	ec: -89071.6764346
+	ec: -88969.3454728
+4 log likelihood: -116363.102226
+	ec: -82910.7541396
+	ec: -82867.0788726
+	ec: -82727.2796231
+	ec: -82679.1145052
+	ec: -82650.6050428
+	ec: -82637.2576919
+	ec: -82600.9110578
+	ec: -82564.3089188
+	ec: -82559.5324521
+5 log likelihood: -115572.189762
+wrote weights to: EM.0.005.model1.real.theta
+wrote probs to: EM.0.005.model1.real.probs
+wrote alignments to: EM.0.005.model1.real.alignments
+wrote alignments to: EM.0.005.model1.real.alignments.col
+wrote alignments to: EM.0.005.model1.real.alignments.col.tokens
+
+********Baseline********
+
+      Type       Total   Precision      Recall     F1-Score
+===============================================================
+     total        5920     0.371        0.382        0.377
+
+*********EM-SGD  RC:0.0********
+
+      Type       Total   Precision      Recall     F1-Score
+===============================================================
+     total        5920     0.366        0.378        0.372
+
+*********EM-SGD  RC:0.005********
+
+      Type       Total   Precision      Recall     F1-Score
+===============================================================
+     total        5920     0.222        0.229        0.225
+
+*********EM  RC:0.0********
+
+      Type       Total   Precision      Recall     F1-Score
+===============================================================
+     total        5920     0.371        0.383        0.377
+
+*********EM  RC:0.005********
+
+      Type       Total   Precision      Recall     F1-Score
+===============================================================
+     total        5920     0.345        0.342        0.343

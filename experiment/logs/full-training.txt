@@ -1,0 +1,16 @@
+training files: data/train.full.en , data/train.full.es
+testing  files: data/dev.en , data/dev.es
+#{'output_probs': 'probs', 'source_corpus': 'source_full.tmp', 'algorithm': 'LBFGS', 'source_test': 'data/dev.en', 'input_weights': 'initial.trans.log', 'target_test': 'data/dev.es', 'test_gradient': 'false', 'output_weights': 'theta', 'regularization_coeff': '0.0', 'target_corpus': 'target_full.tmp', 'output_alignments': 'alignments', 'model': 'model1'}
+
+skipping gradient check...
+reading initial weights...
+0 log likelihood: -930750.13084
+1 log likelihood: -930481.203648
+2 log likelihood: -929378.505522
+3 log likelihood: -924273.236928
+4 log likelihood: -861148.739377
+5 log likelihood: -792424.612926
+6 log likelihood: -823310.917314
+7 log likelihood: -780202.832165
+8 log likelihood: -772828.901577
+9 log likelihood: -763350.719412
