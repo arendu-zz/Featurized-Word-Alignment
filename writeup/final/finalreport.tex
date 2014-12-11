@@ -221,20 +221,18 @@ We would also like to see how different factors (e.g. optimization algorithm, it
 
 \subsection{Results}
 \begin{table*}[t]
-\begin{center}
-\begin{tabular}{|c|c|c|c|}
-\hline \bf  & \bf Precision & \bf Recall & \bf F-score \\ \hline
-\texttt{BASELINE} & 0.374 & 0.384 & 0.379 \\
-% this is a little bit higher than the result I gave you
-% because I used more iterations and this is the converged result
-\hline
-\hline
-\texttt{EM\_DFLTITER\_RC0.0\_2K\_BASE} & 0.374 & 0.381 & 0.377 \\
-\texttt{EM\_DFLTITER\_RC0.005\_2K\_BASE} & 0.357 & 0.364 & 0.360 \\
-\hline
+\begin{tabular}{llllll}
+\textbf{Algorithm} & \textbf{Regularization} & \textbf{Iterations} & \textbf{Precision} & \textbf{Recall} & \textbf{F-score} \\
+Baseline           & -                       &                     &                    &                 &                  \\
+FEM                & 0.0                     & 10                  & 0.377              & 0.389           & 0.383            \\
+FEM                & 0.005                   & 10                  & 0.353              & 0.353           & 0.353            \\
+DGD                & 0.0                     & 10                  & 0.321              & 0.331           & 0.326            \\
+DGD                & 0.005                   & 10                  & 0.294              & 0.293           & 0.294            \\
+FEM-SGD            & 0.0                     & 5                   & 0.366              & 0.378           & 0.372            \\
+FEM-SGD            & 0.005                   & 5                   & 0.222              & 0.229           & 0.225            \\
+FEM-SGD-P   & 0.0                     & 5                   & 0.370              & 0.381           & 0.375            \\
+FEM-SGD-P   & 0.005                   & 5                   & 0.369              & 0.381           &                 
 \end{tabular}
-\end{center}
-\caption{\label{font-table} Font guide. }
 \end{table*}
 
 \section{Comparison with Proposal}
