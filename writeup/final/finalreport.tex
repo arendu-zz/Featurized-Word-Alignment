@@ -234,10 +234,24 @@ FEM-SGD-P   & 0.0                     & 5                   & 0.370             
 FEM-SGD-P   & 0.005                   & 5                   & 0.369              & 0.381           &                 
 \end{tabular}
 \label{tab:rc}
-\caption{Performance of the algorithms with different Regularization coefficients, trained on 2K sentences and tested on 200}
+\caption{Performance of the algorithms with different Regularization coefficients, trained on 2K sentences and tested on 200, only with base features}
 \end{table*}
 
-
+\begin{table}[h]
+\begin{tabular}{llll}
+\textbf{Algorithm} & \textbf{Regularization} & \textbf{NThreads} & \textbf{Time} \\
+FEM       & 0.0            & 24       & 65m17s  \\
+FEM       & 0.005          & 24       & 65m9s   \\
+DGD       &                & 24       &         \\
+DGD       &                & 24       &         \\
+FEM-SGD   & 0.0            & 1        & 113m14s \\
+FEM-SGD   & 0.005          & 1        &         \\
+FEM-SGD-P & 0.0            & 24       & 24m36s  \\
+FEM-SGD-P & 0.005          & 24       & 24m21s 
+\end{tabular}
+\label{tab:time}
+\caption{Time of the algorithms with 5 iterations 2K sentences and tested on 200, only with base features}
+\end{table}
 
 \begin{table}[h]
 \begin{tabular}{llllll}
@@ -249,7 +263,7 @@ FEM-SGD-P          & 0.0                     & IS\_SAME + REAL   & 0.336        
 FEM-SGD-P          & 0.005                   & IS\_SAME          & 0.335              & 0.334           & 0.335           
 \end{tabular}
 \label{tab:sgdp}
-\caption{Performance FEM-SGD-P trained on 5K sentences and tested on 200}
+\caption{Performance FEM-SGD-P trained on 5K sentences (5 iterations) and tested on 200}
 \end{table}
 
 
