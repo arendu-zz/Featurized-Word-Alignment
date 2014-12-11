@@ -27,7 +27,7 @@
 \begin{document}
 \maketitle
 \begin{abstract}
-In this project we present a speedup for a Featurized Word Alignment model based on the featurized EM models introduced by KirkPartrick et al in \cite{berg2010painless}. The speed up presented involves converting the M-Steps in the word alignment models to SGD and then parallelizing the SGD updates. This project does not focus on the feature engineering aspect of the models as these heavily depend on the language pair, instead we show that the speed ups result in performance comparable to the baseline generative model (IBM-Model1 \cite{})
+In this project we present a speedup for a Featurized Word Alignment model based on the featurized EM models introduced by KirkPartrick et al in \cite{berg2010painless}. The speed up presented involves converting the M-Steps in the word alignment models to SGD and then parallelizing the SGD updates. This project does not focus on the feature engineering aspect of the models as these heavily depend on the language pair, instead we show that the speed ups result in performance comparable to the baseline generative model (IBM-Model1.)
 \end{abstract}
 
 \section{Introduction}
@@ -188,7 +188,7 @@ We compute a normalization vector $d \in \mathbb{R}^D$ where $D$ is the dimensio
 \end{align*}
 In the equation above $d_j$ is the count of the number of times the $j^{th}$ feature was fired in the dataset, the parameter associated with that feature is $\theta_j$. We take the derivate of this modified cost function which now becomes our new gradient. Thus we can get close to linear speed up over a sequential SGD.
 
-\section{Experiments}
+\section{Experiments \& Results}
 \subsection{setup}
 Most of our word alignment experiments are performed on a parallel corpus of English and Spanish sentences.
 The corpus contains 1768 sentences as the training set and 200 sentences as the development set.
@@ -233,7 +233,25 @@ FEM-SGD            & 0.005                   & 5                   & 0.222      
 FEM-SGD-P   & 0.0                     & 5                   & 0.370              & 0.381           & 0.375            \\
 FEM-SGD-P   & 0.005                   & 5                   & 0.369              & 0.381           &                 
 \end{tabular}
+\label{tab:rc}
+\caption{Performance of the algorithms with different Regularization coefficients, trained on 2K sentences and tested on 200}
 \end{table*}
+
+
+
+\begin{table}[h]
+\begin{tabular}{llllll}
+\textbf{Algorithm} & \textbf{Regularization} & \textbf{Features} & \textbf{Precision} & \textbf{Recall} & \textbf{F-score} \\
+Baseline           & -                       & -                 & 0.420              & 0.432           & 0.426            \\
+FEM-SGD-P          & 0.0                     & IS.SAME           & 0.426              & 0.440           & 0.433            \\
+FEM-SGD-P          & 0.005                   & IS.SAME           & 0.427              & 0.440           & 0.433            \\
+FEM-SGD-P          & 0.0                     & IS\_SAME + REAL   & 0.336              & 0.335           & 0.335            \\
+FEM-SGD-P          & 0.005                   & IS\_SAME          & 0.335              & 0.334           & 0.335           
+\end{tabular}
+\label{tab:sgdp}
+\caption{Performance FEM-SGD-P trained on 5K sentences and tested on 200}
+\end{table}
+
 
 \section{Comparison with Proposal}
 \bibliographystyle{naaclhlt2010}
