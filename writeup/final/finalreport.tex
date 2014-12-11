@@ -205,7 +205,7 @@ After that, we further incorporate other additional features to see how they wor
 
 We would also like to see how different factors (e.g. optimization algorithm, iteration, regularization etc.) will effect the performance of the model.
 
-\begin{table}
+\begin{table}[h]
 \begin{center}
 \begin{tabular}{|c|c|}
 \hline 
@@ -219,10 +219,9 @@ We would also like to see how different factors (e.g. optimization algorithm, it
 \end{center}
 \caption{\label{featureset-table} Feature templates for experiments}
 \end{table}
-
 \subsection{Results}
 The first experiment we conducted was to see if our implementation of the FEM,DGD,SGD and SGD-P all produce results that are comparable given the same basic features to train on. We find that all our algorithms perform like IBM-Model1. Choice of regularization terms affect the output more in some cases. We found that the DGD suffers large drop in performance with out properly tuned regularization coefficients. As this project is not focused purely optimizing to get best scores, we limit our experiments with just 2 arbitrary values of regularization. The results are shown in \ref{tab:rc}. 
-\begin{table}[t]
+\begin{table}[h]
 \centering
 \resizebox{0.45\textwidth}{!}{
 \begin{tabular}{llllll}
@@ -238,12 +237,10 @@ FEM-SGD-P   & 0.0                     & 5                   & 0.370             
 FEM-SGD-P   & 0.005                   & 5                   & 0.369              & 0.381           & 0.375                
 \end{tabular}
 }
-\label{tab:rc}
-\caption{Comparison of the algorithms trained on 2K sentences and tested on 200, only with base features}
+\caption{\label{tab:rc} Comparison of the algorithms trained on 2K sentences and tested on 200, only with base features}
 \end{table}
-
 Table \ref{tab:time} gives a sense of time each of these methods take to run 5 iterations. The iterations for FEM count the outerloop, the M-Step in FEM is not limited to just 5 iterations. These times still don't compare to IBM-Model which typically takes less than a minute for this training set. As mentioned there is significant slow down due to the computation of the normalization term (partition function) for each conditional probability, even for a dataset as small as 2K there are a large number of word-pairs that slow down the computation of the partition function. We do see a significant speed up with parallel sgd even though there is some over head in parallelization.
-\begin{table}[t]
+\begin{table}[h]
 \centering
 \resizebox{0.45\textwidth}{!}{
 \begin{tabular}{lllll}
@@ -258,11 +255,10 @@ FEM-SGD-P & 0.0            & 24       & 24m36s  & 0.375\\
 FEM-SGD-P & 0.005          & 24       & 24m21s  &0.375
 \end{tabular}
 }
-\label{tab:time}
-\caption{Time of the algorithms with 5 iterations 2K sentences and tested on 200, only with base features}
+\caption{\label{tab:time} Time of the algorithms with 5 iterations 2K sentences and tested on 200, only with base features}
 \end{table}
 
-\begin{table}[t]
+\begin{table}[h]
 \centering
 \resizebox{0.45\textwidth}{!}{
 \begin{tabular}{llllll}
@@ -274,11 +270,8 @@ FEM-SGD-P          & 0.0                     & \texttt{B,S,ED}   & 0.336        
 FEM-SGD-P          & 0.005                   & \texttt{B,S,ED}          & 0.335              & 0.334           & 0.335           
 \end{tabular}
 }
-\label{tab:sgdp}
-\caption{Performance FEM-SGD-P trained on 5K sentences (5 iterations) and tested on 200}
+\caption{\label{tab:sgdp} Performance FEM-SGD-P trained on 5K sentences (5 iterations) and tested on 200}
 \end{table}
-
-
 \section{Comparison with Proposal}
 \bibliographystyle{naaclhlt2010}
 \bibliography{bib}
