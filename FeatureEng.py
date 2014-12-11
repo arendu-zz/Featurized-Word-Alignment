@@ -1,7 +1,7 @@
 __author__ = 'arenduchintala'
 
 import featurized_em as fe
-import featurized_em_wa as fe_w
+import featurized_em_wa_mp as fe_w
 
 global feature_values
 feature_values = {}
@@ -29,6 +29,12 @@ def get_wa_features_fired(type, decision, context):
         if decision == context:
             fired_features += [(1.0, ("IS_SAME", decision, context))]
 
+        if fe_w.has_pos:
+            decision_pos = decision.split("_")[1]
+            context_pos = context.split("_")[1]
+            if decision_pos == context_pos:
+                fired_features += [(1.0, ("IS_POS_SAME", decision_pos, context_pos))]
+
         """if decision[0].isupper() and context[0].isupper() and context != fe_w.NULL:
             fired_features += [("IS_UPPER", decision, context)]"""
     elif type == fe_w.T_TYPE:
@@ -37,7 +43,7 @@ def get_wa_features_fired(type, decision, context):
             jump = abs(decision - p)
         else:
             jump = fe_w.NULL
-        fired_features = [(fe_w.T_TYPE, jump)]
+        fired_features = [(1.0, (fe_w.T_TYPE, jump))]
     return fired_features
 
 

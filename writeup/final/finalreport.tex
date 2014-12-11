@@ -1,0 +1,196 @@
+%
+% File naaclhlt2010.tex
+%
+% Contact: nasmith@cs.cmu.edu
+
+\documentclass[11pt,letterpaper]{article}
+\usepackage{naaclhlt2010}
+\usepackage{times}
+\usepackage{latexsym}
+\setlength\titlebox{6.5cm}    % Expanding the titlebox
+\usepackage{amsmath,amsfonts,amsthm}
+\usepackage{amssymb}
+
+\title{Unsupervised Featureized HMM Modeling}
+
+\author{Adithya Renduchintala
+  \quad\quad Shuoyang Ding\\
+  Johns Hopkins University\\
+  3400 North Charles Street\\
+  Baltimore, MD 21218, USA\\
+  {\tt \{adithya.renduchintala, dings\}@jhu.edu}}
+
+\date{}
+
+\begin{document}
+\maketitle
+\begin{abstract}
+In this project we present a speedup for a Featurized Word Alignment model based on the featurized EM models introduced by KirkPartrick et al in \cite{berg2010painless}. The speed up presented involves converting the M-Steps in the word alignment models to SGD and then parallelizing the SGD updates. This project does not focus on the feature engineering aspect of the models as these heavily depend on the language pair, instead we show that the speed ups result in performance comparable to the baseline generative model (IBM-Model1 \cite{})
+\end{abstract}
+
+\section{Introduction}
+\cite{brown1993mathematics}
+\cite{vogel1996hmm}
+\cite{berg2010painless}
+\cite{baum1970maximization}
+
+\section{Featurized HMM}
+\subsection{Fully Observed}
+Before deriving the EM algorithm applied to HMMs (Baum-Welch), we will first
+look at the case where both the observation variables and the hidden variables
+are fully observed.\\
+Consider a observation sequence $X = \{x_1, x_2, \ldots x_n \}$ with an associated sequence of states $S = \{s_1, s_2, \ldots s_n\}$ the probability
+of this sequence under the HMM model is:
+\begin{align}
+P(X \mid \theta) &= \prod_{i=1}^{|X|} a(s_i \mid s_{i-1}) e(x_i \mid
+s_i)\label{eq1}
+\end{align}
+% \todo[inline, color=green!40]{Presentational note: it's good practice to introduce your notation gently at the beginning, e.g. here you should also introduce $S$, $a$, and $e$.}
+Where $a()$ and $e()$ represent the state transition and emission probabilities.
+We can re-write the above expression in terms of the number of times we have
+seen a particular transition and emission, and their associated conditional
+probability i.e $a(s_i = l \mid s_{i-1} = k)$ and $e(x_i = x_b \mid s_i = l)$
+Suppose we have seen the transition $ s_{i-1} = 
+\rightarrow s_i = l $,
+$A_{kl}$ times and the emission $s_i = l \rightarrow x_i = x_b$, $E_{lb}$ times,
+then:\\
+% \todo[inline, color=green!40]{Presentational note: it often helps the reader if you use notation in a consistent way, e.g. all r.v.'s are capital letters and constants are lowercase letters, or vice versa. Here you have $X$ as a r.v. but $k$ and $l$ are constant.}
+\begin{align}
+P(X \mid \theta) &= \prod_{ k,l \in \mathbf{S,S}} a(s_l \mid s_k)^{A_{kl}}
+\prod_{ x_b,L \in \mathbf{V,S}}e(x_b \mid s_l)^{E_{lb}}\label{eq2}
+\end{align}
+Where $\mathbf{S}$ is the set of all possible hidden states and $\mathbf{V}$ is
+the possible observation tokens.\
+In the fully observed case, we can simply count $A_{kl}$ and $E_{lb}$, then to
+maximize the probability of the data under the model we simple find the best
+$a(s_l \mid s_k)$ and $(x_i = x_b \mid s_i = l)$ using MLE by applying the
+constraints ensuring that the 2 parameters are probabilities.
+% \todo[color=green!40]{Not necessary here, but some time try to derive this using Lagrange multipliers.} This gives us:
+\begin{align*}
+a(s_l \mid s_k) &= \frac{A_{kl}}{\sum_{l'} A_{kl'}}\\
+e(x_b \mid s_l) &=
+\frac{E_{lb}}{\sum_{b'} E_{lb'}}\\
+\end{align*}
+
+\subsection{Hidden States}
+Now in this case, we do not know $A_{kl}$ and $E_{lb}$. Since the corresponding
+state sequence $S$ is unknown, to find $P(X\mid \theta)$ we must marginalize
+over all possible state sequences. Then the Expected counts of $A_{kl}$ and
+$E_{lb'}$ are the weighted average of the occurrences of the events
+$K \rightarrow L$ and $L \rightarrow x_b$ for each $S' \in possible sequences$.
+\begin{align}
+A_{kl} &= \sum_{S'} A^{S'}_{kl} P(S' \mid X, \theta)\label{eq:akl}\\
+E_{lb} &= \sum_{S'} E^{S'}_{lb} P(S' \mid X, \theta)\label{eq:elb}
+\end{align}
+Thus, the counting process is converted to an averaging process. Then the
+probability of the observation under the model still remains the same as
+\eqref{eq2}, except the known counts are expected counts. Obviously computing
+the sums over all possible states, by explicitly iterating over all state sequences, is not possible
+% \todo[color=green!40]{But it is! As you show next.}.
+To do with efficiently we use the
+forward-backward algorithm. The expressions \eqref{eq:akl} and \eqref{eq:elb}
+can be written as
+\begin{align}
+A_{kl} &= \frac{1}{P(X|\theta)} \sum_i^{\mid X \mid}
+F_k(i-1)a(s_l|s_k)e(x_b|s_l) B_l(i) \label{eq:aklfb}\\
+E_{lb} &= \frac{1}{P(X\mid \theta)} \sum_{i,x_i == x_b}^{\mid X \mid}
+F_l(i)e(x_b  \mid s_l)B_l(i) \label{eq:elbfb}
+\end{align}
+This can be derived from realizing that 
+\begin{align*}
+& P(s_{i-1} = k, s_i = l \mid \theta) = \\
+& \quad\quad F_k(i-1)a(s_l \mid
+s_k)e(x_i \mid s_l)B_l(i)\\
+& F_k(i-1) \text{: forward probability of $(i-1)^{th}$ iteration}\\ &\quad\quad \text{at state $s_k$}\\
+& a(s_l \mid s_k) \text{: transition probability from state $s_k \rightarrow s_l$}\\
+& e(x_i \mid s_l) \text{: emission probability from state $s_l$ to}\\ &\quad\quad \text{observation $x_i$}\\
+& B_l(i) \text{: backward probability to $i^{th}$ time iteration at}\\ &\quad\quad \text{state $s_l$}
+\end{align*}
+Substituting \eqref{eq:aklfb} and \eqref{eq:elbfb} in \eqref{eq2} and taking
+the log we get the log-likelihood of the data under the model in terms of
+expected counts and initial parameters $\theta$
+\begin{align} \begin{split}
+log(P(X\mid \theta)) =& \sum_{s_k \rightarrow s_l} A_{kl} log (a'(s_l \mid
+s_k)) +\\
+&  \sum_{s_l \rightarrow x_b} E_{lb} log( e'(x_i = x_b \mid s_l))
+\label{eq:log}\\
+\end{split} 
+\end{align}
+In the above expression the parameters $a'$ and $e'$ are from $\theta'$ which is
+what we want to set such that the log likelihood of the data is maximized. These
+are the parameters (conditional probabilities) that can be modeled as a
+log-linear model. This is where the featurized HMM deviated from the typical
+Baum-Welch algorithm. In the typical case, the new values of the parameters that
+maximized the data likelihood can simply be computed by re-normalizing the the
+expected counts for example the update the transition parameters in Baum-Welch
+we do $a'(s_l \mid s_k) = \frac{A_{kl}} {\sum_{L'} A_{kl'}}$.
+\begin{align}
+a'(s_l \mid s_k) &= \frac{exp(\theta' \cdot f(s_k, s_l))}{\sum_{s_l'}
+exp(\theta' \cdot f(s_k,s_l'))} \label{eq:probakl}\\
+e'(x_b \mid s_l) &= \frac{exp(\theta' \cdot
+f(s_l, x_b))}{\sum_{x_b'} exp(\theta' \cdot f(s_l, x_b'))} \label{eq:probelb}
+\end{align}
+substituting in \eqref{eq:log} we get
+\begin{align}
+\begin{split}
+L(X,\theta) &= \sum_{s_k \rightarrow s_l} A_{kl} (\theta' \cdot f(s_k, s_l) \\ & -
+log \sum_{s_l'} exp( \theta' \cdot f(s_k, s_l'))) \\ & + 
+\sum_{s_l \rightarrow x_b} E_{lb} (\theta' \cdot f(x_b, s_l) \\ & - log\sum_{x_b'}
+exp(\theta' \cdot f(s_l, x_b'))) \label{eq:logsub}
+\end{split}
+\end{align}
+Here $f$ is a binary feature function and $\theta'$ are the weights of the
+features that we want to optimize such that the likelihood of the data is
+maximized. It should be noted here that the expected counts are with respect to
+the initial $\theta$ chosen arbitrarily (usually with a uniform distribution)
+while the conditional probabilities (modeled as log-linear parameters) are with
+respect to the new $\theta'$. To obtain the gradient of the this log-likelihood
+function we take the derivative of $\eqref{eq:log}$ with respect to each
+$\theta_j \in \theta$.
+\begin{align}
+\begin{split}
+\frac{\partial}{\partial\theta_j} L(X,\theta) &=  \sum_{s_k \rightarrow s_l} A_{kl}
+(f_j(s_k, s_l) \\ &- \sum_{s_l'} f_j(s_k,s_l') \cdot a(s_l\mid a_k)) \\ & +
+\sum_{s_l \rightarrow x_b} E_{lb}(f_j(s_k, s_l) \\ & - \sum_{x_b'} f_j(s_k,s_l')
+\cdot e(x_b' \mid s_l)) \label{eq:grad}
+\end{split}
+\end{align}
+
+\section{Implementations}
+% write about implementation issues you encountered
+% make sure to clarify all the different optimization method you've used
+Using Equation \ref{eq:logsub} and \ref{eq:grad} we can now implement a featurized aligner. Note that from Berg-Kirkpatrick et al, \ref{eq:logsub} and \ref{eq:log} will have gradients of the same form \cite{berg2010painless}. So we can use either eq for the log probability under the model. We Implement 2 models based on the theory in \cite{berg2010painless}, the first is the \textit{Featurized-EM}(FEM) algorithm and the second is the \textit{Direct-Gradient Descent}(DGD) algorithm. In Featurized-EM we closely model the update sequence of EM. In the E-Step expected counts are calculated using \ref{eq:logsub} and In the M-Step we use gradient based optimization. In out implementation we used L-BFGS from the Scipy toolkit. The Number of gradient steps taken can be modified. In we only take 1 gradient step the algorithm becomes equivalent to the Direct-Gradient Descent algorithm. Thus the DGD algorithm changes the expected counts for every gradient step. From \cite{berg2010painless} we see the DGD outperforms the FEM implementation, but in our experiments FEM performed better. We discuss more about these in our Discussion section.
+
+Our focus in this project was not to find the best set of features for our implementations. We were more interested in seeing ways in which we can speed up either of the 2 methods. In FEM we could limit the number of gradient steps that L-BFGS takes in each M-step, but while this makes each M-step faster it generally requires more outer loops to reach a similar point in the log probability function. The DGD method since we only take one gradient step there are no tweak-able parameters. In \cite{berg2010painless} the word alignment task was only reported using the FEM method. The DGD method was reported as being too slow. For our experiments we limited the training size to 1800 short sentences. This gave us a way to run repeated tests relatively quickly. We also use a relatively easy language pair, Spanish-English from the Europarl corpus. 
+
+Although our model can support a HMM trellis, we limit our tests to perform IBM-Model1 based alignment. This means, that we simply treated each transition arc between consecutive states as having uniform probability. A \textit{feature} in the Model1 case is simple the co-occurring word pair. This is the same set of features that the generative IBM-Model1 model would have as parameters. with these settings we found the DGD and FEM converge in roughly the same number of iterations. To get relatively quick results we limit both these methods to run for only 10 iterations. We quickly observe that both DGD and FEM are quite slower than a simple IBM-Model1 implementation. This is because for each conditional probability IBM-Model 1 just needs to count and normalize, while in the featurized models computing the partition function is very expensive. Furthermore, after computing the partition function for each conditional probability we also make small gradient steps since we are using batch gradient updates. In the next 2 paragraphs we describe how we modified the 2 algorithms using SGD and Parallel-SGD for the M-steps.
+
+\subsection*{Parallel Likelihood and Gradient}
+Our first method to obtain faster learning was to parallelize the likelihood and gradient computation. In order to compute the log likelihood we need to perform the forward-backward pass for every sentence pair. We then have to accumulate the data likelihood for each sentence pair and also accumulate the expected counts of the features observed in each sentence pair. This task, which is merely an accumulation of counts is easily parallelizable. We use the Multiprocessing module in python to parallelize our computation of likelihood and gradient. As expected significant speed up was seen when parallelized, but the speed up was not linear in the number of CPUs utilized. This can be explained by noting that for each gradient step we need to compute the data likelihood and gradient, each of these functions have been converted to a parallel version. For each function call, the multiprocessing module makes a low level \textit{fork()} and creates a copy of all the variables in memory and passes it to each fork. This is an expensive process. Since our application makes multiple calls to the likelihood function and the gradient function, the spawning of multiple processing threads adds significant overhead, thus only resulting in sub-linear speedups.
+
+\subsection*{Stochastic Gradient Descent}
+In the DGD method since we are only making 1 gradient step. To make this algorithm suitable for SGD we can simply compute expected counts for a single sentence pair and then using these expected counts to compute the gradient specific to that single sentence pair. If no regularization term is used this gradient is sparse, and we can make stochastic updates to the parameters using this sparse gradient. For the DGD method SGD did not prove effective and suffered from unstable updates. This can be explained by noting that we are making changes to the expected counts after only observing a single sentence pair, these expectations as a result are very noisy and SGD suffers from having a noisy objective to optimize towards. In the FEM case, we can use SGD for the inner M-step computations. Here the expectations are computed in batch for the whole data set. Once the expectations are computed we can then use SGD to calculate the gradient and update the parameters on a per-sample basis. This proved stable and effective, especially with Adagrad. Adagrad made the M-Step converge within 1-2 passes of the entire data.
+\begin{align*}
+\theta &= \theta' - \eta_{i,j}\frac{\partial}{\partial \theta} L(X,\theta)\\  
+\eta_{i,j} &= \frac{\eta_0}{\sqrt{I_j + \sum_{t=1}^i f_{t,j}^2}}\\
+f_{t,j} &= \frac{\partial}{\partial \theta_j} L(X_t,\theta_j)
+\end{align*}
+Where $X_t$ is the $t^th$ sentence pair i.e our observation. As we are still optimizing for a unsupervised task we have no labels $y_t$. In our implementation we set the hyperparameters $\eta_0, I_j = 1$. This method was used in the FEM case in the M-step.
+\subsection*{Parallel Stochastic Gradient Descent}
+Even though SGD worked, it was still a single process based method. We found that is the number of CPUs was increased to 10 or more, the parallel version of DGD and FEM was faster than SGD. If we could take advantage of both parallelization and SGD it would result in much higher speedups. We implemented a simple algorithm to parallelize SGD. The Hogwild! algorithm \cite{recht2011hogwild} provides a  recipe to take an cost function or likelihood function and make it suitable for parallel SGD. Hogwild! requires a cost function to be spare and separable. The gradient of such a cost function will also be sparse and separable. This basically implies that if subsequent gradients do no interact with each other then we can assume that parallel gradient updates will result in the same final point (in the parameter space) as a series of sequential updates. In our application both these conditions are satisfied. The ignoring regularization the gradient for a single sentence pair will be sparse. This is because the gradient is based on word pair features and we know that for a given corpus vocabularies $V_1 *V_2$ each sentence might only have word pairs $V_{1,i} * V_{2,i}$ where both $V_{1,i} << V_1, V_{2,i} << V_2$ for the $i^{th}$ sentence pair. The second condition comes into play when regularization is used. We use $L2$ regularization which does makes the parameters small but does not guarantee sparsity. Furthermore, to make hogwild work we have to ensure that there is no interaction between parallel updates to the parameters. Since we can not avoid updates to many parameters when $L2$ regularization is used, we have to ensure that the updates that do occur obey the overall objective that we are trying to optimize for. To do this, Hogwild! requires each feature during regularization be normalized by the number of times it occurs in the whole dataset.
+
+We compute a normalization vector $d \in \mathbb{R}^D$ where $D$ is the dimensionality of the parameter vector $\theta$. The vector $d$ contains the count of the number of times a feature is fired in the dataset. Thus, we must first do a pass over the entire data set and accumulate these feature-firing counts. Once we accumulate these counts we use them to normalize for every parallel update of the gradient. The following is shown below, here $L(X;\theta)$ is the cost function or likelihood function with out regularization.
+\begin{align*}
+& minimize_\theta \sum_{i \in N} L(X;\theta) + \lambda|\theta|^2\\
+& minimize_\theta \sum_{i \in N} L(X;\theta) + \lambda \frac{\theta_j^2}{d_j}\\
+\end{align*}
+In the equation above $d_j$ is the count of the number of times the $j^{th}$ feature was fired in the dataset, the parameter associated with that feature is $\theta_j$. We take the derivate of this modified cost function which now becomes our new gradient. Thus we can get close to linear speed up over a sequential SGD.
+
+\section{Experiments}
+
+
+\section{Comparison with Proposal}
+\bibliographystyle{naaclhlt2010}
+\bibliography{finalbib}
+
+\end{document}
