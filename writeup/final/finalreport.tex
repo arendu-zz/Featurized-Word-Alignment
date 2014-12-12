@@ -28,7 +28,7 @@
 \begin{document}
 \maketitle
 \begin{abstract}
-In this project we present a speedup for a Featurized Word Alignment model based on the featurized EM models introduced by KirkPartrick et al in \cite{berg2010painless}. The speed up presented involves converting the M-Steps in the word alignment models to SGD and then parallelizing the SGD updates. This project does not focus on the feature engineering aspect of the models as these heavily depend on the language pair, instead we show that the speed ups result in performance comparable to the baseline generative model (IBM-Model1.)
+In this project we present a speedup for a Featurized Word Alignment model based on the featurized EM models introduced by KirkPartrick et al in \cite{berg2010painless}. The speed up presented involves converting the M-Steps in the word alignment models to SGD and then parallelizing the SGD updates. This project does not focus on the feature engineering aspect of the models as these heavily depend on the language pair, instead we show that even with the speed ups our results is comparable to the baseline generative model IBM-Model1. Our models provide a framework to perform the feature engineering that can accompany word alignment tasks.
 \end{abstract}
 
 \section{Introduction}
@@ -223,7 +223,7 @@ We would also like to see how different factors (e.g. optimization algorithm, it
 The first experiment we conducted was to see if our implementation of the FEM,DGD,SGD and SGD-P all produce results that are comparable given the same basic features to train on. We find that all our algorithms perform like IBM-Model1. Choice of regularization terms affect the output more in some cases. We found that the DGD suffers large drop in performance with out properly tuned regularization coefficients. As this project is not focused purely optimizing to get best scores, we limit our experiments with just 2 arbitrary values of regularization. The results are shown in \ref{tab:rc}. 
 \begin{table}[h]
 \centering
-\resizebox{0.45\textwidth}{!}{
+\resizebox{0.5\textwidth}{!}{
 \begin{tabular}{llllll}
 \textbf{Algorithm} & \textbf{Reg} & \textbf{Iter} & \textbf{Prec.} & \textbf{Rec.} & \textbf{F-score} \\
 Baseline           & -                       & 10                  & 0.376              & 0.385           & 0.380                 \\
@@ -242,7 +242,7 @@ FEM-SGD-P   & 0.005                   & 5                   & 0.369             
 Table \ref{tab:time} gives a sense of time each of these methods take to run 5 iterations. The iterations for FEM count the outerloop, the M-Step in FEM is not limited to just 5 iterations. These times still don't compare to IBM-Model which typically takes less than a minute for this training set. As mentioned there is significant slow down due to the computation of the normalization term (partition function) for each conditional probability, even for a dataset as small as 2K there are a large number of word-pairs that slow down the computation of the partition function. We do see a significant speed up with parallel sgd even though there is some over head in parallelization.
 \begin{table}[h]
 \centering
-\resizebox{0.45\textwidth}{!}{
+\resizebox{0.5\textwidth}{!}{
 \begin{tabular}{lllll}
 \textbf{Algorithm} & \textbf{Reg} & \textbf{NThreads} & \textbf{Time} & \textbf{F-Score} \\
 FEM       & 0.0            & 24       & 65m17s  & 0.377 \\
@@ -257,10 +257,10 @@ FEM-SGD-P & 0.005          & 24       & 24m21s  &0.375
 }
 \caption{\label{tab:time} Time of the algorithms with 5 iterations 2K sentences and tested on 200, only with base features}
 \end{table}
-
+Finally, we scaled up our tests to a larger dataset of around 5800 sentences. This data size have been too slow using our other algorithms, since the number of features (word-pairs) grows in polynomial time. Also since our framework is using an HMM as its underlying model constructing the trellis and computing the forward-backward passes over the trellis becomes very slow. This table shows that as the data scales up we still get comparable results to model1. Our \texttt{IS\_SAME} feature helps while converting the feature values to real valued (\texttt{EDIT\_DISTANCE}) hurts the performance. This makes sense because our edit distance score penalizes word pairs such as \textit{de} and \textit{of} and helps word pairs such as \textit{parlamento} and \textit{parliament}. Even though it helps some word pairs the function words which are more common get penalized. This would mean more iterations might be needed before real values based on our edit distance score prove useful.
 \begin{table}[h]
 \centering
-\resizebox{0.45\textwidth}{!}{
+\resizebox{0.5\textwidth}{!}{
 \begin{tabular}{llllll}
 \textbf{Algorithm} & \textbf{Reg} & \textbf{Feats} & \textbf{Prec} & \textbf{Rec} & \textbf{F-score} \\
 Baseline           & -                       & -                 & 0.420              & 0.432           & 0.426            \\
