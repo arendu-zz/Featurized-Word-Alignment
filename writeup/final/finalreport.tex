@@ -32,7 +32,7 @@ In this project we present a speedup for a Featurized Word Alignment model based
 \end{abstract}
 
 \section{Introduction}
-Generative alignment models such as IBM Model~1, IBM Model~2 and the HMM dominate word alignment. Including features such as edit distance between source and target tokens or dictionary based features could greatly improve word alignment accuracy. In \cite{berg2010painless} we see how these models can be adapted to include arbitrary features. Despite these advantages featurized models are slow to train because  computing normalization terms is expensive. We present preliminary results showing speed improvements while maintaining accuracy by converting the optimization steps in the featurized models using the hogwild! algorithm \cite{recht2011hogwild} which is a recipe for parallel lock-free stochastic gradient.
+Generative alignment models such as IBM Model~1 \cite{brown1993mathematics}, IBM Model~2 and the HMM dominate word alignment. Including features such as edit distance between source and target tokens or dictionary based features could greatly improve word alignment accuracy. In \cite{berg2010painless} we see how these models can be adapted to include arbitrary features. Despite these advantages featurized models are slow to train because  computing normalization terms is expensive. We present preliminary results showing speed improvements while maintaining accuracy by converting the optimization steps in the featurized models using the hogwild! algorithm \cite{recht2011hogwild} which is a recipe for parallel lock-free stochastic gradient.
 
 \section{Featurized HMM}
 \subsection{Fully Observed}
