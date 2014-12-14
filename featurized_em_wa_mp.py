@@ -381,14 +381,21 @@ def batch_gradient(theta, batch_fractional_counts):
     eg = {}
     for idx in batch_fractional_counts:
         (t, dj, cj) = event_index[idx]
-        a_dp_ct = exp(get_decision_given_context(theta, decision=dj, context=cj, type=t))
+        f_val, f = FE.get_wa_features_fired(type=t, context=cj, decision=dj)[0]  # TODO: this only works in basic feat
+        a_dp_ct = exp(get_decision_given_context(theta, decision=dj, context=cj, type=t)) * f_val
         sum_feature_j = 0.0
         norm_events = [(t, dp, cj) for dp in normalizing_decision_map[t, cj]]
+
         for event_i in norm_events:
             A_dct = exp(fractional_counts.get(event_i, 0.0))
-            fj = 1.0 if event_i == (t, dj, cj) else 0.0
+            if event_i == event_index[idx]:
+                (ti, di, ci) = event_i
+                fj, f = FE.get_wa_features_fired(type=ti, context=ci, decision=di)[0]  # TODO: this only works in basic
+            else:
+                fj = 0.0
             sum_feature_j += A_dct * (fj - a_dp_ct)
         eg[(t, dj, cj)] = sum_feature_j
+
     return eg
 
 
