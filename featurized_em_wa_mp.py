@@ -692,8 +692,8 @@ if __name__ == "__main__":
         else:
             print 'skipping gradient check...'
             init_theta = initialize_theta(options.input_weights)
-            t1 = minimize(get_likelihood, init_theta, method='L-BFGS-B', jac=get_gradient, tol=1e-5,
-                          options={'maxiter': 10})
+            t1 = minimize(get_likelihood, init_theta, method='L-BFGS-B', jac=get_gradient, tol=1e-2,
+                          options={'maxiter': 5})
             theta = t1.x
     elif options.algorithm == "EM":
         if options.test_gradient.lower() == "true":
