@@ -394,12 +394,17 @@ def get_gradient(theta, batch=None, display=True):
     event_grad = {}
     for event_j in fractional_counts:
         (t, dj, cj) = event_j
-        a_dp_ct = exp(get_decision_given_context(theta, decision=dj, context=cj, type=t))
+        f_val, f = FE.get_wa_features_fired(type=t, context=cj, decision=dj)[0]
+        a_dp_ct = exp(get_decision_given_context(theta, decision=dj, context=cj, type=t)) * f_val
         sum_feature_j = 0.0
         norm_events = [(t, dp, cj) for dp in normalizing_decision_map[t, cj]]
         for event_i in norm_events:
             A_dct = exp(fractional_counts.get(event_i, 0.0))
-            fj = 1.0 if event_i == event_j else 0.0
+            if event_i == event_j:
+                (ti, di, ci) = event_i
+                fj, f = FE.get_wa_features_fired(type=ti, context=ci, decision=di)[0]
+            else:
+                fj = 0.0
             sum_feature_j += A_dct * (fj - a_dp_ct)
         event_grad[event_j] = sum_feature_j  # - abs(theta[event_j])  # this is the regularizing term
 
@@ -536,10 +541,10 @@ if __name__ == "__main__":
 
     opt = OptionParser()
 
-    opt.add_option("-t", dest="target_corpus", default="experiment/data/dev.small.es")
-    opt.add_option("-s", dest="source_corpus", default="experiment/data/dev.small.en")
-    opt.add_option("--tt", dest="target_test", default="experiment/data/dev.small.es")
-    opt.add_option("--ts", dest="source_test", default="experiment/data/dev.small.en")
+    opt.add_option("-t", dest="target_corpus", default="experiment/data/toy.fr")
+    opt.add_option("-s", dest="source_corpus", default="experiment/data/toy.en")
+    opt.add_option("--tt", dest="target_test", default="experiment/data/toy.fr")
+    opt.add_option("--ts", dest="source_test", default="experiment/data/toy.en")
 
     opt.add_option("--iw", dest="input_weights", default=None)
     opt.add_option("--fv", dest="feature_values", default=None)
@@ -560,7 +565,7 @@ if __name__ == "__main__":
     populate_features()
     FE.load_feature_values(options.feature_values)
     snippet = "#" + str(opt.values) + "\n"
-   
+
     if options.algorithm == "LBFGS":
         if options.test_gradient.lower() == "true":
             gradient_check_lbfgs()
