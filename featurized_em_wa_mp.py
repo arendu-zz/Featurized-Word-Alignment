@@ -514,6 +514,7 @@ def populate_trellis(source_corpus, target_corpus):
                 state_options = [(t_idx, s_idx) for s_idx, s_tok in enumerate(s_sent) if
                                  s_tok != BOUNDARY_END and s_tok != BOUNDARY_START]
             trelli[t_idx] = state_options
+        """
         # print 'fwd prune'
         for t_idx in sorted(trelli.keys())[1:-1]:
             # print t_idx
@@ -539,6 +540,13 @@ def populate_trellis(source_corpus, target_corpus):
             # print 'jmax', 'jmin', j_max_s_idx, j_min_s_idx
             c_filtered = [(t, s) for t, s in trelli[t_idx] if (j_max_s_idx >= s >= j_min_s_idx)]
             trelli[t_idx] = c_filtered
+        """
+        # beam prune
+        for t_idx in sorted(trelli.keys())[1:-1]:
+            x = trelli[t_idx]
+            y = sorted([(abs(t - s), (t, s)) for t, s in x])
+            py = sorted([ts for d, ts in y[:max_beam_width]])
+            trelli[t_idx] = py
         for t_idx in sorted(trelli.keys())[1:-1]:
             trelli[t_idx] += [(t_idx, NULL)]
         new_trellis.append(trelli)
@@ -664,10 +672,16 @@ import sharedmem
 if __name__ == "__main__":
     trellis = []
     opt = OptionParser()
-    opt.add_option("-t", dest="target_corpus", default="experiment/data/toy.fr")
-    opt.add_option("-s", dest="source_corpus", default="experiment/data/toy.en")
-    opt.add_option("--tt", dest="target_test", default="experiment/data/toy.fr")
-    opt.add_option("--ts", dest="source_test", default="experiment/data/toy.en")
+    #opt.add_option("-t", dest="target_corpus", default="experiment/data/toy.fr")
+    #opt.add_option("-s", dest="source_corpus", default="experiment/data/toy.en")
+    #opt.add_option("--tt", dest="target_test", default="experiment/data/toy.fr")
+    #opt.add_option("--ts", dest="source_test", default="experiment/data/toy.en")
+
+    opt.add_option("-t", dest="target_corpus", default="experiment/data/dev.small.es")
+    opt.add_option("-s", dest="source_corpus", default="experiment/data/dev.small.en")
+    opt.add_option("--tt", dest="target_test", default="experiment/data/dev.small.es")
+    opt.add_option("--ts", dest="source_test", default="experiment/data/dev.small.en")
+    
     opt.add_option("--il", dest="intermediate_log", default="0")
     opt.add_option("--iw", dest="input_weights", default=None)
     opt.add_option("--fv", dest="feature_values", default=None)
@@ -699,8 +713,8 @@ if __name__ == "__main__":
         else:
             print 'skipping gradient check...'
             init_theta = initialize_theta(options.input_weights)
-            t1 = minimize(get_likelihood, init_theta, method='L-BFGS-B', jac=get_gradient, tol=1e-5,
-                          options={'maxiter': 10})
+            t1 = minimize(get_likelihood, init_theta, method='L-BFGS-B', jac=get_gradient, tol=1e-2,
+                          options={'maxiter': 3})
             theta = t1.x
     elif options.algorithm == "EM":
         if options.test_gradient.lower() == "true":
