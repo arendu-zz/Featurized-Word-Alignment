@@ -28,7 +28,7 @@
 \begin{document}
 \maketitle
 \begin{abstract}
-In this project we present a speedup for a Featurized Word Alignment model based on the featurized EM models introduced by KirkPartrick et al in \cite{berg2010painless}. The speed up presented involves converting the M-Steps in the word alignment models to SGD and then parallelizing the SGD updates. This project does not focus on the feature engineering aspect of the models as these heavily depend on the language pair, instead we show that even with the speed ups our results is comparable to the baseline generative model IBM-Model1. Our models provide a framework to perform the feature engineering that can accompany word alignment tasks.
+In this project we present a speedup for a Featurized Word Alignment model based on the featurized EM models introduced by KirkPartrick et al in \cite{berg2010painless}. The speedup presented involves converting the M-Steps in the word alignment models to SGD and then parallelizing the SGD updates. This project does not focus on the feature engineering aspect of the models as these heavily depend on the language pair, instead we show that even with the speed ups our results is comparable to the baseline generative model IBM-Model1. Our models provide a framework to perform the feature engineering that can accompany word alignment tasks.
 \end{abstract}
 
 \section{Introduction}
@@ -77,7 +77,7 @@ Now in this case, we do not know $A_{kl}$ and $E_{lb}$. Since the corresponding
 state sequence $S$ is unknown, to find $P(X\mid \theta)$ we must marginalize
 over all possible state sequences. Then the Expected counts of $A_{kl}$ and
 $E_{lb'}$ are the weighted average of the occurrences of the events
-$K \rightarrow L$ and $L \rightarrow x_b$ for each $S' \in possible sequences$.
+$K \rightarrow L$ and $L \rightarrow x_b$ for each $S' \in possible\,sequences$.
 \begin{align}
 A_{kl} &= \sum_{S'} A^{S'}_{kl} P(S' \mid X, \theta)\label{eq:akl}\\
 E_{lb} &= \sum_{S'} E^{S'}_{lb} P(S' \mid X, \theta)\label{eq:elb}
@@ -159,9 +159,9 @@ $\theta_j \in \theta$.
 \section{Implementations}
 % write about implementation issues you encountered
 % make sure to clarify all the different optimization method you've used
-Using Equation \ref{eq:logsub} and \ref{eq:grad} we can now implement a featurized aligner. Note that from Berg-Kirkpatrick et al, \ref{eq:logsub} and \ref{eq:log} will have gradients of the same form \cite{berg2010painless}. So we can use either eq for the log probability under the model. We Implement 2 models based on the theory in \cite{berg2010painless}, the first is the \textit{Featurized-EM}(FEM) algorithm and the second is the \textit{Direct-Gradient Descent}(DGD) algorithm. In Featurized-EM we closely model the update sequence of EM. In the E-Step expected counts are calculated using \ref{eq:logsub} and In the M-Step we use gradient based optimization. In out implementation we used L-BFGS from the Scipy toolkit. The Number of gradient steps taken can be modified. In we only take 1 gradient step the algorithm becomes equivalent to the Direct-Gradient Descent algorithm. Thus the DGD algorithm changes the expected counts for every gradient step. From \cite{berg2010painless} we see the DGD outperforms the FEM implementation, but in our experiments FEM performed better. We discuss more about these in our Discussion section.
+Using Equation \ref{eq:logsub} and \ref{eq:grad} we can now implement a featurized aligner. Note that from Berg-Kirkpatrick et al, \ref{eq:logsub} and \ref{eq:log} will have gradients of the same form \cite{berg2010painless}. So we can use either equation for the log probability under the model. We Implement 2 models based on the theory in \cite{berg2010painless}, the first is the \textit{Featurized-EM}(FEM) algorithm and the second is the \textit{Direct-Gradient Descent}(DGD) algorithm. In Featurized-EM we closely model the update sequence of EM. In the E-Step expected counts are calculated using \ref{eq:logsub} and In the M-Step we use gradient based optimization. In out implementation we used L-BFGS from the Scipy toolkit. The Number of gradient steps taken can be modified. If we only take 1 gradient step the algorithm becomes equivalent to the Direct-Gradient Descent algorithm. Thus the DGD algorithm changes the expected counts for every gradient step. From \cite{berg2010painless} we see the DGD outperforms the FEM implementation, but in our experiments FEM performed better. We discuss more about these in our Experiment section.
 
-Our focus in this project was not to find the best set of features for our implementations. We were more interested in seeing ways in which we can speed up either of the 2 methods. In FEM we could limit the number of gradient steps that L-BFGS takes in each M-step, but while this makes each M-step faster it generally requires more outer loops to reach a similar point in the log probability function. The DGD method since we only take one gradient step there are no tweak-able parameters. In \cite{berg2010painless} the word alignment task was only reported using the FEM method. The DGD method was reported as being too slow. For our experiments we limited the training size to 1800 short sentences. This gave us a way to run repeated tests relatively quickly. We also use a relatively easy language pair, Spanish-English from the Europarl corpus. 
+Our focus in this project was not to find the best set of features for our implementations. We were more interested in finding ways in which we can speed up either of the 2 methods. In FEM we could limit the number of gradient steps that L-BFGS takes in each M-step, but while this makes each M-step faster it generally requires more outer loops to reach a similar point in the log probability function. The DGD method since we only take one gradient step there are no tweak-able parameters. In \cite{berg2010painless} the word alignment task was only reported using the FEM method. The DGD method was reported as being too slow. For our experiments we limited the training size to 1800 short sentences. This gave us a way to run repeated tests relatively quickly. We also use a relatively easy language pair, Spanish-English from the Europarl corpus. 
 
 Although our model can support a HMM trellis, we limit our tests to perform IBM-Model1 based alignment. This means, that we simply treated each transition arc between consecutive states as having uniform probability. A \textit{feature} in the Model1 case is simple the co-occurring word pair. This is the same set of features that the generative IBM-Model1 model would have as parameters. with these settings we found the DGD and FEM converge in roughly the same number of iterations. To get relatively quick results we limit both these methods to run for only 10 iterations. We quickly observe that both DGD and FEM are quite slower than a simple IBM-Model1 implementation. This is because for each conditional probability IBM-Model 1 just needs to count and normalize, while in the featurized models computing the partition function is very expensive. Furthermore, after computing the partition function for each conditional probability we also make small gradient steps since we are using batch gradient updates. In the next 2 paragraphs we describe how we modified the 2 algorithms using SGD and Parallel-SGD for the M-steps.
 
@@ -169,7 +169,7 @@ Although our model can support a HMM trellis, we limit our tests to perform IBM-
 Our first method to obtain faster learning was to parallelize the likelihood and gradient computation. In order to compute the log likelihood we need to perform the forward-backward pass for every sentence pair. We then have to accumulate the data likelihood for each sentence pair and also accumulate the expected counts of the features observed in each sentence pair. This task, which is merely an accumulation of counts is easily parallelizable. We use the Multiprocessing module in python to parallelize our computation of likelihood and gradient. As expected significant speed up was seen when parallelized, but the speed up was not linear in the number of CPUs utilized. This can be explained by noting that for each gradient step we need to compute the data likelihood and gradient, each of these functions have been converted to a parallel version. For each function call, the multiprocessing module makes a low level \textit{fork()} and creates a copy of all the variables in memory and passes it to each fork. This is an expensive process. Since our application makes multiple calls to the likelihood function and the gradient function, the spawning of multiple processing threads adds significant overhead, thus only resulting in sub-linear speedups.
 
 \subsection*{Stochastic Gradient Descent}
-In the DGD method since we are only making 1 gradient step. To make this algorithm suitable for SGD we can simply compute expected counts for a single sentence pair and then using these expected counts to compute the gradient specific to that single sentence pair. If no regularization term is used this gradient is sparse, and we can make stochastic updates to the parameters using this sparse gradient. For the DGD method SGD did not prove effective and suffered from unstable updates. This can be explained by noting that we are making changes to the expected counts after only observing a single sentence pair, these expectations as a result are very noisy and SGD suffers from having a noisy objective to optimize towards. In the FEM case, we can use SGD for the inner M-step computations. Here the expectations are computed in batch for the whole data set. Once the expectations are computed we can then use SGD to calculate the gradient and update the parameters on a per-sample basis. This proved stable and effective, especially with Adagrad. Adagrad made the M-Step converge within 1-2 passes of the entire data.
+In the DGD method since we are only making 1 gradient step. To make this algorithm suitable for SGD we can simply compute expected counts for a single sentence pair and then using these expected counts to compute the gradient specific to that single sentence pair. If no regularization term is used, this gradient is sparse, and we can make stochastic updates to the parameters using this sparse gradient. For the DGD method, SGD did not prove effective and suffered from unstable updates. This can be explained by noting that we are making changes to the expected counts after only observing a single sentence pair, these expectations as a result are very noisy and SGD suffers from having a noisy objective to optimize towards. In the FEM case, we can use SGD for the inner M-step computations. Here the expectations are computed in batch for the whole data set. Once the expectations are computed we can then use SGD to calculate the gradient and update the parameters on a per-sample basis. This proved stable and effective, especially with Adagrad. Adagrad made the M-Step converge within 1-2 passes of the entire data.
 \begin{align*}
 \theta &= \theta' - \eta_{i,j}\frac{\partial}{\partial \theta} L(X,\theta)\\  
 \eta_{i,j} &= \frac{\eta_0}{\sqrt{I_j + \sum_{t=1}^i f_{t,j}^2}}\\
@@ -177,9 +177,14 @@ f_{t,j} &= \frac{\partial}{\partial \theta_j} L(X_t,\theta_j)
 \end{align*}
 Where $X_t$ is the $t^th$ sentence pair i.e our observation. As we are still optimizing for a unsupervised task we have no labels $y_t$. In our implementation we set the hyperparameters $\eta_0, I_j = 1$. This method was used in the FEM case in the M-step.
 \subsection*{Parallel Stochastic Gradient Descent}
-Even though SGD worked, it was still a single process based method. We found that is the number of CPUs was increased to 10 or more, the parallel version of DGD and FEM was faster than SGD. If we could take advantage of both parallelization and SGD it would result in much higher speedups. We implemented a simple algorithm to parallelize SGD. The Hogwild! algorithm \cite{recht2011hogwild} provides a  recipe to take an cost function or likelihood function and make it suitable for parallel SGD. Hogwild! requires a cost function to be spare and separable. The gradient of such a cost function will also be sparse and separable. This basically implies that if subsequent gradients do no interact with each other then we can assume that parallel gradient updates will result in the same final point (in the parameter space) as a series of sequential updates. In our application both these conditions are satisfied. The ignoring regularization the gradient for a single sentence pair will be sparse. This is because the gradient is based on word pair features and we know that for a given corpus vocabularies $V_1 *V_2$ each sentence might only have word pairs $V_{1,i} * V_{2,i}$ where both $V_{1,i} << V_1, V_{2,i} << V_2$ for the $i^{th}$ sentence pair. The second condition comes into play when regularization is used. We use $L2$ regularization which does makes the parameters small but does not guarantee sparsity. Furthermore, to make hogwild work we have to ensure that there is no interaction between parallel updates to the parameters. Since we can not avoid updates to many parameters when $L2$ regularization is used, we have to ensure that the updates that do occur obey the overall objective that we are trying to optimize for. To do this, Hogwild! requires each feature during regularization be normalized by the number of times it occurs in the whole dataset.
+Even though SGD worked, it was still a single process based method. We found that is the number of CPUs was increased to 10 or more, the parallel version of DGD and FEM was faster than SGD. If we could take advantage of both parallelization and SGD it would result in much higher speedups. We implemented a simple algorithm to parallelize SGD. The Hogwild! algorithm \cite{recht2011hogwild} provides a  recipe to take an cost function or likelihood function and make it suitable for parallel SGD. Hogwild! requires a cost function to be spare and separable. The gradient of such a cost function will also be sparse and separable. This basically implies that if subsequent gradients do no interact with each other then we can assume that parallel gradient updates will result in the same final point (in the parameter space) as a series of sequential updates. In our application both these conditions are satisfied. 
+The ignoring regularization the gradient for a single sentence pair will be sparse. %?
+ This is because the gradient is based on word pair features and we know that for a given corpus vocabularies $V_1 *V_2$ each sentence might only have word pairs $V_{1,i} * V_{2,i}$ where both $V_{1,i} << V_1, V_{2,i} << V_2$ for the $i^{th}$ sentence pair. The second condition comes into play when regularization is used. We use $L2$ regularization which does makes the parameters small but does not guarantee sparsity. Furthermore, to make Hogwild! work we have to ensure that there is no interaction between parallel updates to the parameters. Since we can not avoid updates to many parameters when $L2$ regularization is used, we have to ensure that the updates that do occur obey the overall objective that we are trying to optimize for. To do this, Hogwild! requires each feature during regularization be normalized by the number of times it occurs in the whole dataset.
 
-We compute a normalization vector $d \in \mathbb{R}^D$ where $D$ is the dimensionality of the parameter vector $\theta$. The vector $d$ contains the count of the number of times a feature is fired in the dataset. Thus, we must first do a pass over the entire data set and accumulate these feature-firing counts. Once we accumulate these counts we use them to normalize for every parallel update of the gradient. The following is shown below, here $L(X;\theta)$ is the cost function or likelihood function with out regularization.
+We compute a normalization vector $d \in \mathbb{R}^D$ where $D$ is the dimensionality of the parameter vector $\theta$. The vector $d$ contains the count of the number of times a feature is fired in the dataset. Thus, we must first do a pass over the entire data set and accumulate these feature-firing counts. Once we accumulate these counts we use them to normalize for every parallel update of the gradient. 
+The following is shown below, %?
+here $L(X;\theta)$ is the cost function or likelihood function without regularization.
+% what are these two equations? annotate them respectively
 \begin{align*}
 & minimize_\theta \sum_{i \in N} L(X;\theta) + \lambda|\theta|^2\\
 & minimize_\theta \sum_{i \in N} L(X;\theta) + \lambda \frac{\theta_j^2}{d_j}\\
@@ -191,8 +196,7 @@ In the equation above $d_j$ is the count of the number of times the $j^{th}$ fea
 Most of our word alignment experiments are performed on a parallel corpus of English and Spanish sentences.
 The corpus contains 1768 sentences as the training set and 200 sentences as the development set.
 As there are not tuning hyper-parameters in our model, it is sensible and sufficient to evaluate the performance of our model on the development set.
-For several experiments, we also use an extra training corpus that contains 5K % TODO what is the exact scale of the 5k dataset?
-sentences.
+For several experiments, we also use an extra training corpus that contains 5262 sentences.
 
 \begin{table}[h]
 \begin{center}
@@ -202,19 +206,20 @@ sentences.
 \hline
 \texttt{BASE(B)} & \makecell[l]{binary feature, fires for\\ each source and target pairs\\ in the alignment} \\
 \texttt{IS\_SAME (S)} & \makecell[l]{binary feature, fires when\\ the source and the target\\ token is same}\\
-\texttt{EDIT\_DIST (ED)} & \makecell[l]{real-valued feature, gives\\ the edit distance between the\\ source and target token}\\
+\texttt{EDIT\_SCORE (ED)} & \makecell[l]{real-valued feature, calculated\\ from the edit distance between\\ the source and target token}\\
 \hline
 \end{tabular}
 \end{center}
-\caption{\label{featureset-table} Feature templates for experiments}
+\caption{\label{tab:featureset} Feature templates for experiments}
 \end{table}
 
-As we have mentioned in the previous part, we take traditional IBM Model1 as our baseline.
-% make sure we have mentioned this in the previous parts of our writeup
-For featurized model, we designed three feature templates (as shown in Table \ref{featureset-table}) to try out on it.
+As we have mentioned in the previous part, we take generative IBM Model1 as our baseline.
+For featurized model, we designed three feature templates (as shown in Table \ref{tab:featureset}) to try out on it.
+What needs to be noted is that for \texttt{EDIT\_SCORE} feature, we cannot directly use edit distance as the feature values because we want to penalize on large edit distance, hence the larger edit distance is, the smaller \texttt{EDIT\_SCORE} should be. Having noticed that fact, we defined the \texttt{EDIT\_SCORE} as follows:
+\[edit\,score = \dfrac{1}{1 + edit\,distance}\]
+
 Our general workflow is to first prove that the featurized model is able to generate a comparable result against baseline when we only use \texttt{BASE} features (because they are equivalent).
 After that, we further incorporate other additional features to see how they works.
-
 We would also like to see how different factors (e.g. optimization algorithm, iteration, regularization etc.) will effect the performance of the model.
 
 \subsection{Results}
@@ -241,7 +246,7 @@ FEM-SGD-P   & 0.005                   & 5                   & 0.369             
 \hline               
 \end{tabular}
 }
-\caption{\label{tab:rc} Comparison of the algorithms trained on 2K sentences and tested on 200, only with base features}
+\caption{\label{tab:rc} Comparison of the algorithms trained on 1768 sentences and tested on 200, only with base features}
 \end{table}
 
 \begin{table}[h]
@@ -262,10 +267,41 @@ FEM-SGD-P & 0.005          & 24       & 24m21s  &0.375 \\
 \hline
 \end{tabular}
 }
-\caption{\label{tab:time} Time of the algorithms with 5 iterations 2K sentences and tested on 200, only with base features}
+\caption{\label{tab:time} Time of the algorithms with 5 iterations 1768 sentences and tested on 200, only with base features}
 \end{table}
 
-Finally, we scaled up our tests to a larger dataset of around 5800 sentences. This data size have been too slow using our other algorithms, since the number of features (word-pairs) grows in polynomial time. Also since our framework is using an HMM as its underlying model constructing the trellis and computing the forward-backward passes over the trellis becomes very slow. This table shows that as the data scales up we still get comparable results to model1. Our \texttt{IS\_SAME} feature helps while converting the feature values to real valued (\texttt{EDIT\_DISTANCE}) hurts the performance. This makes sense because our edit distance score penalizes word pairs such as \textit{de} and \textit{of} and helps word pairs such as \textit{parlamento} and \textit{parliament}. Even though it helps some word pairs the function words which are more common get penalized. This would mean more iterations might be needed before real values based on our edit distance score prove useful.
+We would also like to show that how different features will effect the performance of our model.
+But our preliminary experiments show that with only 5 iterations, the model is not able to learn the distinctions between features, which naturally lead us to experiment with more iterations.
+Table \ref{tab:feats} showed the results done with a stopping criteria of 4-decimal convergence or maximum iteration of 200.
+We are able to see that with \texttt{BASE} and \texttt{IS\_SAME} feature, FEM is able to achieve better results compared to the baseline and the experiment done with only \texttt{BASE} feature.
+For DGD, \texttt{IS\_SAME} feature showed a similar effect, and incorporating \texttt{EDIT\_SCORE} feature seems to improve the result even further. But even so DGD is still far worse than the baseline.
+Unfortunately, we don't have time for further experiments on FEM with both additional feature set because it is extremely slow with a large number of features.
+
+\begin{table}[h]
+\centering
+\resizebox{0.5\textwidth}{!}{
+\begin{tabular}{|l|lllll|}
+\hline
+\textbf{Algo} & \textbf{Reg} & \textbf{Feats} & \textbf{Prec.} & \textbf{Rec.} & \textbf{F-score} \\
+\hline
+Baseline			  & - 					   & -                      & 0.376         & 0.385         & 0.380
+\\
+FEM                & 0.0                     & \texttt{B}             & 0.374          & 0.381         & 0.377            \\
+FEM                & 0.005                   & \texttt{B}             & 0.357          & 0.364         & 0.360            \\
+FEM                & 0.0                     & \texttt{B, S}    & 0.381          & 0.390         & 0.386            \\
+FEM                & 0.005                   & \texttt{B, S}    & 0.384          & 0.390         & 0.387            \\
+DGD                & 0.0                     & \texttt{B}             & 0.293          & 0.292         & 0.293            \\
+DGD                & 0.005                   & \texttt{B}             & 0.251          & 0.258         & 0.255            \\
+DGD                & 0.0                     & \texttt{B, S}    & 0.320          & 0.330         & 0.325            \\
+DGD                & 0.005                   & \texttt{B, S}    & 0.304          & 0.311         & 0.308            \\
+DGD                & 0.0                     & \texttt{B, S, ED}  & 0.271          & 0.271         & 0.271            \\
+DGD                & 0.005                   & \texttt{B, S, ED}  & 0.312          & 0.312         & 0.312            \\
+\hline           
+\end{tabular}
+}
+\caption{\label{tab:feats} Comparison of the algorithms trained on 1768 sentences and tested on 200. Both EM maximization step and LBFGS optimization stops at a convergence of 4 decimals (which involves much more iteration than 5)}
+\end{table}
+
 \begin{table}[h]
 \centering
 \resizebox{0.5\textwidth}{!}{
@@ -284,6 +320,9 @@ FEM-SGD-P          & 0.005                   & \texttt{B,S,ED}          & 0.335 
 }
 \caption{\label{tab:sgdp} Performance FEM-SGD-P trained on 5K sentences (5 iterations) and tested on 200}
 \end{table}
+
+Finally, we scaled up our tests to a larger dataset of around 5800 sentences. This data size have been too slow using our other algorithms, since the number of features (word-pairs) grows in polynomial time. Also since our framework is using an HMM as its underlying model constructing the trellis and computing the forward-backward passes over the trellis becomes very slow. This table shows that as the data scales up we still get comparable results to model1. Our \texttt{IS\_SAME} feature helps, which agrees with the previous results we get on smaller dataset. However, converting the feature values to real valued (\texttt{EDIT\_SCORE}) hurts the performance. This makes sense because our edit distance score penalizes word pairs such as \textit{de} and \textit{of} and helps word pairs such as \textit{parlamento} and \textit{parliament}. Even though it helps some word pairs the function words which are more common get penalized. This would mean more iterations might be needed before real values based on our edit distance score prove useful.
+
 \section{Comparison with Proposal}
 \subsection{Must Achieve}
 We decided to focus on the analysis of featurized IBM-Model1. We implemented and experimented with different optimization algorithms to scale up to large dataset. We have proved that when using only \texttt{BASE} feature set, our implementation is able to yield comparable result as traditional IBM-Model1.
