@@ -672,16 +672,11 @@ import sharedmem
 if __name__ == "__main__":
     trellis = []
     opt = OptionParser()
-    #opt.add_option("-t", dest="target_corpus", default="experiment/data/toy.fr")
-    #opt.add_option("-s", dest="source_corpus", default="experiment/data/toy.en")
-    #opt.add_option("--tt", dest="target_test", default="experiment/data/toy.fr")
-    #opt.add_option("--ts", dest="source_test", default="experiment/data/toy.en")
+    opt.add_option("-t", dest="target_corpus", default="experiment/data/toy.fr")
+    opt.add_option("-s", dest="source_corpus", default="experiment/data/toy.en")
+    opt.add_option("--tt", dest="target_test", default="experiment/data/toy.fr")
+    opt.add_option("--ts", dest="source_test", default="experiment/data/toy.en")
 
-    opt.add_option("-t", dest="target_corpus", default="experiment/data/dev.small.es")
-    opt.add_option("-s", dest="source_corpus", default="experiment/data/dev.small.en")
-    opt.add_option("--tt", dest="target_test", default="experiment/data/dev.small.es")
-    opt.add_option("--ts", dest="source_test", default="experiment/data/dev.small.en")
-    
     opt.add_option("--il", dest="intermediate_log", default="0")
     opt.add_option("--iw", dest="input_weights", default=None)
     opt.add_option("--fv", dest="feature_values", default=None)
@@ -723,12 +718,11 @@ if __name__ == "__main__":
             print 'skipping gradient check...'
             theta = initialize_theta(options.input_weights)
             new_e = get_likelihood(theta)
-            exp_new_e = get_likelihood_with_expected_counts(theta)
             old_e = float('-inf')
             converged = False
             iterations = 0
-            while not converged and iterations < 10:
-                t1 = minimize(get_likelihood_with_expected_counts, theta, method='L-BFGS-B', jac=get_gradient, tol=1e-4,
+            while not converged and iterations < 5:
+                t1 = minimize(get_likelihood_with_expected_counts, theta, method='L-BFGS-B', jac=get_gradient, tol=1e-3,
                               options={'maxiter': 20})
                 theta = t1.x
                 new_e = get_likelihood(theta)  # this will also update expected counts

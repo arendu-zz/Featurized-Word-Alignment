@@ -343,6 +343,7 @@ def get_likelihood(theta, batch=None, display=True):
     for idx in batch:
         max_bt, max_p, alpha_pi = get_viterbi_and_forward(theta, idx)
         S, beta_pi = get_backwards(theta, idx, alpha_pi)
+        print 'p(t|s) for ', idx, ':', S, max_bt
         data_likelihood += S
     reg = np.sum(theta ** 2)
     ll = data_likelihood - (rc * reg)
@@ -439,6 +440,7 @@ def populate_trellis(source_corpus, target_corpus):
                 state_options = [(t_idx, s_idx) for s_idx, s_tok in enumerate(s_sent) if
                                  s_tok != BOUNDARY_END and s_tok != BOUNDARY_START]
             trelli[t_idx] = state_options
+        """
         # print 'fwd prune'
         for t_idx in sorted(trelli.keys())[1:-1]:
             # print t_idx
@@ -464,6 +466,14 @@ def populate_trellis(source_corpus, target_corpus):
             # print 'jmax', 'jmin', j_max_s_idx, j_min_s_idx
             c_filtered = [(t, s) for t, s in trelli[t_idx] if (j_max_s_idx >= s >= j_min_s_idx)]
             trelli[t_idx] = c_filtered
+
+        # beam prune
+        for t_idx in sorted(trelli.keys())[1:-1]:
+            x = trelli[t_idx]
+            y = sorted([(abs(t - s), (t, s)) for t, s in x])
+            py = sorted([ts for d, ts in y[:max_beam_width]])
+            trelli[t_idx] = py
+        """
         for t_idx in sorted(trelli.keys())[1:-1]:
             trelli[t_idx] += [(t_idx, NULL)]
         new_trellis.append(trelli)
@@ -536,11 +546,30 @@ def initialize_theta(input_weights):
     return init_theta
 
 
+def write_logs(theta, current_iter):
+    global trellis
+    feature_val_typ = 'bin' if options.feature_values is None else 'real'
+    name_prefix = '.'.join(
+        [options.algorithm, str(rc), model_type, feature_val_typ])
+    if current_iter is not None:
+        name_prefix += '.' + str(current_iter)
+    write_weights(theta, name_prefix + '.' + options.output_weights)
+    write_probs(theta, name_prefix + '.' + options.output_probs)
+
+    if options.source_test is not None and options.target_test is not None:
+        source = [s.strip().split() for s in open(options.source_test, 'r').readlines()]
+        target = [t.strip().split() for t in open(options.target_test, 'r').readlines()]
+        trellis = populate_trellis(source, target)
+
+    write_alignments(theta, name_prefix + '.' + options.output_alignments)
+    write_alignments_col(theta, name_prefix + '.' + options.output_alignments)
+    write_alignments_col_tok(theta, name_prefix + '.' + options.output_alignments)
+
+
 if __name__ == "__main__":
     trellis = []
 
     opt = OptionParser()
-
     opt.add_option("-t", dest="target_corpus", default="experiment/data/toy.fr")
     opt.add_option("-s", dest="source_corpus", default="experiment/data/toy.en")
     opt.add_option("--tt", dest="target_test", default="experiment/data/toy.fr")
@@ -565,15 +594,17 @@ if __name__ == "__main__":
     populate_features()
     FE.load_feature_values(options.feature_values)
     snippet = "#" + str(opt.values) + "\n"
-
+    init_theta = initialize_theta(options.input_weights)
+    ll = get_likelihood(init_theta)
+    # exit()
     if options.algorithm == "LBFGS":
         if options.test_gradient.lower() == "true":
             gradient_check_lbfgs()
         else:
             print 'skipping gradient check...'
             init_theta = initialize_theta(options.input_weights)
-            t1 = minimize(get_likelihood, init_theta, method='L-BFGS-B', jac=get_gradient, tol=1e-3,
-                          options={'maxfun': 50})
+            t1 = minimize(get_likelihood, init_theta, method='L-BFGS-B', jac=get_gradient, tol=1e-2,
+                          options={'maxiter': 10})
 
             theta = t1.x
     elif options.algorithm == "EM":
@@ -583,17 +614,17 @@ if __name__ == "__main__":
             print 'skipping gradient check...'
             theta = initialize_theta(options.input_weights)
             new_e = get_likelihood(theta)
-            exp_new_e = get_likelihood_with_expected_counts(theta)
             old_e = float('-inf')
             converged = False
-            while not converged:
-                t1 = minimize(get_likelihood_with_expected_counts_fwd, theta, method='L-BFGS-B', jac=get_gradient,
-                              tol=1e-1,
-                              options={'maxfun': 150})
+            iterations = 0
+            while not converged and iterations < 5:
+                t1 = minimize(get_likelihood_with_expected_counts, theta, method='L-BFGS-B', jac=get_gradient, tol=1e-3,
+                              options={'maxiter': 20})
                 theta = t1.x
                 new_e = get_likelihood(theta)  # this will also update expected counts
                 converged = round(abs(old_e - new_e), 2) == 0.0
                 old_e = new_e
+                iterations += 1
     elif options.algorithm == "SGD":
         batch_size = len(trellis)
         theta = initialize_theta(options.input_weights)
@@ -615,15 +646,7 @@ if __name__ == "__main__":
         print 'wrong algorithm option'
         exit()
 
-    if options.test_gradient.lower() != "true":
-        write_weights(theta, options.algorithm + '.' + model_type + '.' + options.output_weights)
-        write_probs(theta, options.algorithm + '.' + model_type + '.' + options.output_probs)
-
-        if options.source_test is not None and options.target_test is not None:
-            source = [s.strip().split() for s in open(options.source_test, 'r').readlines()]
-            target = [t.strip().split() for t in open(options.target_test, 'r').readlines()]
-            trellis = populate_trellis(source, target)
-
-        write_alignments(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
-        write_alignments_col(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
-        write_alignments_col_tok(theta, options.algorithm + '.' + model_type + '.' + options.output_alignments)
+    if options.test_gradient.lower() == "true":
+        pass
+    else:
+        write_logs(theta, current_iter=None)

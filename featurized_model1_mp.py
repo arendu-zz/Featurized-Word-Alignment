@@ -2,27 +2,33 @@ __author__ = 'arenduchintala'
 
 from optparse import OptionParser
 from math import exp, log
-import sys
-from scipy.optimize import fmin_l_bfgs_b
+
 from scipy.optimize import minimize
 import numpy as np
 import FeatureEng as FE
 import utils
-import random
 import copy
 import pdb
 from pprint import pprint
+import random
+import sharedmem
+import multiprocessing
+from multiprocessing import Pool
 
 global BOUNDARY_START, END_STATE, SPLIT, E_TYPE, T_TYPE
 global cache_normalizing_decision, features_to_events, events_to_features, normalizing_decision_map
 global trellis, max_jump_width, number_of_events, EPS, snippet, max_beam_width, rc
-global source, target, data_likelihood, event_grad
+global source, target, data_likelihood, event_grad, feature_index, event_index
+global events_per_trellis, event_to_event_index, has_pos, event_counts, du, itercount, N
+has_pos = False
 event_grad = {}
 data_likelihood = 0.0
 snippet = ''
 EPS = 1e-5
 rc = 0.25
 
+IBM_MODEL_1 = "model1"
+HMM_MODEL = "hmm"
 max_jump_width = 10
 max_beam_width = 20  # creates a span of +/- span centered around current token
 trellis = []
@@ -40,13 +46,42 @@ number_of_events = 0
 events_to_features = {}
 features_to_events = {}
 feature_index = {}
+feature_counts = {}
+du = []
+event_index = []
+event_to_event_index = {}
+event_counts = {}
 conditional_arc_index = {}
 normalizing_decision_map = {}
-pause_on_tie = False
+itercount = 0
+
+
+def populate_events_per_trellis():
+    global event_index, trellis, events_per_trellis
+    events_per_trellis = []
+    for obs_id, obs in enumerate(trellis):
+        events_observed = []
+        obs = trellis[obs_id]
+        src = source[obs_id]
+        tar = target[obs_id]
+        for k in range(1, len(obs)):  # the words are numbered from 1 to n, 0 is special start character
+            for v in obs[k]:  # [1]:
+                for u in obs[k - 1]:  # [1]:
+                    tk, aj = v
+                    tk_1, aj_1 = u
+                    t_tok = tar[tk]
+                    s_tok = src[aj] if aj is not NULL else NULL
+
+                    ei = event_to_event_index[(E_TYPE, t_tok, s_tok)]
+                    events_observed.append(ei)
+        events_per_trellis.append(list(set(events_observed)))
 
 
 def populate_features():
-    global trellis, feature_index, source, target
+    global trellis, feature_index, source, target, event_index, event_to_event_index, event_counts, du
+    event_index = set([])
+    event_counts = {}
+
     for treli_idx, treli in enumerate(trellis):
         for idx in treli:
             for t_idx, s_idx in treli[idx]:
@@ -64,6 +99,8 @@ def populate_features():
                 emission_context = s_tok
                 emission_decision = t_tok
                 emission_event = (E_TYPE, emission_decision, emission_context)
+                event_index.add(emission_event)
+                event_counts[emission_event] = event_counts.get(emission_event, 1.0)
                 ff_e = FE.get_wa_features_fired(type=E_TYPE, decision=emission_decision, context=emission_context)
                 for f_wt, f in ff_e:
                     feature_index[f] = len(feature_index) if f not in feature_index else feature_index[f]
@@ -73,6 +110,17 @@ def populate_features():
                     f2ca = features_to_events.get(f, set([]))
                     f2ca.add(emission_event)
                     features_to_events[f] = f2ca
+                    feature_counts[f] = feature_counts.get(f, 0.0) + 1.0
+
+    du = np.zeros(len(feature_index))
+    for f in feature_index:
+        i = feature_index[f]
+        c = feature_counts[f]
+        du[i] = c
+
+    event_index = sorted(list(event_index))
+    for ei, e in enumerate(event_index):
+        event_to_event_index[e] = ei
 
 
 def get_decision_given_context(theta, type, decision, context):
@@ -103,8 +151,8 @@ def get_decision_given_context(theta, type, decision, context):
     return log_prob
 
 
-def get_model1_forward(theta, obs_id):
-    global fractional_counts, source, target, trellis
+def get_model1_forward(theta, obs_id, fc):
+    global source, target, trellis
     obs = trellis[obs_id]
     max_bt = [-1] * len(obs)
     p_st = 0.0
@@ -127,14 +175,15 @@ def get_model1_forward(theta, obs_id):
         p_st += sum_sj
 
         # update fractional counts
-        for _, s_idx in obs[t_idx]:
-            s_tok = source[obs_id][s_idx] if s_idx is not NULL else NULL
-            e = get_decision_given_context(theta, E_TYPE, decision=t_tok, context=s_tok)
-            delta = e - sum_e
-            event = (E_TYPE, t_tok, s_tok)
-            fractional_counts[event] = utils.logadd(delta, fractional_counts.get(event, float('-inf')))
+        if fc is not None:
+            for _, s_idx in obs[t_idx]:
+                s_tok = source[obs_id][s_idx] if s_idx is not NULL else NULL
+                e = get_decision_given_context(theta, E_TYPE, decision=t_tok, context=s_tok)
+                delta = e - sum_e
+                event = (E_TYPE, t_tok, s_tok)
+                fc[event] = utils.logadd(delta, fc.get(event, float('-inf')))
 
-    return p_st, max_bt[:-1]
+    return p_st, max_bt[:-1], fc
 
 
 def reset_fractional_counts():
@@ -176,7 +225,7 @@ def write_alignments_col_tok(theta, save_align):
     write_align = open(save_align, 'w')
     # write_align.write(snippet)
     for idx, obs in enumerate(trellis[:]):
-        S, max_bt = get_model1_forward(theta, idx)
+        S, max_bt, batch_fc = get_model1_forward(theta, idx, None)
         for tar_i, src_i in max_bt:
             if src_i != NULL and src_i > 0 and tar_i > 0:
                 write_align.write(str(idx + 1) + ' ' + source[idx][src_i] + ' ' + target[idx][tar_i] + '\n')
@@ -191,7 +240,7 @@ def write_alignments_col(theta, save_align):
     write_align = open(save_align, 'w')
     # write_align.write(snippet)
     for idx, obs in enumerate(trellis[:]):
-        S, max_bt = get_model1_forward(theta, idx)
+        S, max_bt, batch_fc = get_model1_forward(theta, idx, None)
         for tar_i, src_i in max_bt:
             if src_i != NULL and tar_i > 0 and src_i > 0:
                 write_align.write(str(idx + 1) + ' ' + str(src_i) + ' ' + str(tar_i) + '\n')
@@ -205,7 +254,7 @@ def write_alignments(theta, save_align):
     write_align = open(save_align, 'w')
     # write_align.write(snippet)
     for idx, obs in enumerate(trellis[:]):
-        S, max_bt = get_model1_forward(theta, idx)
+        S, max_bt, batch_fc = get_model1_forward(theta, idx, None)
         w = ' '.join(
             [str(src_i) + '-' + str(tar_i) for tar_i, src_i in max_bt if src_i != NULL and tar_i > 0 and src_i > 0])
         write_align.write(w + '\n')
@@ -217,6 +266,30 @@ def write_alignments(theta, save_align):
 def get_likelihood(theta):
     assert isinstance(theta, np.ndarray)
     assert len(theta) == len(feature_index)
+    global trellis, data_likelihood, rc, itercount, N
+    reset_fractional_counts()
+    data_likelihood = 0.0
+    cpu_count = multiprocessing.cpu_count()
+    pool = Pool(processes=cpu_count)  # uses all available CPUs
+    full = range(0, len(trellis))
+    batches = np.array_split(full, cpu_count)
+    for batch in batches:
+        pool.apply_async(batch_likelihood, args=(theta, batch), callback=batch_accumilate_likelihood)
+    pool.close()
+    pool.join()
+    reg = np.sum(theta ** 2)
+    ll = (data_likelihood - (rc * reg))
+
+    print itercount, 'log likelihood:', ll
+    itercount += 1
+
+    return -ll
+
+
+"""
+def get_likelihood(theta):
+    assert isinstance(theta, np.ndarray)
+    assert len(theta) == len(feature_index)
     global trellis, data_likelihood, rc
     reset_fractional_counts()
     data_likelihood = 0.0
@@ -224,7 +297,7 @@ def get_likelihood(theta):
     batch = range(0, len(trellis))
 
     for idx in batch:
-        S, max_bt = get_model1_forward(theta, idx)
+        S, max_bt, batch_fc = get_model1_forward(theta, idx)
         # print 'p(t|s) for', idx, ':', S, max_bt
         data_likelihood += S
 
@@ -233,6 +306,24 @@ def get_likelihood(theta):
 
     print 'log likelihood:', ll
     return -ll
+"""
+
+
+def batch_likelihood(theta, batch):
+    dl = 0.0
+    batch_fc = {}
+    for idx in batch:
+        S, max_bt, batch_fc = get_model1_forward(theta, idx, batch_fc)
+        dl += S
+    return dl, batch_fc
+
+
+def batch_accumilate_likelihood(result):
+    global data_likelihood, fractional_counts
+    data_likelihood += result[0]
+    fc = result[1]
+    for k in fc:
+        fractional_counts[k] = utils.logadd(fc[k], fractional_counts.get(k, float('-inf')))
 
 
 def get_likelihood_with_expected_counts(theta):
@@ -250,27 +341,51 @@ def get_likelihood_with_expected_counts(theta):
     return -sum_likelihood
 
 
-def get_gradient(theta):
-    global fractional_counts, feature_index, event_grad, rc
-    assert len(theta) == len(feature_index)
-    event_grad = {}
-    for event_j in fractional_counts:
-        (t, dj, cj) = event_j
-        f_val, f = FE.get_wa_features_fired(type=t, context=cj, decision=dj)[0]
+def batch_gradient(theta, batch_fractional_counts):
+    global event_index
+    eg = {}
+    for idx in batch_fractional_counts:
+        (t, dj, cj) = event_index[idx]
+        f_val, f = FE.get_wa_features_fired(type=t, context=cj, decision=dj)[0]  # TODO: this only works in basic feat
         a_dp_ct = exp(get_decision_given_context(theta, decision=dj, context=cj, type=t)) * f_val
         sum_feature_j = 0.0
         norm_events = [(t, dp, cj) for dp in normalizing_decision_map[t, cj]]
+
         for event_i in norm_events:
             A_dct = exp(fractional_counts.get(event_i, 0.0))
-            if event_i == event_j:
+            if event_i == event_index[idx]:
                 (ti, di, ci) = event_i
-                fj, f = FE.get_wa_features_fired(type=ti, context=ci, decision=di)[0]
+                fj, f = FE.get_wa_features_fired(type=ti, context=ci, decision=di)[0]  # TODO: this only works in basic
             else:
                 fj = 0.0
             sum_feature_j += A_dct * (fj - a_dp_ct)
-        event_grad[event_j] = sum_feature_j  # - abs(theta[event_j])  # this is the regularizing term
+        eg[(t, dj, cj)] = sum_feature_j
 
+    return eg
+
+
+def batch_accumilate_gradient(result):
+    global event_grad
+    for event_j in result:
+        if event_j in event_grad:
+            raise 'should this happen?'
+        else:
+            event_grad[event_j] = result[event_j]
+
+
+def get_gradient(theta):
+    global fractional_counts, event_index, feature_index, event_grad, rc, N
+    assert len(theta) == len(feature_index)
+    event_grad = {}
+    cpu_count = multiprocessing.cpu_count()
+    pool = Pool(processes=cpu_count)  # uses all available CPUs
+    batches_fractional_counts = np.array_split(range(len(event_index)), cpu_count)
+    for batch_of_fc in batches_fractional_counts:
+        pool.apply_async(batch_gradient, args=(theta, batch_of_fc), callback=batch_accumilate_gradient)
+    pool.close()
+    pool.join()
     # grad = np.zeros_like(theta)
+
     grad = -2 * rc * theta  # l2 regularization with lambda 0.5
     for e in event_grad:
         feats = events_to_features[e]
@@ -281,6 +396,42 @@ def get_gradient(theta):
     # grad[s] += -theta[s]  # l2 regularization with lambda 0.5
     assert len(grad) == len(feature_index)
     return -grad
+
+
+def batch_likelihood_with_expected_counts(theta, batch):
+    global event_index
+    batch_sum_likelihood = 0.0
+    for idx in batch:
+        event = event_index[idx]
+        (t, d, c) = event_index[idx]
+        A_dct = exp(fractional_counts[event])
+        a_dct = get_decision_given_context(theta=theta, type=t, decision=d, context=c)
+        batch_sum_likelihood += A_dct * a_dct
+    return batch_sum_likelihood
+
+
+def batch_accumilate_likelihood_with_expected_counts(results):
+    global data_likelihood
+    data_likelihood += results
+
+
+def get_likelihood_with_expected_counts(theta, display=True):
+    global fractional_counts, data_likelihood, event_index
+    data_likelihood = 0.0
+    cpu_count = multiprocessing.cpu_count()
+    pool = Pool(processes=cpu_count)  # uses all available CPUs
+    batches_fractional_counts = np.array_split(range(len(event_index)), cpu_count)
+    for batch_of_fc in batches_fractional_counts:
+        pool.apply_async(batch_likelihood_with_expected_counts, args=(theta, batch_of_fc),
+                         callback=batch_accumilate_likelihood_with_expected_counts)
+    pool.close()
+    pool.join()
+
+    reg = np.sum(theta ** 2)
+    data_likelihood -= (rc * reg)
+    if display:
+        print '\tec:', data_likelihood
+    return -data_likelihood
 
 
 def populate_trellis(source_corpus, target_corpus):
@@ -407,10 +558,6 @@ def initialize_theta(input_weights):
     return init_theta
 
 
-def batch_sgd_accumilate(obs_id):
-    print obs_id
-
-
 def write_logs(theta, current_iter):
     global trellis
     feature_val_typ = 'bin' if options.feature_values is None else 'real'
@@ -458,7 +605,7 @@ if __name__ == "__main__":
     populate_features()
     FE.load_feature_values(options.feature_values)
     snippet = "#" + str(opt.values) + "\n"
-    init_theta = initialize_theta(options.input_weights)
+
     if options.algorithm == "LBFGS":
         if options.test_gradient.lower() == "true":
             gradient_check_lbfgs()
@@ -489,6 +636,11 @@ if __name__ == "__main__":
                 converged = round(abs(old_e - new_e), 1) == 0.0
                 old_e = new_e
                 iterations += 1
+    elif options.algorithm == "EM-SGD":
+        pass
+    else:
+        print 'wrong option for algorithm...'
+        exit()
 
     if options.test_gradient.lower() == "true":
         pass
