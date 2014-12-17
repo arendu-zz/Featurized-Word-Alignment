@@ -13,17 +13,16 @@ import copy
 import pdb
 from pprint import pprint
 
-global BOUNDARY_START, END_STATE, SPLIT, E_TYPE, T_TYPE, IBM_MODEL_1, HMM_MODEL
+global BOUNDARY_START, END_STATE, SPLIT, E_TYPE, T_TYPE
 global cache_normalizing_decision, features_to_events, events_to_features, normalizing_decision_map
-global trellis, max_jump_width, model_type, number_of_events, EPS, snippet, max_beam_width, rc
+global trellis, max_jump_width, number_of_events, EPS, snippet, max_beam_width, rc
 global source, target, data_likelihood, event_grad
 event_grad = {}
 data_likelihood = 0.0
 snippet = ''
 EPS = 1e-5
 rc = 0.25
-IBM_MODEL_1 = "model1"
-HMM_MODEL = "hmm"
+
 max_jump_width = 10
 max_beam_width = 20  # creates a span of +/- span centered around current token
 trellis = []
@@ -75,29 +74,6 @@ def populate_features():
                     f2ca.add(emission_event)
                     features_to_events[f] = f2ca
 
-                if idx > 0 and model_type == HMM_MODEL:
-                    for prev_t_idx, prev_s_idx in treli[idx - 1]:
-                        """
-                        transition features
-                        """
-                        transition_context = prev_s_idx
-                        transition_decision = s_idx
-                        transition_event = (T_TYPE, transition_decision, transition_context)
-                        ff_t = FE.get_wa_features_fired(type=T_TYPE, decision=transition_decision,
-                                                        context=transition_context)
-
-                        ndm = normalizing_decision_map.get((T_TYPE, transition_context), set([]))
-                        ndm.add(transition_decision)
-                        normalizing_decision_map[T_TYPE, transition_context] = ndm
-                        for f_wt, f in ff_t:
-                            feature_index[f] = len(feature_index) if f not in feature_index else feature_index[f]
-                            ca2f = events_to_features.get(transition_event, set([]))
-                            ca2f.add(f)
-                            events_to_features[transition_event] = ca2f
-                            f2ca = features_to_events.get(f, set([]))
-                            f2ca.add(transition_event)
-                            features_to_events[f] = f2ca
-
 
 def get_decision_given_context(theta, type, decision, context):
     global normalizing_decision_map, cache_normalizing_decision, feature_index
@@ -127,108 +103,38 @@ def get_decision_given_context(theta, type, decision, context):
     return log_prob
 
 
-def get_backwards(theta, obs_id, alpha_pi, fc=None):
-    global max_jump_width, trellis, source, target
+def get_model1_forward(theta, obs_id):
+    global fractional_counts, source, target, trellis
     obs = trellis[obs_id]
-    src = source[obs_id]
-    tar = target[obs_id]
-    n = len(obs) - 1  # index of last word
-    end_state = obs[n][0]
-    beta_pi = {(n, end_state): 0.0}
-    S = alpha_pi[(n, end_state)]  # from line 13 in pseudo code
-    fc = accumulate_fc(type=E_TYPE, alpha=0.0, beta=S, e=0.0, S=S, d=BOUNDARY_START, c=BOUNDARY_START, fc=fc)
-    for k in range(n, 0, -1):
-        for v in obs[k]:
-            tk, aj = v
-            t_tok = tar[tk]
-            s_tok = src[aj] if aj is not NULL else NULL
+    max_bt = [-1] * len(obs)
+    p_st = 0.0
+    for t_idx in obs:
+        t_tok = target[obs_id][t_idx]
+        sum_e = float('-inf')
+        max_e = float('-inf')
+        max_s_idx = None
+        sum_sj = float('-inf')
+        for _, s_idx in obs[t_idx]:
+            s_tok = source[obs_id][s_idx] if s_idx is not NULL else NULL
             e = get_decision_given_context(theta, E_TYPE, decision=t_tok, context=s_tok)
+            sum_e = utils.logadd(sum_e, e)
+            q = log(1.0 / len(obs[t_idx]))
+            sum_sj = utils.logadd(sum_sj, e + q)
+            if e > max_e:
+                max_e = e
+                max_s_idx = s_idx
+        max_bt[t_idx] = (t_idx, max_s_idx)
+        p_st += sum_sj
 
-            pb = beta_pi[(k, v)]
-            fc = accumulate_fc(type=E_TYPE, alpha=alpha_pi[(k, v)], beta=beta_pi[k, v], e=e, S=S, d=t_tok, c=s_tok,
-                               fc=fc)
-            for u in obs[k - 1]:
-                tk_1, aj_1 = u
-                t_tok_1 = tar[tk_1]
-                s_tok_1 = src[aj_1] if aj_1 is not NULL else NULL
-                context = aj_1
-                if model_type == HMM_MODEL:
-                    q = get_decision_given_context(theta, T_TYPE, decision=aj, context=context)
-                    fc = accumulate_fc(type=T_TYPE, alpha=alpha_pi[k - 1, u], beta=beta_pi[k, v], q=q, e=e, d=aj,
-                                       c=context,
-                                       S=S, fc=fc)
-                else:
-                    q = log(1.0 / len(obs[k]))
-                    # q = 0.0
+        # update fractional counts
+        for _, s_idx in obs[t_idx]:
+            s_tok = source[obs_id][s_idx] if s_idx is not NULL else NULL
+            e = get_decision_given_context(theta, E_TYPE, decision=t_tok, context=s_tok)
+            delta = e - sum_e
+            event = (E_TYPE, t_tok, s_tok)
+            fractional_counts[event] = utils.logadd(delta, fractional_counts.get(event, float('-inf')))
 
-                p = q + e
-                beta_p = pb + p  # The beta includes the emission probability
-                new_pi_key = (k - 1, u)
-                if new_pi_key not in beta_pi:  # implements lines 16
-                    beta_pi[new_pi_key] = beta_p
-                else:
-                    beta_pi[new_pi_key] = utils.logadd(beta_pi[new_pi_key], beta_p)
-                    alpha_pi[(k - 1, u)] + p + beta_pi[(k, v)] - S
-    if fc is None:
-        return S, beta_pi
-    else:
-        return S, beta_pi, fc
-
-
-def get_viterbi_and_forward(theta, obs_id):
-    global max_jump_width, trellis, source, target
-    src = source[obs_id]
-    tar = target[obs_id]
-    obs = trellis[obs_id]
-    start_state = obs[0][0]
-    pi = {(0, start_state): 0.0}
-    alpha_pi = {(0, start_state): 0.0}
-    arg_pi = {(0, start_state): []}
-    for k in range(1, len(obs)):  # the words are numbered from 1 to n, 0 is special start character
-        for v in obs[k]:  # [1]:
-            max_prob_to_bt = {}
-            sum_prob_to_bt = []
-            for u in obs[k - 1]:  # [1]:
-                tk, aj = v
-                tk_1, aj_1 = u
-                t_tok = tar[tk]
-                s_tok = src[aj] if aj is not NULL else NULL
-                t_tok_1 = tar[tk_1]
-                s_tok_1 = src[aj_1] if aj_1 is not NULL else NULL
-                if model_type == HMM_MODEL:
-                    context = aj_1
-                    q = get_decision_given_context(theta, T_TYPE, decision=aj, context=context)
-                else:
-                    q = log(1.0 / len(obs[k]))
-                    # q = 0.0
-
-                e = get_decision_given_context(theta, E_TYPE, decision=t_tok, context=s_tok)
-
-                p = pi[(k - 1, u)] + q + e
-                alpha_p = alpha_pi[(k - 1, u)] + q + e
-                if len(arg_pi[(k - 1, u)]) == 0:
-                    bt = [u]
-                else:
-                    bt = [arg_pi[(k - 1, u)], u]
-                max_prob_to_bt[p] = bt
-                sum_prob_to_bt.append(alpha_p)
-            smp = sorted(max_prob_to_bt)
-            if pause_on_tie and len(smp) > 1:
-                if smp[-1] == smp[-2]:
-                    print 'breaking ties'
-                    pdb.set_trace()
-            max_bt = max_prob_to_bt[max(max_prob_to_bt)]
-            new_pi_key = (k, v)
-            pi[new_pi_key] = max(max_prob_to_bt)
-            # print 'mu   ', new_pi_key, '=', pi[new_pi_key], exp(pi[new_pi_key])
-            alpha_pi[new_pi_key] = utils.logadd_of_list(sum_prob_to_bt)
-            # print 'alpha', new_pi_key, '=', alpha_pi[new_pi_key], exp(alpha_pi[new_pi_key])
-            arg_pi[new_pi_key] = max_bt
-
-    max_bt = max_prob_to_bt[max(max_prob_to_bt)]
-    max_p = max(max_prob_to_bt)
-    max_bt = utils.flatten_backpointers(max_bt)
-    return max_bt, max_p, alpha_pi
+    return p_st, max_bt[:-1]
 
 
 def reset_fractional_counts():
@@ -236,28 +142,6 @@ def reset_fractional_counts():
     fractional_counts = {}  # dict((k, float('-inf')) for k in conditional_arc_index)
     cache_normalizing_decision = {}
     number_of_events = 0
-
-
-def accumulate_fc(type, alpha, beta, d, S, c=None, k=None, q=None, e=None, fc=None):
-    global fractional_counts
-    if type == T_TYPE:
-        update = alpha + q + e + beta - S
-        if fc is None:
-            fractional_counts[T_TYPE, d, c] = utils.logadd(update,
-                                                           fractional_counts.get((T_TYPE, d, c,), float('-inf')))
-        else:
-            fc[T_TYPE, d, c] = utils.logadd(update, fc.get((T_TYPE, d, c,), float('-inf')))
-    elif type == E_TYPE:
-        update = alpha + beta - S  # the emission should be included in alpha
-        if fc is None:
-            fractional_counts[E_TYPE, d, c] = utils.logadd(update,
-                                                           fractional_counts.get((E_TYPE, d, c,), float('-inf')))
-        else:
-            fc[E_TYPE, d, c] = utils.logadd(update, fc.get((E_TYPE, d, c,), float('-inf')))
-    else:
-        raise "Wrong type"
-    if fc is not None:
-        return fc
 
 
 def write_probs(theta, save_probs):
@@ -292,7 +176,7 @@ def write_alignments_col_tok(theta, save_align):
     write_align = open(save_align, 'w')
     # write_align.write(snippet)
     for idx, obs in enumerate(trellis[:]):
-        max_bt, max_p, alpha_pi = get_viterbi_and_forward(theta, idx)
+        S, max_bt = get_model1_forward(theta, idx)
         for tar_i, src_i in max_bt:
             if src_i != NULL and src_i > 0 and tar_i > 0:
                 write_align.write(str(idx + 1) + ' ' + source[idx][src_i] + ' ' + target[idx][tar_i] + '\n')
@@ -307,7 +191,7 @@ def write_alignments_col(theta, save_align):
     write_align = open(save_align, 'w')
     # write_align.write(snippet)
     for idx, obs in enumerate(trellis[:]):
-        max_bt, max_p, alpha_pi = get_viterbi_and_forward(theta, idx)
+        S, max_bt = get_model1_forward(theta, idx)
         for tar_i, src_i in max_bt:
             if src_i != NULL and tar_i > 0 and src_i > 0:
                 write_align.write(str(idx + 1) + ' ' + str(src_i) + ' ' + str(tar_i) + '\n')
@@ -321,7 +205,7 @@ def write_alignments(theta, save_align):
     write_align = open(save_align, 'w')
     # write_align.write(snippet)
     for idx, obs in enumerate(trellis[:]):
-        max_bt, max_p, alpha_pi = get_viterbi_and_forward(theta, idx)
+        S, max_bt = get_model1_forward(theta, idx)
         w = ' '.join(
             [str(src_i) + '-' + str(tar_i) for tar_i, src_i in max_bt if src_i != NULL and tar_i > 0 and src_i > 0])
         write_align.write(w + '\n')
@@ -330,51 +214,28 @@ def write_alignments(theta, save_align):
     print 'wrote alignments to:', save_align
 
 
-def get_likelihood(theta, batch=None, display=True):
+def get_likelihood(theta):
     assert isinstance(theta, np.ndarray)
     assert len(theta) == len(feature_index)
     global trellis, data_likelihood, rc
     reset_fractional_counts()
     data_likelihood = 0.0
 
-    if batch is None:
-        batch = range(0, len(trellis))
+    batch = range(0, len(trellis))
 
     for idx in batch:
-        max_bt, max_p, alpha_pi = get_viterbi_and_forward(theta, idx)
-        S, beta_pi = get_backwards(theta, idx, alpha_pi)
-        print 'p(t|s) for ', idx, ':', S, max_bt
+        S, max_bt = get_model1_forward(theta, idx)
+        # print 'p(t|s) for', idx, ':', S, max_bt
         data_likelihood += S
+
     reg = np.sum(theta ** 2)
     ll = data_likelihood - (rc * reg)
-    if display:
-        print 'log likelihood:', ll
+
+    print 'log likelihood:', ll
     return -ll
 
 
-def get_likelihood_with_expected_counts_fwd(theta, batch=None, display=False):
-    global cache_normalizing_decision
-    cache_normalizing_decision = {}
-    sum_likelihood = 0.0
-    if batch is None:
-        batch = range(0, len(trellis))
-
-    for idx in batch:
-        max_bt, max_p, alpha_pi = get_viterbi_and_forward(theta, idx)
-        obs = trellis[idx]
-        n = len(obs) - 1  # index of last word
-        end_state = obs[n][0]
-        S = alpha_pi[(n, end_state)]  # from line 13 in pseudo code
-        sum_likelihood += S
-
-    reg = np.sum(theta ** 2)
-    sum_likelihood -= (rc * reg)
-    if display:
-        print '\tec log likelihood:', sum_likelihood
-    return -sum_likelihood
-
-
-def get_likelihood_with_expected_counts(theta, batch=None, display=False):
+def get_likelihood_with_expected_counts(theta):
     global fractional_counts
     sum_likelihood = 0.0
     for event in fractional_counts:
@@ -384,12 +245,12 @@ def get_likelihood_with_expected_counts(theta, batch=None, display=False):
         sum_likelihood += A_dct * a_dct
     reg = np.sum(theta ** 2)
     sum_likelihood -= (rc * reg)
-    if display:
-        print '\tec log likelihood:', sum_likelihood
+
+    print '\tec log likelihood:', sum_likelihood
     return -sum_likelihood
 
 
-def get_gradient(theta, batch=None, display=True):
+def get_gradient(theta):
     global fractional_counts, feature_index, event_grad, rc
     assert len(theta) == len(feature_index)
     event_grad = {}
@@ -440,7 +301,7 @@ def populate_trellis(source_corpus, target_corpus):
                 state_options = [(t_idx, s_idx) for s_idx, s_tok in enumerate(s_sent) if
                                  s_tok != BOUNDARY_END and s_tok != BOUNDARY_START]
             trelli[t_idx] = state_options
-        """
+
         # print 'fwd prune'
         for t_idx in sorted(trelli.keys())[1:-1]:
             # print t_idx
@@ -466,7 +327,7 @@ def populate_trellis(source_corpus, target_corpus):
             # print 'jmax', 'jmin', j_max_s_idx, j_min_s_idx
             c_filtered = [(t, s) for t, s in trelli[t_idx] if (j_max_s_idx >= s >= j_min_s_idx)]
             trelli[t_idx] = c_filtered
-
+        """
         # beam prune
         for t_idx in sorted(trelli.keys())[1:-1]:
             x = trelli[t_idx]
@@ -481,7 +342,7 @@ def populate_trellis(source_corpus, target_corpus):
 
 
 def gradient_check_em():
-    global EPS
+    global EPS, feature_index
     init_theta = initialize_theta(None)
     f_approx = {}
     for f in feature_index:
@@ -546,11 +407,15 @@ def initialize_theta(input_weights):
     return init_theta
 
 
+def batch_sgd_accumilate(obs_id):
+    print obs_id
+
+
 def write_logs(theta, current_iter):
     global trellis
     feature_val_typ = 'bin' if options.feature_values is None else 'real'
     name_prefix = '.'.join(
-        [options.algorithm, str(rc), model_type, feature_val_typ])
+        [options.algorithm, str(rc), 'simple-model1', feature_val_typ])
     if current_iter is not None:
         name_prefix += '.' + str(current_iter)
     write_weights(theta, name_prefix + '.' + options.output_weights)
@@ -584,10 +449,9 @@ if __name__ == "__main__":
     opt.add_option("-r", dest="regularization_coeff", default="0.0")
     opt.add_option("-a", dest="algorithm", default="LBFGS",
                    help="use 'EM' 'LBFGS' 'SGD'")
-    opt.add_option("-m", dest="model", default=IBM_MODEL_1, help="'model1' or 'hmm'")
+
     (options, _) = opt.parse_args()
     rc = float(options.regularization_coeff)
-    model_type = options.model
     source = [s.strip().split() for s in open(options.source_corpus, 'r').readlines()]
     target = [s.strip().split() for s in open(options.target_corpus, 'r').readlines()]
     trellis = populate_trellis(source, target)
@@ -595,18 +459,17 @@ if __name__ == "__main__":
     FE.load_feature_values(options.feature_values)
     snippet = "#" + str(opt.values) + "\n"
     init_theta = initialize_theta(options.input_weights)
-    ll = get_likelihood(init_theta)
-    # exit()
     if options.algorithm == "LBFGS":
         if options.test_gradient.lower() == "true":
             gradient_check_lbfgs()
         else:
             print 'skipping gradient check...'
             init_theta = initialize_theta(options.input_weights)
-            t1 = minimize(get_likelihood, init_theta, method='L-BFGS-B', jac=get_gradient, tol=1e-2,
-                          options={'maxiter': 10})
+            t1 = minimize(get_likelihood, init_theta, method='L-BFGS-B', jac=get_gradient, tol=1e-3,
+                          options={'maxiter': 20})
 
             theta = t1.x
+
     elif options.algorithm == "EM":
         if options.test_gradient.lower() == "true":
             gradient_check_em()
@@ -614,37 +477,18 @@ if __name__ == "__main__":
             print 'skipping gradient check...'
             theta = initialize_theta(options.input_weights)
             new_e = get_likelihood(theta)
+            exp_new_e = get_likelihood_with_expected_counts(theta)
             old_e = float('-inf')
             converged = False
             iterations = 0
             while not converged and iterations < 5:
-                t1 = minimize(get_likelihood_with_expected_counts, theta, method='L-BFGS-B', jac=get_gradient, tol=1e-3,
+                t1 = minimize(get_likelihood_with_expected_counts, theta, method='L-BFGS-B', jac=get_gradient, tol=1e-2,
                               options={'maxiter': 20})
                 theta = t1.x
                 new_e = get_likelihood(theta)  # this will also update expected counts
-                converged = round(abs(old_e - new_e), 2) == 0.0
+                converged = round(abs(old_e - new_e), 1) == 0.0
                 old_e = new_e
                 iterations += 1
-    elif options.algorithm == "SGD":
-        batch_size = len(trellis)
-        theta = initialize_theta(options.input_weights)
-        get_likelihood(theta, display=True)
-        reset_fractional_counts()
-        batch_idxs = np.array_split(range(len(trellis)), len(trellis) / batch_size)
-        for iter in xrange(3):
-            random.shuffle(batch_idxs)
-            b_id = 0
-            for batch_idx in batch_idxs:
-                print b_id
-                b_id += 1
-                t1 = minimize(get_likelihood, theta, method='L-BFGS-B', jac=get_gradient, args=(batch_idx, False),
-                              tol=1e-5,
-                              options={'maxfun': 15})
-                theta = t1.x
-            get_likelihood(theta, display=True)
-    else:
-        print 'wrong algorithm option'
-        exit()
 
     if options.test_gradient.lower() == "true":
         pass
