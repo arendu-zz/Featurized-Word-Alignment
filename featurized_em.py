@@ -43,30 +43,30 @@ def populate_arcs_to_features():
             pass
         else:
             fired_features = FE.get_pos_features_fired(E_TYPE, decision=d, context=c)
-            fs = conditional_arcs_to_features.get((E_TYPE, d, c), set([]))
+            fs = events_to_features.get((E_TYPE, d, c), set([]))
             fs = fs.union(fired_features)
-            conditional_arcs_to_features[E_TYPE, d, c] = fs
+            events_to_features[E_TYPE, d, c] = fs
             conditional_arc_index[E_TYPE, d, c] = conditional_arc_index.get((E_TYPE, d, c), len(conditional_arc_index))
             for ff in fired_features:
                 feature_index[ff] = feature_index.get(ff, len(feature_index))
-                cs = features_to_conditional_arcs.get(ff, set([]))
+                cs = features_to_events.get(ff, set([]))
                 cs.add((E_TYPE, d, c))
-                features_to_conditional_arcs[ff] = cs
+                features_to_events[ff] = cs
 
     for d, c in itertools.product(possible_states[ALL], possible_states[ALL]):
         if d == BOUNDARY_START and c == BOUNDARY_START:
             pass
         else:
             fired_features = FE.get_pos_features_fired(T_TYPE, decision=d, context=c)
-            fs = conditional_arcs_to_features.get((T_TYPE, d, c), set([]))
+            fs = events_to_features.get((T_TYPE, d, c), set([]))
             fs = fs.union(fired_features)
-            conditional_arcs_to_features[T_TYPE, d, c] = fs
+            events_to_features[T_TYPE, d, c] = fs
             conditional_arc_index[T_TYPE, d, c] = conditional_arc_index.get((T_TYPE, d, c), len(conditional_arc_index))
             for ff in fired_features:
                 feature_index[ff] = feature_index.get(ff, len(feature_index))
-                cs = features_to_conditional_arcs.get(ff, set([]))
+                cs = features_to_events.get(ff, set([]))
                 cs.add((T_TYPE, d, c))
-                features_to_conditional_arcs[ff] = cs
+                features_to_events[ff] = cs
 
 
 def populate_normalizing_terms():
