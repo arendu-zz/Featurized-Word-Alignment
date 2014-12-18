@@ -195,7 +195,7 @@ def write_alignments_col_tok(theta, save_align, trellis, source, target, func):
     write_align = open(save_align, 'w')
     # write_align.write(snippet)
     for idx, obs in enumerate(trellis[:]):
-        max_bt, max_p, alpha_pi = func(theta, idx)
+        max_bt = func(theta, idx)[0]
         for tar_i, src_i in max_bt:
             if src_i != NULL and src_i > 0 and tar_i > 0:
                 write_align.write(str(idx + 1) + ' ' + source[idx][src_i] + ' ' + target[idx][tar_i] + '\n')
@@ -210,7 +210,7 @@ def write_alignments_col(theta, save_align, trellis, func):
     write_align = open(save_align, 'w')
     # write_align.write(snippet)
     for idx, obs in enumerate(trellis[:]):
-        max_bt, max_p, alpha_pi = func(theta, idx)
+        max_bt = func(theta, idx)[0]
         for tar_i, src_i in max_bt:
             if src_i != NULL and tar_i > 0 and src_i > 0:
                 write_align.write(str(idx + 1) + ' ' + str(src_i) + ' ' + str(tar_i) + '\n')
@@ -223,7 +223,7 @@ def write_alignments(theta, save_align, trellis, func):
     write_align = open(save_align, 'w')
     # write_align.write(snippet)
     for idx, obs in enumerate(trellis[:]):
-        max_bt, max_p, alpha_pi = func(theta, idx)
+        max_bt = func(theta, idx)[0]
         w = ' '.join(
             [str(src_i) + '-' + str(tar_i) for tar_i, src_i in max_bt if src_i != NULL and tar_i > 0 and src_i > 0])
         write_align.write(w + '\n')

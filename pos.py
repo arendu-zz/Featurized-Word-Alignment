@@ -23,14 +23,14 @@ if __name__ == "__main__":
 
     if options.lang == "es":
         for l in open(options.tagged_file, 'r').readlines():
-            t = [wt.lower().split("_")[1] for wt in l.lower().split()]
+            t = [(wt.lower().split("_")[0], wt.lower().split("_")[1]) for wt in l.lower().split()]
             # print ' '.join(t)
-            ut = [i[:2] if i[:2] in map else i[:1] for i in t]
-            #print ' '.join(ut)
-            print ' '.join([map[i] for i in ut])
+            ut = [(k, i[:2]) if i[:2] in map else (k, i[:1]) for k, i in t]
+            # print ' '.join(ut)
+            print ' '.join(['_'.join([k, map[i]]) for k, i in ut])
 
     else:
         for l in open(options.tagged_file, 'r').readlines():
-            t = [wt.lower().split("_")[1] for wt in l.lower().split()]
-            ut = [map[i] for i in t]
+            t = [(wt.lower().split("_")[0], wt.lower().split("_")[1]) for wt in l.lower().split()]
+            ut = ['_'.join([k, map[i]]) for k, i in t]
             print ' '.join(ut)
