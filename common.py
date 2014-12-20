@@ -1,6 +1,6 @@
 __author__ = 'arenduchintala'
 
-from const import BOUNDARY_END, BOUNDARY_START, NULL, HMM_MODEL, IBM_MODEL_1, E_TYPE, T_TYPE
+from const import BOUNDARY_END, BOUNDARY_START, NULL, HMM_MODEL, IBM_MODEL_1, E_TYPE, T_TYPE, LAMBDA_FEATURE
 import FeatureEng as FE
 import numpy as np
 
@@ -138,6 +138,12 @@ def populate_features(trellis, source, target, model_type):
     for ei, e in enumerate(event_index):
         event_to_event_index[e] = ei
 
+    # LAMBDA FEATURE
+    if True:
+        f = LAMBDA_FEATURE
+        feature_index[f] = len(feature_index) if f not in feature_index else feature_index[f]
+        print LAMBDA_FEATURE, 'index', feature_index[LAMBDA_FEATURE]
+
     return events_to_features, \
            features_to_events, \
            feature_index, \
@@ -165,6 +171,7 @@ def initialize_theta(input_weights_file, feature_index, rand=False):
                 pass
     else:
         print 'no initial weights given, random initial weights assigned...'
+    init_theta[feature_index[LAMBDA_FEATURE]] = 10
     return init_theta
 
 
@@ -172,9 +179,10 @@ def write_probs(theta, save_probs, fractional_counts, func):
     write_probs = open(save_probs, 'w')
     for fc in sorted(fractional_counts):
         (t, d, c) = fc
-        prob = func(theta, type=t, decision=d, context=c)
-        str_t = reduce(lambda a, d: str(a) + '\t' + str(d), fc, '')
-        write_probs.write(str_t.strip() + '\t' + str(round(prob, 5)) + '' + "\n")
+        if t == E_TYPE or t == T_TYPE:
+            prob = func(theta, type=t, decision=d, context=c)
+            str_t = reduce(lambda a, d: str(a) + '\t' + str(d), fc, '')
+            write_probs.write(str_t.strip() + '\t' + str(round(prob, 5)) + '' + "\n")
     write_probs.flush()
     write_probs.close()
     print 'wrote probs to:', save_probs
