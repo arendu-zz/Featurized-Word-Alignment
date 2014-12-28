@@ -80,7 +80,7 @@ def tl(g1, a1, r, d, n):
 
 
 def h(i, j, m, n):
-    return - abs(i / m - j / n)
+    return - abs((float(i) / float(m)) - (float(j) / float(n)))
 
 
 def z_lf(lf, i, m, n):
@@ -160,6 +160,7 @@ def get_model1_forward(theta, obs_id, fc=None):
         max_e = float('-inf')
         max_s_idx = None
         sum_sj = float('-inf')
+        sum_q = float('-inf')
         for _, s_idx in obs[t_idx]:
             n = len(obs[t_idx])
             s_tok = source[obs_id][s_idx] if s_idx is not NULL else NULL
@@ -168,11 +169,14 @@ def get_model1_forward(theta, obs_id, fc=None):
 
             if t_tok == BOUNDARY_START or t_tok == BOUNDARY_END:
                 q = 0.0
+            elif s_tok == NULL:
+                q = np.log(Po)
             else:
                 q = get_fast_align_transition(theta, t_idx, s_idx, m - 2, n - 1)
 
             sum_pei = utils.logadd(sum_pei, q + e)
             sum_sj = utils.logadd(sum_sj, e + q)
+            sum_q = utils.logadd(sum_q, q)
 
             if e > max_e:
                 max_e = e
@@ -185,20 +189,28 @@ def get_model1_forward(theta, obs_id, fc=None):
         # update fractional counts
         if fc is not None:
             for _, s_idx in obs[t_idx]:
+                n = len(obs[t_idx])
                 s_tok = source[obs_id][s_idx] if s_idx is not NULL else NULL
                 e = get_decision_given_context(theta, E_TYPE, decision=t_tok, context=s_tok)
 
                 if t_tok == BOUNDARY_START or t_tok == BOUNDARY_END:
                     q = 0.0
+                    hijmn = 0.0
+                elif s_tok == NULL:
+                    q = np.log(Po)
+                    hijmn = 0.0
                 else:
                     q = get_fast_align_transition(theta, t_idx, s_idx, m - 2, n - 1)
-                p_ai = e + q - sum_pei
+                    hijmn = h(t_idx, s_idx, m - 2, n - 1)
+
+                p_ai = e + q - sum_pei  # TODO: times h(j',i,m,n)
+                p_q = q - sum_q
                 event = (E_TYPE, t_tok, s_tok)
                 fc[event] = utils.logadd(p_ai, fc.get(event, float('-inf')))
                 lambda_event1 = (LAMBDA_FEATURE, 'E_pai', None)
                 lambda_event2 = (LAMBDA_FEATURE, 'E_delta', None)
-                fc[lambda_event1] = utils.logadd(p_ai, fc.get(lambda_event1, float('-inf')))
-                fc[lambda_event2] = utils.logadd(q, fc.get(lambda_event2, float('-inf')))
+                fc[lambda_event1] = fc.get(lambda_event1, 0.0) + (exp(p_ai) * hijmn)
+                fc[lambda_event2] = fc.get(lambda_event2, 0.0) + (exp(p_q) * hijmn)
 
     return max_bt[:-1], p_st, fc
 
@@ -208,23 +220,6 @@ def reset_fractional_counts():
     fractional_counts = {}  # dict((k, float('-inf')) for k in conditional_arc_index)
     cache_normalizing_decision = {}
     number_of_events = 0
-
-
-def get_lf_grad(theta):
-    assert isinstance(theta, np.ndarray)
-    assert len(theta) == len(feature_index)
-    global trellis, data_likelihood, rc, fractional_counts, feature_index
-    batch = range(0, len(trellis))
-    for idx in batch:
-        max_bt, S, fractional_counts = get_model1_forward(theta, idx, fractional_counts)
-    lf_grad = -2 * rc * theta[feature_index[LAMBDA_FEATURE]]
-    lambda_event1 = (LAMBDA_FEATURE, 'E_pai', None)
-    lambda_event2 = (LAMBDA_FEATURE, 'E_delta', None)
-    fc_e1 = fractional_counts[lambda_event1]
-    fc_e2 = fractional_counts[lambda_event2]
-    n = exp(fc_e1) - exp(fc_e2)
-    lf_grad += n
-    return lf_grad
 
 
 def get_likelihood(theta):
@@ -305,6 +300,23 @@ def get_gradient(theta):
     return -grad
 
 
+def get_lf_grad(theta):
+    assert isinstance(theta, np.ndarray)
+    assert len(theta) == len(feature_index)
+    global trellis, data_likelihood, rc, fractional_counts, feature_index
+    batch = range(0, len(trellis))
+    for idx in batch:
+        max_bt, S, fractional_counts = get_model1_forward(theta, idx, fractional_counts)
+    lf_grad = -2 * rc * theta[feature_index[LAMBDA_FEATURE]]
+    lambda_event1 = (LAMBDA_FEATURE, 'E_pai', None)
+    lambda_event2 = (LAMBDA_FEATURE, 'E_delta', None)
+    fc_e1 = fractional_counts[lambda_event1]
+    fc_e2 = fractional_counts[lambda_event2]
+    print fc_e1, fc_e2
+    lf_grad += (fc_e1 - fc_e2)
+    return lf_grad
+
+
 def gradient_check_em():
     global EPS, feature_index
     init_theta = initialize_theta(None)
@@ -382,10 +394,10 @@ if __name__ == "__main__":
     trellis = []
 
     opt = OptionParser()
-    opt.add_option("-t", dest="target_corpus", default="experiment/data/train.es")
-    opt.add_option("-s", dest="source_corpus", default="experiment/data/train.en")
-    opt.add_option("--tt", dest="target_test", default="experiment/data/train.es")
-    opt.add_option("--ts", dest="source_test", default="experiment/data/train.en")
+    opt.add_option("-t", dest="target_corpus", default="experiment/data/dev.small.es")
+    opt.add_option("-s", dest="source_corpus", default="experiment/data/dev.small.en")
+    opt.add_option("--tt", dest="target_test", default="experiment/data/dev.small.es")
+    opt.add_option("--ts", dest="source_test", default="experiment/data/dev.small.en")
 
     opt.add_option("--iw", dest="input_weights", default=None)
     opt.add_option("--fv", dest="feature_values", default=None)
@@ -429,16 +441,16 @@ if __name__ == "__main__":
             old_e = float('-inf')
             converged = False
             iterations = 0
-            while not converged and iterations < 5:
+            while not converged and iterations < 150:
                 t1 = minimize(get_likelihood_with_expected_counts, theta, method='L-BFGS-B', jac=get_gradient, tol=1e-2,
                               options={'maxiter': 10})
                 theta = t1.x
                 lf_grad = get_lf_grad(theta)
                 print 'lf_grad', lf_grad
-                theta[feature_index[LAMBDA_FEATURE]] += 0.01 * -lf_grad
+                theta[feature_index[LAMBDA_FEATURE]] += lf_grad
 
                 new_e = get_likelihood(theta)  # this will also update expected counts
-                converged = round(abs(old_e - new_e), 1) == 0.0
+                # converged = round(abs(old_e - new_e), 1) == 0.0
                 old_e = new_e
                 iterations += 1
 
