@@ -25,9 +25,10 @@ def get_wa_features_fired(type, decision, context):
     if type == fe_w.E_TYPE:
         val = feature_values.get((fe_w.E_TYPE, decision, context), 1.0)
         fired_features = [(val, (fe_w.E_TYPE, decision, context))]
-
-        if decision == context:
-            fired_features += [(1.0, ("IS_SAME", decision, context))]
+        if context == fe_w.NULL:
+            fired_features += [(-1.0, ("FROM_NULL",context))]
+        #if decision == context:
+        #    fired_features += [(1.0, ("IS_SAME", decision, context))]
 
         if fe_w.has_pos:
             decision_pos = decision.split("_")[1]
@@ -44,6 +45,7 @@ def get_wa_features_fired(type, decision, context):
         else:
             jump = fe_w.NULL
         fired_features = [(1.0, (fe_w.T_TYPE, jump))]
+
     return fired_features
 
 

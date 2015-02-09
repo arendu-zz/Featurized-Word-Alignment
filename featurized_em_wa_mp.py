@@ -368,11 +368,10 @@ def get_likelihood(theta, display=True):
     pool.join()
     reg = np.sum(theta ** 2)
     ll = (data_likelihood - (rc * reg))
-    if display:
-        print itercount, 'log likelihood:', ll
-    itercount += 1
-    if itermediate_log > 0 and itercount % itermediate_log == 0:
-        write_logs(theta, itercount)
+    e1 = get_decision_given_context(theta, E_TYPE, decision='.', context=NULL)
+    e2 = get_decision_given_context(theta, E_TYPE, decision='.', context='.')
+    print itercount, 'log likelihood:', ll, 'p(.|NULL)', e1, 'p(.|.)', e2 
+    itercount += 1 
     return -ll
 
 
@@ -464,8 +463,6 @@ def get_likelihood_with_expected_counts(theta, display=True):
 
     reg = np.sum(theta ** 2)
     data_likelihood -= (rc * reg)
-    if display:
-        print '\tec:', data_likelihood
     return -data_likelihood
 
 
@@ -540,13 +537,13 @@ def populate_trellis(source_corpus, target_corpus):
             # print 'jmax', 'jmin', j_max_s_idx, j_min_s_idx
             c_filtered = [(t, s) for t, s in trelli[t_idx] if (j_max_s_idx >= s >= j_min_s_idx)]
             trelli[t_idx] = c_filtered
-        """
         # beam prune
         for t_idx in sorted(trelli.keys())[1:-1]:
             x = trelli[t_idx]
             y = sorted([(abs(t - s), (t, s)) for t, s in x])
             py = sorted([ts for d, ts in y[:max_beam_width]])
             trelli[t_idx] = py
+        """
         for t_idx in sorted(trelli.keys())[1:-1]:
             trelli[t_idx] += [(t_idx, NULL)]
         new_trellis.append(trelli)
@@ -708,8 +705,8 @@ if __name__ == "__main__":
         else:
             print 'skipping gradient check...'
             init_theta = initialize_theta(options.input_weights)
-            t1 = minimize(get_likelihood, init_theta, method='L-BFGS-B', jac=get_gradient, tol=1e-2,
-                          options={'maxiter': 5})
+            t1 = minimize(get_likelihood, init_theta, method='L-BFGS-B', jac=get_gradient, tol=1e-3,
+                          options={'maxiter': 20})
             theta = t1.x
     elif options.algorithm == "EM":
         if options.test_gradient.lower() == "true":
