@@ -2,7 +2,7 @@ __author__ = 'arenduchintala'
 
 from optparse import OptionParser
 from math import exp, log
-import sys
+import sys,traceback
 import multiprocessing
 from multiprocessing import Pool
 from scipy.optimize import minimize
@@ -218,16 +218,10 @@ def get_likelihood(theta, display=True):
     pool.join()
     reg = np.sum(theta ** 2)
     ll = (data_likelihood - (rc * reg))
-<<<<<<< HEAD
     e1 = get_decision_given_context(theta, E_TYPE, decision='.', context=NULL)
     e2 = get_decision_given_context(theta, E_TYPE, decision='.', context='.')
     print itercount, 'log likelihood:', ll, 'p(.|NULL)', e1, 'p(.|.)', e2 
     itercount += 1 
-=======
-    if display:
-        print itercount, 'log likelihood:', ll
-    itercount += 1
->>>>>>> f411800267e716b637dbc33d0915f0266e4d368e
     return -ll
 
 
@@ -319,11 +313,8 @@ def get_likelihood_with_expected_counts(theta, display=True):
 
     reg = np.sum(theta ** 2)
     data_likelihood -= (rc * reg)
-<<<<<<< HEAD
-=======
     # if display:
     # print '\tec:', data_likelihood
->>>>>>> f411800267e716b637dbc33d0915f0266e4d368e
     return -data_likelihood
 
 
@@ -353,67 +344,6 @@ def populate_events_per_trellis():
                     events_observed.append(ei)
         events_per_trellis.append(list(set(events_observed)))
 
-
-<<<<<<< HEAD
-def populate_trellis(source_corpus, target_corpus):
-    global max_jump_width, max_beam_width
-    new_trellis = []
-    for s_sent, t_sent in zip(source_corpus, target_corpus):
-        t_sent.insert(0, BOUNDARY_START)
-        t_sent.append(BOUNDARY_END)
-        s_sent.insert(0, BOUNDARY_START)
-        s_sent.append(BOUNDARY_END)
-        trelli = {}
-        for t_idx, t_tok in enumerate(t_sent):
-            if t_idx == 0:
-                state_options = [(t_idx, s_sent.index(BOUNDARY_START))]
-            elif t_idx == len(t_sent) - 1:
-                state_options = [(t_idx, s_sent.index(BOUNDARY_END))]
-            else:
-                state_options = [(t_idx, s_idx) for s_idx, s_tok in enumerate(s_sent) if
-                                 s_tok != BOUNDARY_END and s_tok != BOUNDARY_START]
-            trelli[t_idx] = state_options
-        """
-        # print 'fwd prune'
-        for t_idx in sorted(trelli.keys())[1:-1]:
-            # print t_idx
-            p_t_idx = t_idx - 1
-            p_max_s_idx = max(trelli[p_t_idx])[1]
-            p_min_s_idx = min(trelli[p_t_idx])[1]
-            j_max_s_idx = p_max_s_idx + max_jump_width
-            j_min_s_idx = p_min_s_idx - max_jump_width if p_min_s_idx - max_jump_width >= 1 else 1
-            c_filtered = [(t, s) for t, s in trelli[t_idx] if (j_max_s_idx >= s >= j_min_s_idx)]
-            trelli[t_idx] = c_filtered
-        # print 'rev prune'
-        for t_idx in sorted(trelli.keys(), reverse=True)[1:-1]:
-            # print t_idx
-            p_t_idx = t_idx + 1
-            try:
-                p_max_s_idx = max(trelli[p_t_idx])[1]
-                p_min_s_idx = min(trelli[p_t_idx])[1]
-            except ValueError:
-                raise BaseException("Jump value too small to form trellis")
-            # print 'max', 'min', p_max_s_idx, p_min_s_idx
-            j_max_s_idx = p_max_s_idx + max_jump_width
-            j_min_s_idx = p_min_s_idx - max_jump_width if p_min_s_idx - max_jump_width >= 1 else 1
-            # print 'jmax', 'jmin', j_max_s_idx, j_min_s_idx
-            c_filtered = [(t, s) for t, s in trelli[t_idx] if (j_max_s_idx >= s >= j_min_s_idx)]
-            trelli[t_idx] = c_filtered
-        # beam prune
-        for t_idx in sorted(trelli.keys())[1:-1]:
-            x = trelli[t_idx]
-            y = sorted([(abs(t - s), (t, s)) for t, s in x])
-            py = sorted([ts for d, ts in y[:max_beam_width]])
-            trelli[t_idx] = py
-        """
-        for t_idx in sorted(trelli.keys())[1:-1]:
-            trelli[t_idx] += [(t_idx, NULL)]
-        new_trellis.append(trelli)
-    return new_trellis
-
-
-=======
->>>>>>> f411800267e716b637dbc33d0915f0266e4d368e
 def gradient_check_em():
     init_theta = initialize_theta(None)
     f_approx = {}
@@ -483,19 +413,24 @@ def write_logs(theta, current_iter):
 
 
 def batch_sgd(obs_id, sgd_theta, sum_square_grad):
-    # print _, obs_id
     eo = events_per_trellis[obs_id]
     eg = batch_gradient(sgd_theta, eo)
     gdu = np.array([float('inf')] * len(sgd_theta))
     grad = np.zeros(np.shape(sgd_theta))  # -2 * rc * theta  # l2 regularization with lambda 0.5
-    for e in eg:
+    try: 
+      for e_idx, e in enumerate(eg):
         feats = events_to_features[e]
-        for f in feats:
-            grad[feature_index[f]] += eg[e]
-            gdu[feature_index[f]] = du[feature_index[f]]
+        for f_idx, f in enumerate(feats):
+          grad[feature_index[f]] += eg[e]
+          
+          gdu[feature_index[f]] = du[feature_index[f]]
+
+    except Exception, err:
+      print len(du), 'is the len of du'
+      print traceback.format_exc()
+      print 'except', Exception
 
     grad_du = -2 * rc * np.divide(sgd_theta, gdu)
-
     grad += grad_du
     sum_square_grad += (grad ** 2)
     eta_t = eta0 / np.sqrt(I + sum_square_grad)
@@ -504,7 +439,7 @@ def batch_sgd(obs_id, sgd_theta, sum_square_grad):
 
 
 def batch_sgd_accumilate(obs_id):
-    # print obs_id
+    #print obs_id, 'end'
     pass
 
 
@@ -537,7 +472,7 @@ if __name__ == "__main__":
     target = [s.strip().split() for s in open(options.target_corpus, 'r').readlines()]
 
     trellis = populate_trellis(source, target, max_jump_width, max_beam_width)
-    events_to_features, features_to_events, feature_index, feature_counts, event_index, event_to_event_index, event_counts, normalizing_decision_map = populate_features(
+    events_to_features, features_to_events, feature_index, feature_counts, event_index, event_to_event_index, event_counts, normalizing_decision_map, du = populate_features(
         trellis, source, target, model_type)
 
     FE.load_feature_values(options.feature_values)
@@ -548,13 +483,9 @@ if __name__ == "__main__":
             gradient_check_lbfgs()
         else:
             print 'skipping gradient check...'
-<<<<<<< HEAD
-            init_theta = initialize_theta(options.input_weights)
-=======
             init_theta = initialize_theta(options.input_weights, feature_index)
->>>>>>> f411800267e716b637dbc33d0915f0266e4d368e
             t1 = minimize(get_likelihood, init_theta, method='L-BFGS-B', jac=get_gradient, tol=1e-3,
-                          options={'maxiter': 20})
+                          options={'maxfun': 5})
             theta = t1.x
     elif options.algorithm == "EM":
         if options.test_gradient.lower() == "true":
@@ -568,7 +499,7 @@ if __name__ == "__main__":
             iterations = 0
             while not converged and iterations < 5:
                 t1 = minimize(get_likelihood_with_expected_counts, theta, method='L-BFGS-B', jac=get_gradient, tol=1e-3,
-                              options={'maxiter': 20})
+                              options={'maxfun':5})
                 theta = t1.x
                 new_e = get_likelihood(theta)  # this will also update expected counts
                 converged = round(abs(old_e - new_e), 1) == 0.0
@@ -639,7 +570,7 @@ if __name__ == "__main__":
                 for _ in range(2):
                     random.shuffle(ids)
 
-                    cpu_count = multiprocessing.cpu_count()
+                    cpu_count =1 # multiprocessing.cpu_count()
                     pool = Pool(processes=cpu_count)
                     for obs_id in ids:
                         pool.apply_async(batch_sgd, args=(obs_id, shared_sgd_theta, shared_sum_squared_grad),

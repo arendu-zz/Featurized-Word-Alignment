@@ -144,6 +144,8 @@ def populate_features(trellis, source, target, model_type):
         f = LAMBDA_FEATURE
         feature_index[f] = len(feature_index) if f not in feature_index else feature_index[f]
         print LAMBDA_FEATURE, 'index', feature_index[LAMBDA_FEATURE]
+    else:
+        print 'not using lambda feature'
 
     return events_to_features, \
            features_to_events, \
@@ -152,7 +154,8 @@ def populate_features(trellis, source, target, model_type):
            event_index, \
            event_to_event_index, \
            event_counts, \
-           normalizing_decision_map
+           normalizing_decision_map,\
+           du
 
 
 def initialize_theta(input_weights_file, feature_index, rand=False):
