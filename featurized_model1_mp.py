@@ -317,28 +317,29 @@ def get_likelihood_with_expected_counts(theta, display=True):
     return -data_likelihood
 
 
-def batch_sgd(obs_id, sgd_theta, sum_square_grad):
+def batch_sgd(obs_ids, sgd_theta, sum_square_grad):
     # print _, obs_id
-    eo = events_per_trellis[obs_id]
-    eg = batch_gradient(sgd_theta, eo)
-    gdu = np.array([float('inf')] * len(sgd_theta))
-    grad = np.zeros(np.shape(sgd_theta))  # -2 * rc * theta  # l2 regularization with lambda 0.5
-    for e in eg:
-        feats = events_to_features[e]
-        for f in feats:
-            grad[feature_index[f]] += eg[e]
-            gdu[feature_index[f]] = du[feature_index[f]]
+    for obs_id in obs_ids:
+        eo = events_per_trellis[obs_id]
+        eg = batch_gradient(sgd_theta, eo)
+        gdu = np.array([float('inf')] * len(sgd_theta))
+        grad = np.zeros(np.shape(sgd_theta))  # -2 * rc * theta  # l2 regularization with lambda 0.5
+        for e in eg:
+            feats = events_to_features[e]
+            for f in feats:
+                grad[feature_index[f]] += eg[e]
+                gdu[feature_index[f]] = du[feature_index[f]]
 
-    grad_du = -2 * rc * np.divide(sgd_theta, gdu)
+        grad_du = -2 * rc * np.divide(sgd_theta, gdu)
 
-    grad += grad_du
-    sum_square_grad += (grad ** 2)
-    eta_t = eta0 / np.sqrt(I + sum_square_grad)
-    sgd_theta += np.multiply(eta_t, grad)
-    return obs_id
+        grad += grad_du
+        sum_square_grad += (grad ** 2)
+        eta_t = eta0 / np.sqrt(I + sum_square_grad)
+        sgd_theta += np.multiply(eta_t, grad)
+    return obs_ids
 
 
-def batch_sgd_accumilate(obs_id):
+def batch_sgd_accumilate(obs_ids):
     # print obs_id
     pass
 
@@ -436,7 +437,7 @@ if __name__ == "__main__":
     source = [s.strip().split() for s in open(options.source_corpus, 'r').readlines()]
     target = [s.strip().split() for s in open(options.target_corpus, 'r').readlines()]
     trellis = populate_trellis(source, target, max_jump_width, max_beam_width)
-    events_to_features, features_to_events, feature_index, feature_counts, event_index, event_to_event_index, event_counts, normalizing_decision_map,du = populate_features(
+    events_to_features, features_to_events, feature_index, feature_counts, event_index, event_to_event_index, event_counts, normalizing_decision_map, du = populate_features(
         trellis, source, target, IBM_MODEL_1)
     FE.load_feature_values(options.feature_values)
     snippet = "#" + str(opt.values) + "\n"
@@ -465,7 +466,7 @@ if __name__ == "__main__":
             iterations = 0
             while not converged and iterations < 5:
                 t1 = minimize(get_likelihood_with_expected_counts, theta, method='L-BFGS-B', jac=get_gradient, tol=1e-3,
-                              options={'maxfun':5})
+                              options={'maxfun': 5})
                 theta = t1.x
                 new_e = get_likelihood(theta)  # this will also update expected counts
                 converged = round(abs(old_e - new_e), 1) == 0.0
@@ -537,8 +538,9 @@ if __name__ == "__main__":
 
                     cpu_count = multiprocessing.cpu_count()
                     pool = Pool(processes=cpu_count)
-                    for obs_id in ids:
-                        pool.apply_async(batch_sgd, args=(obs_id, shared_sgd_theta, shared_sum_squared_grad),
+                    batches = np.array_split(ids, cpu_count)
+                    for obs_ids in batches:
+                        pool.apply_async(batch_sgd, args=(obs_ids, shared_sgd_theta, shared_sum_squared_grad),
                                          callback=batch_sgd_accumilate)
                     pool.close()
                     pool.join()
