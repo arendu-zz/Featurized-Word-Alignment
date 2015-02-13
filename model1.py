@@ -83,11 +83,10 @@ if __name__ == "__main__":
     """
     for iter in range(5):
         counts = dict.fromkeys(counts.iterkeys(), 0.0)
+        """
+        accumilate fractional counts, E-Step
+        """
         for k, source_sentence in enumerate(corpus_source):
-            # print iter, k, len(delta), len(translations)
-            # sys.stdout.write('iteration: %d sentence %d len delta %d len translations %d\r' % (
-            # iter, k, len(delta), len(translations)))
-            # sys.stdout.flush()
             target_sentence = corpus_target[k]
             source_tokens = source_sentence.split()
             source_tokens.insert(0, 'NULL')
@@ -97,19 +96,16 @@ if __name__ == "__main__":
                 for i in range(0, len(target_tokens)):
                     t_mat[i][j] = translations[target_tokens[i], source_tokens[j]]
             t_sum = np.sum(t_mat, 1)
-            # print t_mat
-            # print t_sum
+
             for j in range(0, len(source_tokens)):
                 for i in range(0, len(target_tokens)):
                     delta[k, i, j] = t_mat[i][j] / t_sum[i]
                     counts[target_tokens[i], source_tokens[j]] = counts.get((target_tokens[i], source_tokens[j]), 0.0) + \
                                                                  delta[k, i, j]
                     counts[source_tokens[j]] = counts.get(source_tokens[j], 0.0) + delta[k, i, j]
-                    # print tokens_es[i], tokens_en[j], counts[tokens_es[i], tokens_en[j]]
-                    # print tokens_en[j], counts[tokens_en[j]]
-                    # print 'iteration:', iter, 'sentence', k
+
         """
-        update translations
+        update translations, M-Step
         """
         for target_i, source_j in translations:
             translations[target_i, source_j] = counts[target_i, source_j] / counts[source_j]

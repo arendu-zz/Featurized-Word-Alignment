@@ -12,7 +12,8 @@ from math import floor
 import multiprocessing
 from multiprocessing import Pool
 import traceback
-from time import sleep
+import sharedmem
+import random
 
 np.seterr(all='raise')
 
@@ -51,6 +52,27 @@ event_counts = {}
 
 normalizing_decision_map = {}
 itercount = 0
+
+
+def populate_events_per_trellis():
+    global event_index, trellis, events_per_trellis
+    events_per_trellis = []
+    for obs_id, obs in enumerate(trellis):
+        events_observed = []
+        obs = trellis[obs_id]
+        src = source[obs_id]
+        tar = target[obs_id]
+        for k in range(1, len(obs)):  # the words are numbered from 1 to n, 0 is special start character
+            for v in obs[k]:  # [1]:
+                for u in obs[k - 1]:  # [1]:
+                    tk, aj = v
+                    tk_1, aj_1 = u
+                    t_tok = tar[tk]
+                    s_tok = src[aj] if aj is not NULL else NULL
+
+                    ei = event_to_event_index[(E_TYPE, t_tok, s_tok)]
+                    events_observed.append(ei)
+        events_per_trellis.append(list(set(events_observed)))
 
 
 def compute_z(i, m, n, dt):
@@ -378,10 +400,10 @@ def gradient_check_em():
         theta_minus = copy.deepcopy(init_theta)
         theta_plus[feature_index[f]] = init_theta[feature_index[f]] + EPS
         get_likelihood(theta_plus)  # updates fractional counts
-        val_plus = get_likelihood_with_expected_counts(theta_plus)
+        val_plus = get_likelihood_with_expected_counts_mp(theta_plus)
         theta_minus[feature_index[f]] = init_theta[feature_index[f]] - EPS
         get_likelihood(theta_minus)  # updates fractional counts
-        val_minus = get_likelihood_with_expected_counts(theta_minus)
+        val_minus = get_likelihood_with_expected_counts_mp(theta_minus)
         f_approx[f] = (val_plus - val_minus) / (2 * EPS)
 
     my_grad = get_gradient(init_theta)
@@ -417,8 +439,31 @@ def gradient_check_lbfgs():
         ' sign difference', utils.sign_difference(chk_grad, my_grad)
 
 
-def batch_sgd_accumilate(obs_id):
-    print obs_id
+def batch_sgd(obs_ids, sgd_theta, sum_square_grad):
+    # print _, obs_id
+    for obs_id in obs_ids:
+        eo = events_per_trellis[obs_id]
+        eg = batch_gradient(sgd_theta, eo)
+        gdu = np.array([float('inf')] * len(sgd_theta))
+        grad = np.zeros(np.shape(sgd_theta))  # -2 * rc * theta  # l2 regularization with lambda 0.5
+        for e in eg:
+            feats = events_to_features[e]
+            for f in feats:
+                grad[feature_index[f]] += eg[e]
+                gdu[feature_index[f]] = du[feature_index[f]]
+
+        grad_du = -2 * rc * np.divide(sgd_theta, gdu)
+
+        grad += grad_du
+        sum_square_grad += (grad ** 2)
+        eta_t = eta0 / np.sqrt(I + sum_square_grad)
+        sgd_theta += np.multiply(eta_t, grad)
+    return obs_ids
+
+
+def batch_sgd_accumilate(obs_ids):
+    # print obs_id
+    pass
 
 
 def write_logs(theta, current_iter):
@@ -519,6 +564,89 @@ if __name__ == "__main__":
                 converged = round(abs(old_e - new_e), 1) == 0.0
                 old_e = new_e
                 iterations += 1
+    elif options.algorithm == "EM-SGD":
+        if options.test_gradient.lower() == "true":
+            gradient_check_em()
+        else:
+            print 'skipping gradient check...'
+            print 'populating events per trellis...'
+            populate_events_per_trellis()
+            print 'done...'
+            theta = initialize_theta(options.input_weights, feature_index)
+            new_e = get_likelihood(theta)
+            exp_new_e = get_likelihood_with_expected_counts_mp(theta)
+            old_e = float('-inf')
+            converged = False
+            iterations = 0
+            ids = range(len(trellis))
+
+            while not converged and iterations < 10:
+                eta0 = 1.0
+                sum_square_grad = np.zeros(np.shape(theta))
+                I = 1.0
+                for _ in range(2):
+                    random.shuffle(ids)
+                    for obs_id in ids:
+                        print _, obs_id
+                        event_observed = events_per_trellis[obs_id]
+                        eg = batch_gradient(theta, event_observed)
+                        grad = -2 * rc * theta  # l2 regularization with lambda 0.5
+                        for e in eg:
+                            feats = events_to_features[e]
+                            for f in feats:
+                                grad[feature_index[f]] += eg[e]
+                        sum_square_grad += (grad ** 2)
+                        eta_t = eta0 / np.sqrt(I + sum_square_grad)
+                        theta += np.multiply(eta_t, grad)
+
+                new_e = get_likelihood(theta)  # this will also update expected counts
+                converged = round(abs(old_e - new_e), 2) == 0.0
+                old_e = new_e
+                iterations += 1
+    elif options.algorithm == "EM-SGD-PARALLEL":
+        if options.test_gradient.lower() == "true":
+            gradient_check_em()
+        else:
+            print 'skipping gradient check...'
+            print 'populating events per trellis...'
+            populate_events_per_trellis()
+            print 'done...'
+
+            init_theta = initialize_theta(options.input_weights, feature_index)
+            shared_sgd_theta = sharedmem.zeros(np.shape(init_theta))
+            shared_sgd_theta += init_theta
+            new_e = get_likelihood(shared_sgd_theta)
+            old_e = float('-inf')
+            converged = False
+            iterations = 0
+            ids = range(len(trellis))
+            while not converged and iterations < 5:
+                eta0 = 1.0
+                shared_sum_squared_grad = sharedmem.zeros(np.shape(shared_sgd_theta))
+                I = 1.0
+                for _ in range(2):
+                    random.shuffle(ids)
+
+                    cpu_count = multiprocessing.cpu_count()
+                    pool = Pool(processes=cpu_count)
+                    batches = np.array_split(ids, cpu_count)
+                    for obs_ids in batches:
+                        pool.apply_async(batch_sgd, args=(obs_ids, shared_sgd_theta, shared_sum_squared_grad),
+                                         callback=batch_sgd_accumilate)
+                    pool.close()
+                    pool.join()
+                    """
+                    for obs_id in ids:
+                        batch_sgd(obs_id)
+                    """
+                new_e = get_likelihood(shared_sgd_theta)  # this will also update expected counts
+                converged = round(abs(old_e - new_e), 2) == 0.0
+                old_e = new_e
+                iterations += 1
+            theta = shared_sgd_theta
+    else:
+        print 'wrong option for algorithm...'
+        exit()
 
     if options.test_gradient.lower() == "true":
         pass
