@@ -316,7 +316,9 @@ def batch_gradient(theta, batch_events):
     eg = {}
     try:
         for event_j in batch_events:
-            event_j = tuple(event_j)
+            if not isinstance(event_j, tuple):
+                event_j = tuple(event_j)
+
             (t, dj, cj) = event_j
             if t == E_TYPE:
                 f_val, f = FE.get_wa_features_fired(type=t, context=cj, decision=dj)[0]
@@ -334,9 +336,8 @@ def batch_gradient(theta, batch_events):
                 eg[event_j] = sum_feature_j  # - abs(theta[event_j])  # this is the regularizing term
     except Exception, err:
         print 'error in batch gradient!'
-        print traceback.print_exc()
-        print traceback.print_exception()
-        print traceback.print_stack()
+
+        # print traceback.print_stack()
         print traceback.format_exc()
         raise BaseException('error in batch grad')
     return eg
@@ -439,26 +440,25 @@ def gradient_check_lbfgs():
         ' sign difference', utils.sign_difference(chk_grad, my_grad)
 
 
-def batch_sgd(obs_ids, sgd_theta, sum_square_grad):
+def batch_sgd(obs_id, sgd_theta, sum_square_grad):
     # print _, obs_id
-    for obs_id in obs_ids:
-        eo = events_per_trellis[obs_id]
-        eg = batch_gradient(sgd_theta, eo)
-        gdu = np.array([float('inf')] * len(sgd_theta))
-        grad = np.zeros(np.shape(sgd_theta))  # -2 * rc * theta  # l2 regularization with lambda 0.5
-        for e in eg:
-            feats = events_to_features[e]
-            for f in feats:
-                grad[feature_index[f]] += eg[e]
-                gdu[feature_index[f]] = du[feature_index[f]]
 
-        grad_du = -2 * rc * np.divide(sgd_theta, gdu)
+    event_observed = [event_index[eo] for eo in events_per_trellis[obs_id]]
+    eg = batch_gradient(sgd_theta, event_observed)
+    gdu = np.array([float('inf')] * len(sgd_theta))
+    grad = np.zeros(np.shape(sgd_theta))  # -2 * rc * theta  # l2 regularization with lambda 0.5
+    for e in eg:
+        feats = events_to_features[e]
+        for f in feats:
+            grad[feature_index[f]] += eg[e]
+            gdu[feature_index[f]] = du[feature_index[f]]
 
-        grad += grad_du
-        sum_square_grad += (grad ** 2)
-        eta_t = eta0 / np.sqrt(I + sum_square_grad)
-        sgd_theta += np.multiply(eta_t, grad)
-    return obs_ids
+    grad_du = -2 * rc * np.divide(sgd_theta, gdu)
+    grad += grad_du
+    sum_square_grad += (grad ** 2)
+    eta_t = eta0 / np.sqrt(I + sum_square_grad)
+    sgd_theta += np.multiply(eta_t, grad)
+    return obs_id
 
 
 def batch_sgd_accumilate(obs_ids):
@@ -517,8 +517,14 @@ if __name__ == "__main__":
     events_to_features, features_to_events, feature_index, feature_counts, event_index, event_to_event_index, event_counts, normalizing_decision_map, du = populate_features(
         trellis, source, target, IBM_MODEL_1)
 
+    mn_list = [(len(trg) - 2, len(src) - 1) for trg, src in zip(target, source)]
+    mn_dict = {}
+    for mn in mn_list:
+        mn_dict[mn] = mn_dict.get(mn, 0) + 1
+
     FE.load_feature_values(options.feature_values)
     snippet = "#" + str(opt.values) + "\n"
+    num_iterations = 10
 
     if options.algorithm == "LBFGS":
         if options.test_gradient.lower() == "true":
@@ -527,7 +533,7 @@ if __name__ == "__main__":
             print 'skipping gradient check...'
             init_theta = initialize_theta(options.input_weights, feature_index)
             t1 = minimize(get_likelihood, init_theta, method='L-BFGS-B', jac=get_gradient, tol=1e-3,
-                          options={'maxiter': 20})
+                          options={'maxiter': num_iterations})
             theta = t1.x
 
     elif options.algorithm == "EM":
@@ -541,15 +547,10 @@ if __name__ == "__main__":
             print 'new_e', new_e
             print 'exp_new_e', exp_new_e
 
-            mn_list = [(len(trg) - 2, len(src) - 1) for trg, src in zip(target, source)]
-            mn_dict = {}
-            for mn in mn_list:
-                mn_dict[mn] = mn_dict.get(mn, 0) + 1
-
             old_e = float('-inf')
             converged = False
             iterations = 0
-            num_iterations = 5
+
             while not converged and iterations < num_iterations:
                 t1 = minimize(get_likelihood_with_expected_counts_mp, theta, method='L-BFGS-B', jac=get_gradient,
                               tol=1e-3,
@@ -580,7 +581,7 @@ if __name__ == "__main__":
             iterations = 0
             ids = range(len(trellis))
 
-            while not converged and iterations < 10:
+            while not converged and iterations < num_iterations:
                 eta0 = 1.0
                 sum_square_grad = np.zeros(np.shape(theta))
                 I = 1.0
@@ -588,7 +589,7 @@ if __name__ == "__main__":
                     random.shuffle(ids)
                     for obs_id in ids:
                         print _, obs_id
-                        event_observed = events_per_trellis[obs_id]
+                        event_observed = [event_index[eo] for eo in events_per_trellis[obs_id]]
                         eg = batch_gradient(theta, event_observed)
                         grad = -2 * rc * theta  # l2 regularization with lambda 0.5
                         for e in eg:
@@ -598,6 +599,10 @@ if __name__ == "__main__":
                         sum_square_grad += (grad ** 2)
                         eta_t = eta0 / np.sqrt(I + sum_square_grad)
                         theta += np.multiply(eta_t, grad)
+
+                if 0 < iterations < num_iterations - 1:
+                    for rep in xrange(8):
+                        diagonal_tension = get_diagonal_tension(mn_dict, diagonal_tension)
 
                 new_e = get_likelihood(theta)  # this will also update expected counts
                 converged = round(abs(old_e - new_e), 2) == 0.0
@@ -620,25 +625,26 @@ if __name__ == "__main__":
             converged = False
             iterations = 0
             ids = range(len(trellis))
-            while not converged and iterations < 5:
+
+            while not converged and iterations < num_iterations:
                 eta0 = 1.0
                 shared_sum_squared_grad = sharedmem.zeros(np.shape(shared_sgd_theta))
                 I = 1.0
                 for _ in range(2):
                     random.shuffle(ids)
-
                     cpu_count = multiprocessing.cpu_count()
                     pool = Pool(processes=cpu_count)
-                    batches = np.array_split(ids, cpu_count)
-                    for obs_ids in batches:
-                        pool.apply_async(batch_sgd, args=(obs_ids, shared_sgd_theta, shared_sum_squared_grad),
+                    # batches = np.array_split(ids, cpu_count)
+                    for obs_id in ids:
+                        pool.apply_async(batch_sgd, args=(obs_id, shared_sgd_theta, shared_sum_squared_grad),
                                          callback=batch_sgd_accumilate)
                     pool.close()
                     pool.join()
-                    """
-                    for obs_id in ids:
-                        batch_sgd(obs_id)
-                    """
+
+                if 0 < iterations < num_iterations - 1:
+                    for rep in xrange(8):
+                        diagonal_tension = get_diagonal_tension(mn_dict, diagonal_tension)
+
                 new_e = get_likelihood(shared_sgd_theta)  # this will also update expected counts
                 converged = round(abs(old_e - new_e), 2) == 0.0
                 old_e = new_e
