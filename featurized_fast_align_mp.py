@@ -12,6 +12,7 @@ from math import floor
 import multiprocessing
 from multiprocessing import Pool
 import traceback
+from time import sleep
 
 np.seterr(all='raise')
 
@@ -250,71 +251,6 @@ def get_likelihood(theta):
     return -ll
 
 
-def serial_split(a_theta, a_batch):
-    global fractional_counts
-    sum_l = 0.0
-    for event in a_batch:
-        event = tuple(event)
-        (t, d, c) = event
-        if t == E_TYPE:
-            # print isinstance(event, tuple)
-            A_dct = exp(fractional_counts[event])
-            a_dct = get_decision_given_context(theta=a_theta, type=t, decision=d, context=c)
-            sum_l += A_dct * a_dct
-    return sum_l
-
-
-def parallel_split(a_theta, a_batch):
-    global fractional_counts
-    sum_l = 0.0
-    for event in a_batch:
-        event = tuple(event)
-        (t, d, c) = event
-        if t == E_TYPE:
-            # print isinstance(event, tuple)
-            A_dct = exp(fractional_counts[event])
-            a_dct = get_decision_given_context(theta=a_theta, type=t, decision=d, context=c)
-            sum_l += A_dct * a_dct
-    return sum_l
-
-
-def parallel_accu(sum_l):
-    global sum_likelihood
-    sum_likelihood += sum_l
-    return None
-
-
-def get_likelihood_with_expected_counts_sp(theta):
-    global fractional_counts, sum_likelihood
-
-    cpu_count = multiprocessing.cpu_count()
-    batch_fc = np.array_split(fractional_counts.keys(), cpu_count)
-
-    sum_likelihood = 0
-    pool = Pool(multiprocessing.cpu_count())
-    for a in batch_fc:
-        # sum_likelihood += sp_split(theta, a_batch)
-        pool.apply_async(parallel_split, args=(theta, a), callback=parallel_accu)
-    pool.close()
-    pool.join()
-
-    sum_ll = 0.0
-    """
-    for b in batch_fc:
-        sum_ll += serial_split(theta, b)
-
-    try:
-        assert abs(sum_ll - sum_likelihood) < 0.000001
-    except AssertionError:
-        pass
-    """
-    reg = np.sum(theta ** 2)
-
-    print '\tec log likelihood:', sum_likelihood, reg
-    sum_likelihood -= (rc * reg)
-    return -sum_likelihood
-
-
 def batch_likelihood_with_expected_counts(theta, batch_of_fc):
     global event_index
     batch_sum_likelihood = 0.0
@@ -332,9 +268,10 @@ def batch_accumilate_likelihood_with_expected_counts(results):
     data_likelihood += results
 
 
-def get_likelihood_with_expected_counts(theta, display=True):
-    global fractional_counts, data_likelihood, event_index
+def get_likelihood_with_expected_counts_mp(theta, display=True):
+    global fractional_counts, data_likelihood, event_index, cache_normalizing_decision
     data_likelihood = 0.0
+    cache_normalizing_decision = {}
     cpu_count = multiprocessing.cpu_count()
     pool = Pool(processes=cpu_count)  # uses all available CPUs
     batches_fractional_counts = np.array_split(range(len(event_index)), cpu_count)
@@ -405,7 +342,6 @@ def get_gradient(theta):
     pool.close()
     pool.join()
 
-    print 'EVENT GRAD', len(event_grad), 'THETA', len(theta)
     grad = -2 * rc * theta  # l2 regularization with lambda 0.5
     for e in event_grad:
         feats = events_to_features[e]
@@ -535,7 +471,7 @@ if __name__ == "__main__":
     trellis = populate_trellis(source, target, max_jump_width, max_beam_width)
     events_to_features, features_to_events, feature_index, feature_counts, event_index, event_to_event_index, event_counts, normalizing_decision_map, du = populate_features(
         trellis, source, target, IBM_MODEL_1)
-    pdb.set_trace()
+
     FE.load_feature_values(options.feature_values)
     snippet = "#" + str(opt.values) + "\n"
 
@@ -545,7 +481,7 @@ if __name__ == "__main__":
         else:
             print 'skipping gradient check...'
             init_theta = initialize_theta(options.input_weights, feature_index)
-            t1 = minimize(get_likelihood, init_theta, method='L-BFGS-B', jac=get_gradient_sp, tol=1e-3,
+            t1 = minimize(get_likelihood, init_theta, method='L-BFGS-B', jac=get_gradient, tol=1e-3,
                           options={'maxiter': 20})
             theta = t1.x
 
@@ -556,7 +492,7 @@ if __name__ == "__main__":
             print 'skipping gradient check...'
             theta = initialize_theta(options.input_weights, feature_index)
             new_e = get_likelihood(theta)
-            exp_new_e = get_likelihood_with_expected_counts_sp(theta)
+            exp_new_e = get_likelihood_with_expected_counts_mp(theta)
             print 'new_e', new_e
             print 'exp_new_e', exp_new_e
 
@@ -570,7 +506,7 @@ if __name__ == "__main__":
             iterations = 0
             num_iterations = 5
             while not converged and iterations < num_iterations:
-                t1 = minimize(get_likelihood_with_expected_counts_sp, theta, method='L-BFGS-B', jac=get_gradient,
+                t1 = minimize(get_likelihood_with_expected_counts_mp, theta, method='L-BFGS-B', jac=get_gradient,
                               tol=1e-3,
                               options={'maxfun': 5})
                 theta = t1.x

@@ -230,8 +230,9 @@ def get_likelihood(theta):
 
 
 def get_likelihood_with_expected_counts(theta):
-    global fractional_counts
+    global fractional_counts, cache_normalizing_decision
     sum_likelihood = 0.0
+    cache_normalizing_decision = {}
     for event in fractional_counts:
         (t, d, c) = event
         if t == E_TYPE:
@@ -268,7 +269,6 @@ def get_gradient(theta):
             event_grad[event_j] = sum_feature_j  # - abs(theta[event_j])  # this is the regularizing term
 
     # grad = np.zeros_like(theta)
-    print 'EVENT GRAD', len(event_grad), 'THETA', len(theta)
     grad = -2 * rc * theta  # l2 regularization with lambda 0.5
     for e in event_grad:
         feats = events_to_features[e]
