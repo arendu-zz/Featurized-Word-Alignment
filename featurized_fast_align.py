@@ -2,29 +2,26 @@ __author__ = 'arenduchintala'
 
 from optparse import OptionParser
 from math import exp, log
-import sys
-from scipy.optimize import fmin_l_bfgs_b
 from scipy.optimize import minimize
 import numpy as np
 import FeatureEng as FE
 import utils
-import random
 import copy
 import pdb
-from pprint import pprint
+from math import floor
 
 np.seterr(all='raise')
 
-from const import NULL, BOUNDARY_START, BOUNDARY_END, IBM_MODEL_1, HMM_MODEL, E_TYPE, T_TYPE, EPS, Po, LAMBDA_FEATURE, \
-    use_lambda_feature
+from const import NULL, BOUNDARY_START, BOUNDARY_END, IBM_MODEL_1, HMM_MODEL, E_TYPE, T_TYPE, EPS, Po
 from common import populate_trellis, populate_features, write_alignments, write_alignments_col, \
     write_alignments_col_tok, write_probs, write_weights, initialize_theta
 
 
-global cache_normalizing_decision, features_to_events, events_to_features, normalizing_decision_map
+global cache_normalizing_decision, features_to_events, events_to_features, normalizing_decision_map, num_toks
 global trellis, max_jump_width, number_of_events, EPS, snippet, max_beam_width, rc
 global source, target, data_likelihood, event_grad, feature_index, event_index
 global events_per_trellis, event_to_event_index, has_pos, event_counts, du, itercount, N
+global diagonal_tension, emp_feat
 has_pos = False
 event_grad = {}
 data_likelihood = 0.0
@@ -52,71 +49,55 @@ normalizing_decision_map = {}
 itercount = 0
 
 
-def sl(g1, r, l):
-    return g1 * (1 - np.power(r, l)) / (1 - r)
+def compute_z(i, m, n, dt):
+    split = floor(i) * n / m
+    flr = floor(split)
+    ceil = flr + 1
+    ratio = exp(-dt / n)
+    num_top = n - flr
+    ezt = 0
+    ezb = 0
+    if num_top != 0.0:
+        ezt = unnormalized_prob(i, ceil, m, n, dt) * (1.0 - np.power(ratio, num_top)) / (1.0 - ratio)
+    if flr != 0.0:
+        ezb = unnormalized_prob(i, flr, m, n, dt) * (1.0 - np.power(ratio, flr)) / (1.0 - ratio)
+    return ezb + ezt
 
 
-def get_second_term(lf, obs_id, m, n, ):
-    """
-    global source, target, trellis
-    obs = trellis[obs_id]
-    m = len(obs)
-    n =
-    j_up = i * n / m
-    j_down = j_up + 1
-    """
-    pass
+def arithmetico_geo_series(a1, g1, r, d, n):
+    gnp1 = g1 * np.power(r, n)
+    an = d * (n - 1) + a1
+    x1 = a1 * g1
+    g2 = g1 * r
+    rm1 = r - 1
+    return (an * gnp1 - x1) / rm1 - d * (gnp1 - g2) / (rm1 * rm1)
 
 
-def tl(g1, a1, r, d, n):
-    g_np1 = g1 * np.power(r, n)
-    a_n = d * (n - 1) + a1
-    x_1 = a1 * g1
-    g_2 = g1 * r
-    # rm1 = r - 1
-    # return (a_n * g_np1 - x_1) / rm1 - d * (g_np1 - g_2) / (rm1 * rm1)
-    r1 = 1 - r
-    return ((a_n * g_np1 - x_1) / r1) + (d * (g_np1 - g_2) / (r1 * r1))
+def unnormalized_prob(i, j, m, n, dt):
+    return exp(h(i, j, m, n) * dt)
+
+
+def compute_d_log_z(i, m, n, dt):
+    z = compute_z(i, n, m, dt)
+    split = float(i) * n / m
+    flr = floor(split)
+    ceil = flr + 1
+    ratio = exp(-dt / n)
+    d = -1.0 / n
+    num_top = n - flr
+    pct = 0.0
+    pcb = 0.0
+    if num_top != 0:
+        pct = arithmetico_geo_series(h(i, ceil, m, n), unnormalized_prob(i, ceil, m, n, dt), ratio, d,
+                                     num_top)
+
+    if flr != 0:
+        pcb = arithmetico_geo_series(h(i, flr, m, n), unnormalized_prob(i, flr, m, n, dt), ratio, d, flr)
+    return (pcb + pct) / z
 
 
 def h(i, j, m, n):
     return - abs((float(i) / float(m)) - (float(j) / float(n)))
-
-
-def z_lf(lf, i, m, n):
-    j_up = i * n / m
-    j_down = j_up + 1
-    r = exp(-lf / n)
-    el1 = exp(lf * h(i, j_up, m, n))
-    el2 = exp(lf * h(i, j_down, m, n))
-    sj_up = sl(el1, r, j_up)
-    sj_down = sl(el2, r, n - j_down)
-    s = sj_up + sj_down
-    return s
-
-
-def get_fast_align_transition(theta, i, j, m, n):
-    if j == NULL:
-        return np.log(Po)
-    else:
-        i, j, m, n = float(i), float(j), float(m), float(n)
-        if use_lambda_feature:
-            lf = theta[feature_index[LAMBDA_FEATURE]]
-
-        """
-        print i, j, m, n
-        print 'h', h(i, j, m, n)
-        print 'z', z_lf(lf, i, m, n)
-        print 'e^lh/Z', (lf * h(i, j, m, n)) - np.log(z_lf(lf, i, m, n))
-        print '*'
-        """
-        num = (lf * h(i, j, m, n))
-        denum = z_lf(lf, i, m, n)
-        try:
-            t = np.log(1 - Po) + num - np.log(denum)
-        except FloatingPointError:
-            t = np.log(1 - Po)
-        return t
 
 
 def get_decision_given_context(theta, type, decision, context):
@@ -147,8 +128,8 @@ def get_decision_given_context(theta, type, decision, context):
     return log_prob
 
 
-def get_model1_forward(theta, obs_id, fc=None):
-    global source, target, trellis
+def get_model1_forward(theta, obs_id, fc=None, ef=None):
+    global source, target, trellis, diagonal_tension
     obs = trellis[obs_id]
     m = len(obs)
     max_bt = [-1] * len(obs)
@@ -172,7 +153,9 @@ def get_model1_forward(theta, obs_id, fc=None):
             elif s_tok == NULL:
                 q = np.log(Po)
             else:
-                q = get_fast_align_transition(theta, t_idx, s_idx, m - 2, n - 1)
+                # q = get_fast_align_transition(theta, t_idx, s_idx, m - 2, n - 1)
+                az = compute_z(t_idx, m - 2, n - 1, diagonal_tension) / (1 - Po)
+                q = np.log(unnormalized_prob(t_idx, s_idx, m - 2, n - 1, diagonal_tension) / az)
 
             sum_pei = utils.logadd(sum_pei, q + e)
             sum_sj = utils.logadd(sum_sj, e + q)
@@ -200,19 +183,17 @@ def get_model1_forward(theta, obs_id, fc=None):
                     q = np.log(Po)
                     hijmn = 0.0
                 else:
-                    q = get_fast_align_transition(theta, t_idx, s_idx, m - 2, n - 1)
+                    az = compute_z(t_idx, m - 2, n - 1, diagonal_tension) / (1 - Po)
+                    q = np.log(unnormalized_prob(t_idx, s_idx, m - 2, n - 1, diagonal_tension) / az)
                     hijmn = h(t_idx, s_idx, m - 2, n - 1)
 
                 p_ai = e + q - sum_pei  # TODO: times h(j',i,m,n)
-                p_q = q - sum_q
+                # p_q = q - sum_q
                 event = (E_TYPE, t_tok, s_tok)
                 fc[event] = utils.logadd(p_ai, fc.get(event, float('-inf')))
-                lambda_event1 = (LAMBDA_FEATURE, 'E_pai', None)
-                lambda_event2 = (LAMBDA_FEATURE, 'E_delta', None)
-                fc[lambda_event1] = fc.get(lambda_event1, 0.0) + (exp(p_ai) * hijmn)
-                fc[lambda_event2] = fc.get(lambda_event2, 0.0) + (exp(p_q) * hijmn)
+                ef += (exp(p_ai) * hijmn)
 
-    return max_bt[:-1], p_st, fc
+    return max_bt[:-1], p_st, fc, ef
 
 
 def reset_fractional_counts():
@@ -225,13 +206,14 @@ def reset_fractional_counts():
 def get_likelihood(theta):
     assert isinstance(theta, np.ndarray)
     assert len(theta) == len(feature_index)
-    global trellis, data_likelihood, rc, fractional_counts, feature_index
+    global trellis, data_likelihood, rc, fractional_counts, feature_index, num_toks, emp_feat, diagonal_tension
     reset_fractional_counts()
     data_likelihood = 0.0
+    emp_feat = 0.0
     batch = range(0, len(trellis))
 
     for idx in batch:
-        max_bt, S, fractional_counts = get_model1_forward(theta, idx, fractional_counts)
+        max_bt, S, fractional_counts, emp_feat = get_model1_forward(theta, idx, fractional_counts, emp_feat)
         # print 'p(t|s) for', idx, ':', S  # , max_bt
         data_likelihood += S
 
@@ -240,7 +222,10 @@ def get_likelihood(theta):
 
     e1 = get_decision_given_context(theta, E_TYPE, decision='.', context=NULL)
     e2 = get_decision_given_context(theta, E_TYPE, decision='.', context='.')
-    print 'log likelihood:', ll, 'p(.|NULL)', e1, 'p(.|.)', e2, 'lf', theta[feature_index[LAMBDA_FEATURE]]
+    # e3 = get_decision_given_context(theta, E_TYPE, decision='pero', context='but')
+    print 'log likelihood:', ll, 'p(.|NULL)', e1, 'p(.|.)', e2, 'lf', diagonal_tension
+    print 'emp_feat_norm', emp_feat / num_toks
+
     return -ll
 
 
@@ -254,9 +239,9 @@ def get_likelihood_with_expected_counts(theta):
             a_dct = get_decision_given_context(theta=theta, type=t, decision=d, context=c)
             sum_likelihood += A_dct * a_dct
     reg = np.sum(theta ** 2)
-    sum_likelihood -= (rc * reg)
 
-    print '\tec log likelihood:', sum_likelihood
+    print '\tec log likelihood:', sum_likelihood, reg
+    sum_likelihood -= (rc * reg)
     return -sum_likelihood
 
 
@@ -273,6 +258,7 @@ def get_gradient(theta):
             norm_events = [(t, dp, cj) for dp in normalizing_decision_map[t, cj]]
             for event_i in norm_events:
                 A_dct = exp(fractional_counts.get(event_i, 0.0))
+                # print isinstance(event_j, tuple), isinstance(event_i, tuple)
                 if event_i == event_j:
                     (ti, di, ci) = event_i
                     fj, f = FE.get_wa_features_fired(type=ti, context=ci, decision=di)[0]
@@ -282,39 +268,32 @@ def get_gradient(theta):
             event_grad[event_j] = sum_feature_j  # - abs(theta[event_j])  # this is the regularizing term
 
     # grad = np.zeros_like(theta)
+    print 'EVENT GRAD', len(event_grad), 'THETA', len(theta)
     grad = -2 * rc * theta  # l2 regularization with lambda 0.5
-    grad[feature_index[LAMBDA_FEATURE]] = 0
     for e in event_grad:
         feats = events_to_features[e]
         for f in feats:
             grad[feature_index[f]] += event_grad[e]
 
-    # for s in seen_index:
-    # grad[s] += -theta[s]  # l2 regularization with lambda 0.5
-    """
-    lambda_event1 = (LAMBDA_FEATURE, 'E_pai', None)
-    lambda_event2 = (LAMBDA_FEATURE, 'E_delta', None)
-    n = exp(fractional_counts[lambda_event1]) - exp(fractional_counts[lambda_event2])
-    grad[feature_index[LAMBDA_FEATURE]] += -n
-    """
     return -grad
 
 
-def get_lf_grad(theta):
-    assert isinstance(theta, np.ndarray)
-    assert len(theta) == len(feature_index)
-    global trellis, data_likelihood, rc, fractional_counts, feature_index
-    batch = range(0, len(trellis))
-    for idx in batch:
-        max_bt, S, fractional_counts = get_model1_forward(theta, idx, fractional_counts)
-    lf_grad = -2 * rc * theta[feature_index[LAMBDA_FEATURE]]
-    lambda_event1 = (LAMBDA_FEATURE, 'E_pai', None)
-    lambda_event2 = (LAMBDA_FEATURE, 'E_delta', None)
-    fc_e1 = fractional_counts[lambda_event1]
-    fc_e2 = fractional_counts[lambda_event2]
-    print fc_e1, fc_e2
-    lf_grad += (fc_e1 - fc_e2)
-    return lf_grad
+def get_diagonal_tension(mnd, dt):
+    global trellis, data_likelihood, rc, fractional_counts, feature_index, num_toks, emp_feat
+    emp_feat_norm = emp_feat / num_toks
+    mod_feat = 0
+    for m, n in mnd:
+        for j in xrange(1, m):
+            mod_feat += mnd[m, n] * compute_d_log_z(j, m, n, dt)
+
+    mod_feat_norm = mod_feat / num_toks
+    print emp_feat_norm, mod_feat_norm, dt
+    dt += (emp_feat_norm - mod_feat_norm) * 20
+    if dt < 0.1:
+        dt = 0.1
+    elif dt > 14:
+        dt = 14
+    return dt
 
 
 def gradient_check_em():
@@ -373,7 +352,7 @@ def write_logs(theta, current_iter):
     global max_beam_width, max_jump_width, trellis, feature_index, fractional_counts
     feature_val_typ = 'bin' if options.feature_values is None else 'real'
     name_prefix = '.'.join(
-        ['sp', options.algorithm, str(rc), 'simple-model1', feature_val_typ])
+        ['sp', options.algorithm, str(rc), 'fast-model1', feature_val_typ])
     if current_iter is not None:
         name_prefix += '.' + str(current_iter)
     write_weights(theta, name_prefix + '.' + options.output_weights, feature_index)
@@ -414,8 +393,10 @@ if __name__ == "__main__":
 
     source = [s.strip().split() for s in open(options.source_corpus, 'r').readlines()]
     target = [s.strip().split() for s in open(options.target_corpus, 'r').readlines()]
+    num_toks = len(open(options.target_corpus, 'r').read().split())
+    diagonal_tension = 4.0
     trellis = populate_trellis(source, target, max_jump_width, max_beam_width)
-    events_to_features, features_to_events, feature_index, feature_counts, event_index, event_to_event_index, event_counts, normalizing_decision_map = populate_features(
+    events_to_features, features_to_events, feature_index, feature_counts, event_index, event_to_event_index, event_counts, normalizing_decision_map, du = populate_features(
         trellis, source, target, IBM_MODEL_1)
     FE.load_feature_values(options.feature_values)
     snippet = "#" + str(opt.values) + "\n"
@@ -438,19 +419,29 @@ if __name__ == "__main__":
             theta = initialize_theta(options.input_weights, feature_index)
             new_e = get_likelihood(theta)
             exp_new_e = get_likelihood_with_expected_counts(theta)
+            print 'new_e', new_e
+            print 'exp_new_e', exp_new_e
+
+            mn_list = [(len(trg) - 2, len(src) - 1) for trg, src in zip(target, source)]
+            mn_dict = {}
+            for mn in mn_list:
+                mn_dict[mn] = mn_dict.get(mn, 0) + 1
+
             old_e = float('-inf')
             converged = False
             iterations = 0
-            while not converged and iterations < 150:
-                t1 = minimize(get_likelihood_with_expected_counts, theta, method='L-BFGS-B', jac=get_gradient, tol=1e-2,
-                              options={'maxiter': 10})
+            num_iterations = 5
+            while not converged and iterations < num_iterations:
+                t1 = minimize(get_likelihood_with_expected_counts, theta, method='L-BFGS-B', jac=get_gradient, tol=1e-3,
+                              options={'maxfun': 5})
                 theta = t1.x
-                lf_grad = get_lf_grad(theta)
-                print 'lf_grad', lf_grad
-                theta[feature_index[LAMBDA_FEATURE]] += lf_grad
+
+                if 0 < iterations < num_iterations - 1:
+                    for rep in xrange(8):
+                        diagonal_tension = get_diagonal_tension(mn_dict, diagonal_tension)
 
                 new_e = get_likelihood(theta)  # this will also update expected counts
-                # converged = round(abs(old_e - new_e), 1) == 0.0
+                converged = round(abs(old_e - new_e), 1) == 0.0
                 old_e = new_e
                 iterations += 1
 

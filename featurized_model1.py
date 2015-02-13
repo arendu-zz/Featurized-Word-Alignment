@@ -292,10 +292,10 @@ if __name__ == "__main__":
     trellis = []
 
     opt = OptionParser()
-    opt.add_option("-t", dest="target_corpus", default="experiment/data/toy.fr")
-    opt.add_option("-s", dest="source_corpus", default="experiment/data/toy.en")
-    opt.add_option("--tt", dest="target_test", default="experiment/data/toy.fr")
-    opt.add_option("--ts", dest="source_test", default="experiment/data/toy.en")
+    opt.add_option("-t", dest="target_corpus", default="experiment/data/dev.small.es")
+    opt.add_option("-s", dest="source_corpus", default="experiment/data/dev.small.en")
+    opt.add_option("--tt", dest="target_test", default="experiment/data/dev.small.es")
+    opt.add_option("--ts", dest="source_test", default="experiment/data/dev.small.en")
 
     opt.add_option("--iw", dest="input_weights", default=None)
     opt.add_option("--fv", dest="feature_values", default=None)
@@ -312,7 +312,7 @@ if __name__ == "__main__":
     source = [s.strip().split() for s in open(options.source_corpus, 'r').readlines()]
     target = [s.strip().split() for s in open(options.target_corpus, 'r').readlines()]
     trellis = populate_trellis(source, target, max_jump_width, max_beam_width)
-    events_to_features, features_to_events, feature_index, feature_counts, event_index, event_to_event_index, event_counts, normalizing_decision_map = populate_features(
+    events_to_features, features_to_events, feature_index, feature_counts, event_index, event_to_event_index, event_counts, normalizing_decision_map,du = populate_features(
         trellis, source, target, IBM_MODEL_1)
     FE.load_feature_values(options.feature_values)
     snippet = "#" + str(opt.values) + "\n"
