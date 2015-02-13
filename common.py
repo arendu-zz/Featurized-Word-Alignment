@@ -1,7 +1,6 @@
 __author__ = 'arenduchintala'
 
-from const import BOUNDARY_END, BOUNDARY_START, NULL, HMM_MODEL, IBM_MODEL_1, E_TYPE, T_TYPE, LAMBDA_FEATURE, \
-    use_lambda_feature
+from const import BOUNDARY_END, BOUNDARY_START, NULL, HMM_MODEL, IBM_MODEL_1, E_TYPE, T_TYPE
 import FeatureEng as FE
 import numpy as np
 
@@ -140,12 +139,12 @@ def populate_features(trellis, source, target, model_type):
         event_to_event_index[e] = ei
 
     # LAMBDA FEATURE
-    if use_lambda_feature:
-        f = LAMBDA_FEATURE
-        feature_index[f] = len(feature_index) if f not in feature_index else feature_index[f]
-        print LAMBDA_FEATURE, 'index', feature_index[LAMBDA_FEATURE]
-    else:
-        print 'not using lambda feature'
+    # if use_lambda_feature:
+    # f = LAMBDA_FEATURE
+    # feature_index[f] = len(feature_index) if f not in feature_index else feature_index[f]
+    # print LAMBDA_FEATURE, 'index', feature_index[LAMBDA_FEATURE]
+    # else:
+    # print 'not using lambda feature'
 
     return events_to_features, \
            features_to_events, \
@@ -154,7 +153,7 @@ def populate_features(trellis, source, target, model_type):
            event_index, \
            event_to_event_index, \
            event_counts, \
-           normalizing_decision_map,\
+           normalizing_decision_map, \
            du
 
 
@@ -173,8 +172,6 @@ def initialize_theta(input_weights_file, feature_index, rand=False):
                 pass
     else:
         print 'no initial weights given, random initial weights assigned...'
-    if use_lambda_feature:
-        init_theta[feature_index[LAMBDA_FEATURE]] = 3.0
     return init_theta
 
 

@@ -12,5 +12,4 @@ IBM_MODEL_1 = "model1"
 HMM_MODEL = "hmm"
 EPS = 1e-5
 Po = 0.08
-LAMBDA_FEATURE = "LAMBDA_FEATURE"
-use_lambda_feature = False
+
