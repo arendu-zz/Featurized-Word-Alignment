@@ -186,7 +186,9 @@ def get_likelihood(theta):
     ll = (data_likelihood - (rc * reg))
     e1 = get_decision_given_context(theta, E_TYPE, decision='.', context=NULL)
     e2 = get_decision_given_context(theta, E_TYPE, decision='.', context='.')
-    print itercount, 'log likelihood:', ll, 'p(.|NULL)', e1, 'p(.|.)', e2
+    e3 = get_decision_given_context(theta, E_TYPE, decision='en', context='in')
+    e4 = get_decision_given_context(theta, E_TYPE, decision='en', context='and')
+    print itercount, 'log likelihood:', ll, 'p(.|NULL)', e1, 'p(.|.)', e2, 'p(en|in)', e3, 'p(en|and)', e4
     itercount += 1
 
     return -ll
@@ -422,6 +424,7 @@ if __name__ == "__main__":
     opt.add_option("--ts", dest="source_test", default="experiment/data/dev.en")
 
     opt.add_option("--iw", dest="input_weights", default=None)
+    opt.add_option("--df", dest="dict_features", default=None)
     opt.add_option("--fv", dest="feature_values", default=None)
     opt.add_option("--ow", dest="output_weights", default="theta", help="extention of trained weights file")
     opt.add_option("--oa", dest="output_alignments", default="alignments", help="extension of alignments files")
@@ -436,19 +439,19 @@ if __name__ == "__main__":
     source = [s.strip().split() for s in open(options.source_corpus, 'r').readlines()]
     target = [s.strip().split() for s in open(options.target_corpus, 'r').readlines()]
     trellis = populate_trellis(source, target, max_jump_width, max_beam_width)
+    FE.load_feature_values(options.feature_values)
+    FE.load_dictionary_features(options.dict_features)
     events_to_features, features_to_events, feature_index, feature_counts, event_index, event_to_event_index, event_counts, normalizing_decision_map, du = populate_features(
         trellis, source, target, IBM_MODEL_1)
-    FE.load_feature_values(options.feature_values)
     snippet = "#" + str(opt.values) + "\n"
-
     if options.algorithm == "LBFGS":
         if options.test_gradient.lower() == "true":
             gradient_check_lbfgs()
         else:
             print 'skipping gradient check...'
             init_theta = initialize_theta(options.input_weights, feature_index)
-            t1 = minimize(get_likelihood, init_theta, method='L-BFGS-B', jac=get_gradient, tol=1e-3,
-                          options={'maxfun': 5})
+            t1 = minimize(get_likelihood, init_theta, method='L-BFGS-B', jac=get_gradient, tol=1e-2,
+                          options={'maxiter': 5})
 
             theta = t1.x
 
@@ -464,8 +467,8 @@ if __name__ == "__main__":
             converged = False
             iterations = 0
             while not converged and iterations < 5:
-                t1 = minimize(get_likelihood_with_expected_counts, theta, method='L-BFGS-B', jac=get_gradient, tol=1e-3,
-                              options={'maxfun': 5})
+                t1 = minimize(get_likelihood_with_expected_counts, theta, method='L-BFGS-B', jac=get_gradient, tol=1e-2,
+                              options={'maxiter': 5})
                 theta = t1.x
                 new_e = get_likelihood(theta)  # this will also update expected counts
                 converged = round(abs(old_e - new_e), 1) == 0.0

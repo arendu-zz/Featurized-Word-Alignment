@@ -377,7 +377,7 @@ if __name__ == "__main__":
     opt.add_option("-s", dest="source_corpus", default="experiment/data/dev.small.en")
     opt.add_option("--tt", dest="target_test", default="experiment/data/dev.small.es")
     opt.add_option("--ts", dest="source_test", default="experiment/data/dev.small.en")
-
+    opt.add_option("--df", dest="dict_features", default=None)
     opt.add_option("--iw", dest="input_weights", default=None)
     opt.add_option("--fv", dest="feature_values", default=None)
     opt.add_option("--ow", dest="output_weights", default="theta", help="extention of trained weights file")
@@ -396,9 +396,10 @@ if __name__ == "__main__":
     num_toks = len(open(options.target_corpus, 'r').read().split())
     diagonal_tension = 4.0
     trellis = populate_trellis(source, target, max_jump_width, max_beam_width)
+    FE.load_feature_values(options.feature_values)
+    FE.load_dictionary_features(options.dict_features)
     events_to_features, features_to_events, feature_index, feature_counts, event_index, event_to_event_index, event_counts, normalizing_decision_map, du = populate_features(
         trellis, source, target, IBM_MODEL_1)
-    FE.load_feature_values(options.feature_values)
     snippet = "#" + str(opt.values) + "\n"
 
     if options.algorithm == "LBFGS":

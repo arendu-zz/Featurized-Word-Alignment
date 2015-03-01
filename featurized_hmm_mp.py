@@ -2,7 +2,7 @@ __author__ = 'arenduchintala'
 
 from optparse import OptionParser
 from math import exp, log
-import sys,traceback
+import sys, traceback
 import multiprocessing
 from multiprocessing import Pool
 from scipy.optimize import minimize
@@ -220,8 +220,8 @@ def get_likelihood(theta, display=True):
     ll = (data_likelihood - (rc * reg))
     e1 = get_decision_given_context(theta, E_TYPE, decision='.', context=NULL)
     e2 = get_decision_given_context(theta, E_TYPE, decision='.', context='.')
-    print itercount, 'log likelihood:', ll, 'p(.|NULL)', e1, 'p(.|.)', e2 
-    itercount += 1 
+    print itercount, 'log likelihood:', ll, 'p(.|NULL)', e1, 'p(.|.)', e2
+    itercount += 1
     return -ll
 
 
@@ -344,6 +344,7 @@ def populate_events_per_trellis():
                     events_observed.append(ei)
         events_per_trellis.append(list(set(events_observed)))
 
+
 def gradient_check_em():
     init_theta = initialize_theta(None)
     f_approx = {}
@@ -417,18 +418,18 @@ def batch_sgd(obs_id, sgd_theta, sum_square_grad):
     eg = batch_gradient(sgd_theta, eo)
     gdu = np.array([float('inf')] * len(sgd_theta))
     grad = np.zeros(np.shape(sgd_theta))  # -2 * rc * theta  # l2 regularization with lambda 0.5
-    try: 
-      for e_idx, e in enumerate(eg):
-        feats = events_to_features[e]
-        for f_idx, f in enumerate(feats):
-          grad[feature_index[f]] += eg[e]
-          
-          gdu[feature_index[f]] = du[feature_index[f]]
+    try:
+        for e_idx, e in enumerate(eg):
+            feats = events_to_features[e]
+            for f_idx, f in enumerate(feats):
+                grad[feature_index[f]] += eg[e]
+
+                gdu[feature_index[f]] = du[feature_index[f]]
 
     except Exception, err:
-      print len(du), 'is the len of du'
-      print traceback.format_exc()
-      print 'except', Exception
+        print len(du), 'is the len of du'
+        print traceback.format_exc()
+        print 'except', Exception
 
     grad_du = -2 * rc * np.divide(sgd_theta, gdu)
     grad += grad_du
@@ -439,7 +440,7 @@ def batch_sgd(obs_id, sgd_theta, sum_square_grad):
 
 
 def batch_sgd_accumilate(obs_id):
-    #print obs_id, 'end'
+    # print obs_id, 'end'
     pass
 
 
@@ -452,7 +453,7 @@ if __name__ == "__main__":
     opt.add_option("-s", dest="source_corpus", default="experiment/data/toy.en")
     opt.add_option("--tt", dest="target_test", default="experiment/data/toy.fr")
     opt.add_option("--ts", dest="source_test", default="experiment/data/toy.en")
-
+    opt.add_option("--df", dest="dict_features", default=None)
     opt.add_option("--il", dest="intermediate_log", default="0")
     opt.add_option("--iw", dest="input_weights", default=None)
     opt.add_option("--fv", dest="feature_values", default=None)
@@ -472,10 +473,11 @@ if __name__ == "__main__":
     target = [s.strip().split() for s in open(options.target_corpus, 'r').readlines()]
 
     trellis = populate_trellis(source, target, max_jump_width, max_beam_width)
+    FE.load_feature_values(options.feature_values)
+    FE.load_dictionary_features(options.dict_features)
     events_to_features, features_to_events, feature_index, feature_counts, event_index, event_to_event_index, event_counts, normalizing_decision_map, du = populate_features(
         trellis, source, target, model_type)
 
-    FE.load_feature_values(options.feature_values)
     snippet = "#" + str(opt.values) + "\n"
 
     if options.algorithm == "LBFGS":
@@ -499,7 +501,7 @@ if __name__ == "__main__":
             iterations = 0
             while not converged and iterations < 5:
                 t1 = minimize(get_likelihood_with_expected_counts, theta, method='L-BFGS-B', jac=get_gradient, tol=1e-3,
-                              options={'maxfun':5})
+                              options={'maxfun': 5})
                 theta = t1.x
                 new_e = get_likelihood(theta)  # this will also update expected counts
                 converged = round(abs(old_e - new_e), 1) == 0.0
@@ -570,7 +572,7 @@ if __name__ == "__main__":
                 for _ in range(2):
                     random.shuffle(ids)
 
-                    cpu_count =1 # multiprocessing.cpu_count()
+                    cpu_count = 1  # multiprocessing.cpu_count()
                     pool = Pool(processes=cpu_count)
                     for obs_id in ids:
                         pool.apply_async(batch_sgd, args=(obs_id, shared_sgd_theta, shared_sum_squared_grad),
