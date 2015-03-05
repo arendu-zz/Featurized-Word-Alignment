@@ -188,7 +188,7 @@ def get_gradient(theta):
     event_grad = {}
     for event_j in fractional_counts:
         (t, dj, cj) = event_j
-        f_val, f = FE.get_wa_features_fired(type=t, context=cj, decision=dj)[0]
+        f_val, f = FE.get_wa_features_fired(type=t, context=cj, decision=dj)[0]  # 0 is the index of the event feature
         a_dp_ct = exp(get_decision_given_context(theta, decision=dj, context=cj, type=t)) * f_val
         sum_feature_j = 0.0
         norm_events = [(t, dp, cj) for dp in normalizing_decision_map[t, cj]]
@@ -245,9 +245,8 @@ def gradient_check_em():
         ' sign difference', utils.sign_difference(f_approx, my_grad)
 
 
-def gradient_check_lbfgs():
+def gradient_check_lbfgs(init_theta):
     global EPS, feature_index
-    init_theta = initialize_theta(None)
     chk_grad = utils.gradient_checking(init_theta, EPS, get_likelihood)
     my_grad = get_gradient(init_theta)
     diff = []
@@ -316,8 +315,10 @@ if __name__ == "__main__":
     FE.load_dictionary_features(options.dict_features)
     events_to_features, features_to_events, feature_index, feature_counts, event_index, event_to_event_index, event_counts, normalizing_decision_map, du = populate_features(
         trellis, source, target, IBM_MODEL_1)
+    init_theta = initialize_theta(options.input_weights, feature_index)
     snippet = "#" + str(opt.values) + "\n"
-
+    gradient_check_lbfgs(init_theta)
+    pdb.set_trace()
     if options.algorithm == "LBFGS":
         if options.test_gradient.lower() == "true":
             gradient_check_lbfgs()

@@ -372,6 +372,7 @@ if __name__ == "__main__":
         trellis, source, target, HYBRID_MODEL_1)
     source_to_target_firing = get_source_to_target_firing(events_to_features)
     ets = pre_compute_ets(model1_probs, source_to_target_firing, target_types, source_types)
+    print len(feature_index), 'features used...'
     snippet = "#" + str(opt.values) + "\n"
     if options.algorithm == "LBFGS":
         if options.test_gradient:

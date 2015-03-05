@@ -1,5 +1,6 @@
 __author__ = 'arenduchintala'
 import const
+import pdb
 
 global feature_values, dictionay_features
 dictionay_features = {}
@@ -34,18 +35,25 @@ def load_dictionary_features(dict_features_path=None):
     return True
 
 
-def get_wa_features_fired(type, decision, context):
+def get_wa_features_fired(type, decision, context, hybrid=False):
     global feature_values, dictionay_features
     fired_features = []
     if type == const.E_TYPE:
-        val = feature_values.get((const.E_TYPE, decision, context), 1.0)
-        fired_features = [(val, (const.E_TYPE, decision, context))]
+        if not hybrid:
+            val = feature_values.get((const.E_TYPE, decision, context), 1.0)
+            fired_features = [(val, (const.E_TYPE, decision, context))]
 
         if decision == context:
             fired_features += [(1.0, ("IS_SAME", decision, context))]
 
         if (decision, context) in dictionay_features:
             fired_features += [(1.0, ("IN_DICT", decision, context))]
+
+        if decision[0:3] == context[0:3] and hybrid:
+            fired_features += [(1.0, ("FIRST_LETTER", decision[0:3], context[0:3]))]
+
+        # if len(decision) == len(context) and hybrid:
+        # fired_features += [(1.0, ("SAME_LEN", len(decision), len(context)))]
 
         # if context == const.NULL:
         # fired_features += [(-1.0, ("IS_FROM_NULL", context))]

@@ -9,6 +9,7 @@ E_TYPE_SUF = "SUFFIX_FEATURE"
 T_TYPE = "TRANSITION"
 ALL = "ALL_STATES"
 IBM_MODEL_1 = "model1"
+HYBRID_MODEL_1 = "hybrid_model1"
 HMM_MODEL = "hmm"
 EPS = 1e-5
 Po = 0.08

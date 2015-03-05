@@ -83,6 +83,7 @@ def gradient_checking(theta, eps, val):
         theta_plus[i] = theta[i] + eps
         theta_minus[i] = theta[i] - eps
         f_approx[i] = (val(theta_plus) - val(theta_minus)) / (2 * eps)
+        print i, len(theta)
     return f_approx
 
 

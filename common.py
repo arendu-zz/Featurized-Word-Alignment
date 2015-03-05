@@ -1,6 +1,7 @@
 __author__ = 'arenduchintala'
 
-from const import BOUNDARY_END, BOUNDARY_START, NULL, HMM_MODEL, IBM_MODEL_1, E_TYPE, T_TYPE
+import pdb
+from const import BOUNDARY_END, BOUNDARY_START, NULL, HMM_MODEL, IBM_MODEL_1, E_TYPE, T_TYPE, HYBRID_MODEL_1
 import FeatureEng as FE
 import numpy as np
 
@@ -91,7 +92,8 @@ def populate_features(trellis, source, target, model_type):
                 emission_event = (E_TYPE, emission_decision, emission_context)
                 event_index.add(emission_event)
                 event_counts[emission_event] = event_counts.get(emission_event, 1.0)
-                ff_e = FE.get_wa_features_fired(type=E_TYPE, decision=emission_decision, context=emission_context)
+                ff_e = FE.get_wa_features_fired(type=E_TYPE, decision=emission_decision, context=emission_context,
+                                                hybrid=model_type == HYBRID_MODEL_1)
                 for f_wt, f in ff_e:
                     feature_index[f] = len(feature_index) if f not in feature_index else feature_index[f]
                     ca2f = events_to_features.get(emission_event, set([]))
