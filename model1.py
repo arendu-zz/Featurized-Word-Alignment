@@ -49,9 +49,9 @@ if __name__ == "__main__":
     opt.add_option("-s", dest="source_corpus", default="experiment/data/dev.en")
     opt.add_option("--at", dest="target_test", default="experiment/data/dev.es")
     opt.add_option("--as", dest="source_test", default="experiment/data/dev.en")
-    opt.add_option("-i", dest="initial_trans", default="init.trans")
-    opt.add_option("-p", dest="save_trans", default="model1.probs")
-    opt.add_option("-a", dest="ali_out", default="model1.alignment")
+    opt.add_option("-i", dest="initial_trans", default="experiment/data/init.trans")
+    opt.add_option("-p", dest="save_trans", default="experiment/data/model1.probs")
+    opt.add_option("-a", dest="ali_out", default="experiment/data/model1.alignment")
     (options, _) = opt.parse_args()
 
     source = options.source_corpus
@@ -113,7 +113,7 @@ if __name__ == "__main__":
     TYPE = "EMISSION"
     writer = open(save_trans, 'w')
     for k in sorted(translations):
-        v = np.log(translations[k])
+        v = translations[k]
         writer.write(TYPE + '\t' + str('\t'.join(k)) + '\t' + str(v) + '\n')
     writer.flush()
     writer.close()
@@ -136,7 +136,7 @@ if __name__ == "__main__":
                 writer.write(str(dk + 1) + ' ' + str(max_j) + ' ' + str(i + 1) + '\n')
     writer.flush()
     writer.close()
-
+    """
     writer = open(ali_out + '.token', 'w')
     test_source = open(ali_source, 'r').readlines()
     test_target = open(ali_target, 'r').readlines()
@@ -155,5 +155,6 @@ if __name__ == "__main__":
                 writer.write(str(dk + 1) + ' ' + str(source_tokens[max_j]) + ' ' + str(target_tokens[i]) + '\n')
     writer.flush()
     writer.close()
+    """
 
 

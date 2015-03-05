@@ -1,14 +1,13 @@
 __author__ = 'arenduchintala'
-
 from math import log
 from optparse import OptionParser
 
 
 if __name__ == "__main__":
     opt = OptionParser()
-    opt.add_option("-t", dest="target_corpus", default="experiment/data/toy.fr")
-    opt.add_option("-s", dest="source_corpus", default="experiment/data/toy.en")
-    opt.add_option("-o", dest="save_init_trans", default="init.trans")
+    opt.add_option("-t", dest="target_corpus", default="experiment/data/dev.es")
+    opt.add_option("-s", dest="source_corpus", default="experiment/data/dev.en")
+    opt.add_option("-o", dest="save_init_trans", default="experiment/data/init.trans")
     (options, _) = opt.parse_args()
     initial_translation = {}
     translations = {}
@@ -28,22 +27,22 @@ if __name__ == "__main__":
             n_e.update(tokens_target)
             initial_translation[e] = n_e
 
-    for k, v in initial_translation.iteritems():
-        for v_es in v:
-            translations[v_es, k] = 1.0 / len(v)
+    for k, val in initial_translation.iteritems():
+        for v_es in val:
+            translations[v_es, k] = 1.0 / len(val)
 
     TYPE = "EMISSION"
     writer = open(save, 'w')
     for k in sorted(translations):
-        v = translations[k]
-        writer.write(TYPE + '\t' + str('\t'.join(k)) + '\t' + str(v) + '\n')
+        val = translations[k]
+        writer.write(TYPE + '\t' + str('\t'.join(k)) + '\t' + str(val) + '\n')
     writer.flush()
     writer.close()
 
     writer = open(save + ".log", 'w')
     for k in sorted(translations):
-        v = log(translations[k])
-        writer.write(TYPE + '\t' + str('\t'.join(k)) + '\t' + str(v) + '\n')
+        val = log(translations[k])
+        writer.write(TYPE + '\t' + str('\t'.join(k)) + '\t' + str(val) + '\n')
     writer.flush()
     writer.close()
 
