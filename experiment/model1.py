@@ -23,7 +23,7 @@ for debugging purposes
 https://class.coursera.org/nlangp-001/forum/thread?thread_id=940#post-4052
 """
 import numpy as np
-from math import log
+from optparse import OptionParser
 import sys
 
 
@@ -43,28 +43,28 @@ def display_best_alignment(ak, en, es):
         print ik, max_jk, corpus_target[ak][ik], corpus_source[ak][max_jk]
 
 
-def parseargs(args):
-    try:
-        source_idx = args.index('-s')
-        target_idx = args.index('-t')
-        source = args[source_idx + 1]
-        target = args[target_idx + 1]
-        initial_translations = args[args.index('-i') + 1]
-        save_translations_learned = args[args.index('-p') + 1]
-        save_alignment_out = args[args.index('-a') + 1]
-        source_alignment_test = args[args.index('-as') + 1]
-        target_alignment_test = args[args.index('-at') + 1]
-        return source, target, initial_translations, save_translations_learned, save_alignment_out, source_alignment_test, target_alignment_test
-    except (ValueError, IndexError) as er:
-        print 'Usage: python model1.py -t [train target] -s [train source] -i [initial translations] -p [save translations] -a [save alignment test] -as [alignment test source] -at [alignment test target]'
-        exit()
-
-
 if __name__ == "__main__":
+    opt = OptionParser()
+    opt.add_option("-t", dest="target_corpus", default="experiment/data/dev.es")
+    opt.add_option("-s", dest="source_corpus", default="experiment/data/dev.en")
+    opt.add_option("--at", dest="target_test", default="experiment/data/dev.es")
+    opt.add_option("--as", dest="source_test", default="experiment/data/dev.en")
+    opt.add_option("-i", dest="initial_trans", default="experiment/data/init.trans")
+    opt.add_option("-p", dest="save_trans", default="experiment/data/model1.probs")
+    opt.add_option("-a", dest="ali_out", default="experiment/data/model1.alignment")
+    (options, _) = opt.parse_args()
+
+    source = options.source_corpus
+    target = options.target_corpus
+    ali_target = options.target_test
+    ali_source = options.source_test
+    save_trans = options.save_trans
+    ali_out = options.ali_out
+    init_translation = options.initial_trans
+
     delta = {}
     translations = {}
     counts = {}
-    source, target, init_translation, save_trans, ali_out, ali_source, ali_target = parseargs(sys.argv)
     corpus_source = open(source, 'r').readlines()
     corpus_target = open(target, 'r').readlines()
     init_translation = open(init_translation, 'r').readlines()
@@ -83,11 +83,10 @@ if __name__ == "__main__":
     """
     for iter in range(5):
         counts = dict.fromkeys(counts.iterkeys(), 0.0)
+        """
+        accumilate fractional counts, E-Step
+        """
         for k, source_sentence in enumerate(corpus_source):
-            # print iter, k, len(delta), len(translations)
-            # sys.stdout.write('iteration: %d sentence %d len delta %d len translations %d\r' % (
-            # iter, k, len(delta), len(translations)))
-            # sys.stdout.flush()
             target_sentence = corpus_target[k]
             source_tokens = source_sentence.split()
             source_tokens.insert(0, 'NULL')
@@ -97,45 +96,24 @@ if __name__ == "__main__":
                 for i in range(0, len(target_tokens)):
                     t_mat[i][j] = translations[target_tokens[i], source_tokens[j]]
             t_sum = np.sum(t_mat, 1)
-            # print t_mat
-            # print t_sum
+
             for j in range(0, len(source_tokens)):
                 for i in range(0, len(target_tokens)):
                     delta[k, i, j] = t_mat[i][j] / t_sum[i]
                     counts[target_tokens[i], source_tokens[j]] = counts.get((target_tokens[i], source_tokens[j]), 0.0) + \
                                                                  delta[k, i, j]
                     counts[source_tokens[j]] = counts.get(source_tokens[j], 0.0) + delta[k, i, j]
-                    # print tokens_es[i], tokens_en[j], counts[tokens_es[i], tokens_en[j]]
-                    # print tokens_en[j], counts[tokens_en[j]]
-                    # print 'iteration:', iter, 'sentence', k
+
         """
-        update translations
+        update translations, M-Step
         """
         for target_i, source_j in translations:
             translations[target_i, source_j] = counts[target_i, source_j] / counts[source_j]
 
-        """
-        print 'iter', iter
-        print 'delta:'
-        pp(delta)
-        print 'counts:'
-        pp(counts)
-        print 'translations:'
-        pp(translations)
-        """
-        """
-        check how the alignment looks for a particular training pair, a particular sentence
-        """
-
-        """display_best_alignment(1012, corpus_en[1012], corpus_es[1012])
-        display_best_alignment(829, corpus_en[829], corpus_es[829])
-        display_best_alignment(2204, corpus_en[2204], corpus_es[2204])
-        display_best_alignment(4942, corpus_en[4942], corpus_es[4942])"""
-
     TYPE = "EMISSION"
     writer = open(save_trans, 'w')
     for k in sorted(translations):
-        v = np.log(translations[k])
+        v = translations[k]
         writer.write(TYPE + '\t' + str('\t'.join(k)) + '\t' + str(v) + '\n')
     writer.flush()
     writer.close()
@@ -158,7 +136,7 @@ if __name__ == "__main__":
                 writer.write(str(dk + 1) + ' ' + str(max_j) + ' ' + str(i + 1) + '\n')
     writer.flush()
     writer.close()
-
+    """
     writer = open(ali_out + '.token', 'w')
     test_source = open(ali_source, 'r').readlines()
     test_target = open(ali_target, 'r').readlines()
@@ -177,5 +155,6 @@ if __name__ == "__main__":
                 writer.write(str(dk + 1) + ' ' + str(source_tokens[max_j]) + ' ' + str(target_tokens[i]) + '\n')
     writer.flush()
     writer.close()
+    """
 
 
