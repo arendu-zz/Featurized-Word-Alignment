@@ -162,7 +162,6 @@ def get_likelihood(theta):
 
     reg = np.sum(theta ** 2)
     ll = data_likelihood - (rc * reg)
-
     e1 = get_decision_given_context(theta, E_TYPE, decision='.', context=NULL)
     e2 = get_decision_given_context(theta, E_TYPE, decision='.', context='.')
     print 'log likelihood:', ll, 'p(.|NULL)', e1, 'p(.|.)', e2
@@ -188,25 +187,22 @@ def get_gradient(theta):
     global fractional_counts, feature_index, event_grad, rc
     assert len(theta) == len(feature_index)
     event_grad = {}
-    for event_j in fractional_counts:
-        if event_j in events_to_features:
-            (t, dj, cj) = event_j
-            f_val, f = FE.get_wa_features_fired(type=t, context=cj, decision=dj)[0]
-            a_dp_ct = exp(get_decision_given_context(theta, decision=dj, context=cj, type=t)) * f_val
-            sum_feature_j = 0.0
-            norm_events = [(t, dp, cj) for dp in normalizing_decision_map[t, cj]]
-            for event_i in norm_events:
-                A_dct = exp(fractional_counts.get(event_i, 0.0))
-                if event_i == event_j:
-                    (ti, di, ci) = event_i
-                    fj, f = FE.get_wa_features_fired(type=ti, context=ci, decision=di)[0]
-                else:
-                    fj = 0.0
-                sum_feature_j += A_dct * (fj - a_dp_ct)
-            event_grad[event_j] = sum_feature_j  # - abs(theta[event_j])  # this is the regularizing term
-        else:
-            # dont need to compute gradient for this event
-            pass
+    for event_j in events_to_features:
+        (t, dj, cj) = event_j
+        f_val, f = FE.get_wa_features_fired(type=t, context=cj, decision=dj)[0]
+        a_dp_ct = exp(get_decision_given_context(theta, decision=dj, context=cj, type=t)) * f_val
+        sum_feature_j = 0.0
+        norm_events = [(t, dp, cj) for dp in normalizing_decision_map[t, cj]]
+        for event_i in norm_events:
+            A_dct = exp(fractional_counts.get(event_i, 0.0))
+            if event_i == event_j:
+                (ti, di, ci) = event_i
+                fj, f = FE.get_wa_features_fired(type=ti, context=ci, decision=di)[0]
+            else:
+                fj = 0.0
+            sum_feature_j += A_dct * (fj - a_dp_ct)
+        event_grad[event_j] = sum_feature_j  # - abs(theta[event_j])  # this is the regularizing term
+
 
     # grad = np.zeros_like(theta)
     grad = -2 * rc * theta  # l2 regularization with lambda 0.5

@@ -50,7 +50,10 @@ def get_wa_features_fired(type, decision, context, hybrid=False):
             fired_features += [(1.0, ("IN_DICT", decision, context))]
 
         if decision[0:3] == context[0:3] and hybrid:
-            fired_features += [(1.0, ("FIRST_LETTER", decision[0:3], context[0:3]))]
+            fired_features += [(1.0, ("PREFFIX3", decision[0:3], context[0:3]))]
+
+        if decision[-3:] == context[-3:] and hybrid:
+            fired_features += [(1.0, ("SUFFIX3", decision[-3:], context[-3:]))]
 
         # if len(decision) == len(context) and hybrid:
         # fired_features += [(1.0, ("SAME_LEN", len(decision), len(context)))]

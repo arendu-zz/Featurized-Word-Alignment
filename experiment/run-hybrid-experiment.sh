@@ -19,14 +19,14 @@ cat $TARGET_TRAIN >> $TARGET_FULL
 rm mp.*
 rm sp.*
 python initial_translation.py  -s $SOURCE_FULL -t $TARGET_FULL  -o initial.trans 
-time python model1.py -s $SOURCE_FULL -t $TARGET_FULL -i initial.trans -p model1.probs -a model1.alignments -as $SOURCE_TEST -at $TARGET_TEST
+time python model1.py -s $SOURCE_FULL -t $TARGET_FULL -i initial.trans -p model1.probs -a model1.alignments --as $SOURCE_TEST --at $TARGET_TEST
 
 #python editdistance.py -i initial.trans > initial.feature.values
 for ALGO in "LBFGS"  
 do
-    for RC in 0.005 
+    for RC in 0.0
     do
-        time python ../hybrid_model1.py -s $SOURCE_FULL -t $TARGET_FULL -a $ALGO  --m1 model1.probs --ts $SOURCE_TEST --tt $TARGET_TEST -r $RC 
+        time python ../hybrid_model1.py -s $SOURCE_FULL -t $TARGET_FULL -a $ALGO  --m1 model1.probs --ts $SOURCE_TEST --tt $TARGET_TEST -r $RC  --df $DICT_PATH
         time python ../hybrid_model1_mp.py -s $SOURCE_FULL -t $TARGET_FULL -a $ALGO  --m1 model1.probs --ts $SOURCE_TEST --tt $TARGET_TEST -r $RC --df $DICT_PATH
         echo "."
     done
@@ -40,7 +40,7 @@ python eval_alignment.py $KEY model1.alignments
 
 for ALGO in "LBFGS" 
 do
-    for RC in 0.005
+    for RC in 0.0
     do
         echo ""
         echo "*********SIMPLE "$ALGO " RC:"$RC"********"

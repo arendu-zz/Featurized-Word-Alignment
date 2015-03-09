@@ -47,8 +47,8 @@ if __name__ == "__main__":
     opt = OptionParser()
     opt.add_option("-t", dest="target_corpus", default="experiment/data/dev.es")
     opt.add_option("-s", dest="source_corpus", default="experiment/data/dev.en")
-    opt.add_option("--at", dest="target_test", default="experiment/data/dev.es")
-    opt.add_option("--as", dest="source_test", default="experiment/data/dev.en")
+    opt.add_option("--at", dest="target_test", default=None)
+    opt.add_option("--as", dest="source_test", default=None)
     opt.add_option("-i", dest="initial_trans", default="experiment/data/init.trans")
     opt.add_option("-p", dest="save_trans", default="experiment/data/model1.probs")
     opt.add_option("-a", dest="ali_out", default="experiment/data/model1.alignment")
@@ -56,8 +56,8 @@ if __name__ == "__main__":
 
     source = options.source_corpus
     target = options.target_corpus
-    ali_target = options.target_test
-    ali_source = options.source_test
+    ali_target = options.target_test if options.target_test is not None else options.target_corpus
+    ali_source = options.source_test if options.source_test is not None else options.source_corpus
     save_trans = options.save_trans
     ali_out = options.ali_out
     init_translation = options.initial_trans
