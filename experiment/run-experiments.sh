@@ -15,7 +15,7 @@ cat $SOURCE_TRAIN >> $SOURCE_FULL
 cat $TARGET_TEST > $TARGET_FULL
 cat $TARGET_TRAIN >> $TARGET_FULL
 
-python initial_translation.py  -s $SOURCE_FULL -t $TARGET_FULL  -o initial.trans -m uniform
+python initial_translation.py  -s $SOURCE_FULL -t $TARGET_FULL  -o initial.trans 
 python editdistance.py -i initial.trans > initial.feature.values
 for ALGO in  "LBFGS" "EM"
 do

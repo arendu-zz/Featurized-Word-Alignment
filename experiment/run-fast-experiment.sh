@@ -1,11 +1,11 @@
 #!/bin/sh
 SOURCE_FULL="source_full.tmp"
 TARGET_FULL="target_full.tmp"
-SOURCE_TRAIN="data/dev.small.en"
-TARGET_TRAIN="data/dev.small.es"
-SOURCE_TEST="data/dev.small.en"
-TARGET_TEST="data/dev.small.es"
-KEY="data/dev.small.key"
+SOURCE_TRAIN="data/train.en"
+TARGET_TRAIN="data/train.es"
+SOURCE_TEST="data/dev.en"
+TARGET_TEST="data/dev.es"
+KEY="data/dev.key"
 MODEL="fast-model1"
 echo "training files:" $SOURCE_TRAIN ","  $TARGET_TRAIN
 echo "testing  files:" $SOURCE_TEST "," $TARGET_TEST
@@ -16,13 +16,13 @@ cat $SOURCE_TRAIN >> $SOURCE_FULL
 cat $TARGET_TEST > $TARGET_FULL
 cat $TARGET_TRAIN >> $TARGET_FULL
 
-python initial_translation.py  -s $SOURCE_FULL -t $TARGET_FULL  -o initial.trans -m uniform
+python initial_translation.py  -s $SOURCE_FULL -t $TARGET_FULL  -o initial.trans
 #python editdistance.py -i initial.trans > initial.feature.values
-for ALGO in "EM" 
+for ALGO in "EM-SGD-PARALLEL" 
 do
     for RC in 0.0 
     do
-        time python ../featurized_fast_align_mp.py -s $SOURCE_FULL -t $TARGET_FULL -a $ALGO  --iw initial.trans --ts $SOURCE_TEST --tt $TARGET_TEST -r $RC
+        #time python ../featurized_fast_align_mp.py -s $SOURCE_FULL -t $TARGET_FULL -a $ALGO  --iw initial.trans --ts $SOURCE_TEST --tt $TARGET_TEST -r $RC
         echo "."
     done
 done
