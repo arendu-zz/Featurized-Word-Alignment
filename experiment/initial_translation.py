@@ -39,10 +39,4 @@ if __name__ == "__main__":
     writer.flush()
     writer.close()
 
-    writer = open(save + ".log", 'w')
-    for k in sorted(translations):
-        val = log(translations[k])
-        writer.write(TYPE + '\t' + str('\t'.join(k)) + '\t' + str(val) + '\n')
-    writer.flush()
-    writer.close()
 

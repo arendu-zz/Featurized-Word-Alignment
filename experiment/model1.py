@@ -45,13 +45,13 @@ def display_best_alignment(ak, en, es):
 
 if __name__ == "__main__":
     opt = OptionParser()
-    opt.add_option("-t", dest="target_corpus", default="experiment/data/dev.es")
-    opt.add_option("-s", dest="source_corpus", default="experiment/data/dev.en")
+    opt.add_option("-t", dest="target_corpus", default="data/dev.es")
+    opt.add_option("-s", dest="source_corpus", default="data/dev.en")
     opt.add_option("--at", dest="target_test", default=None)
     opt.add_option("--as", dest="source_test", default=None)
-    opt.add_option("-i", dest="initial_trans", default="experiment/data/init.trans")
-    opt.add_option("-p", dest="save_trans", default="experiment/data/model1.probs")
-    opt.add_option("-a", dest="ali_out", default="experiment/data/model1.alignment")
+    opt.add_option("-i", dest="initial_trans", default="init.trans")
+    opt.add_option("-p", dest="save_trans", default="model1.probs")
+    opt.add_option("-a", dest="ali_out", default="model1.alignment")
     (options, _) = opt.parse_args()
 
     source = options.source_corpus
@@ -76,13 +76,14 @@ if __name__ == "__main__":
             pass  # it is a comment
         else:
             [emission, t, s, p] = line.split()
-            translations[t, s] = np.exp(float(p))
+            translations[t, s] = float(p)
 
     """
     EM iterations
     """
-    for iter in range(5):
-        counts = dict.fromkeys(counts.iterkeys(), 0.0)
+    for iter in range(6):
+        delta = {}
+        counts = {}
         """
         accumilate fractional counts, E-Step
         """
