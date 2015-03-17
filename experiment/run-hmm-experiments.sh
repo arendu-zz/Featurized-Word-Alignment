@@ -1,11 +1,6 @@
 #!/bin/sh
 SOURCE_FULL="source_full.tmp"
 TARGET_FULL="target_full.tmp"
-SOURCE_TRAIN="data/dev.small.en"
-TARGET_TRAIN="data/dev.small.es"
-SOURCE_TEST="data/dev.small.en"
-TARGET_TEST="data/dev.small.es"
-KEY="data/dev.small.key"
 echo "training files:" $SOURCE_TRAIN ","  $TARGET_TRAIN
 echo "testing  files:" $SOURCE_TEST "," $TARGET_TEST
 touch $SOURCE_FULL

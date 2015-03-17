@@ -1,11 +1,8 @@
 #!/bin/sh
+source ./config.cfg
 SOURCE_FULL="source_full.tmp"
 TARGET_FULL="target_full.tmp"
-SOURCE_TRAIN="data/train.en"
-TARGET_TRAIN="data/train.es"
-SOURCE_TEST="data/dev.en"
-TARGET_TEST="data/dev.es"
-KEY="data/dev.key"
+DICT_PATH="data/dictionary_features.es-en"
 MODEL="fast-model1"
 echo "training files:" $SOURCE_TRAIN ","  $TARGET_TRAIN
 echo "testing  files:" $SOURCE_TEST "," $TARGET_TEST
@@ -16,35 +13,41 @@ cat $SOURCE_TRAIN >> $SOURCE_FULL
 cat $TARGET_TEST > $TARGET_FULL
 cat $TARGET_TRAIN >> $TARGET_FULL
 
-python initial_translation.py  -s $SOURCE_FULL -t $TARGET_FULL  -o initial.trans
-#python editdistance.py -i initial.trans > initial.feature.values
-for ALGO in "EM-SGD-PARALLEL" 
+python ${CODE_DIR}/initial_translation.py  -s $SOURCE_FULL -t $TARGET_FULL  -o initial.trans
+time python ${CODE_DIR}/model1.py -s $SOURCE_FULL -t $TARGET_FULL -i initial.trans -p model1.probs -a model1.alignments --as $SOURCE_TEST --at $TARGET_TEST
+for ALGO in "LBFGS" "EM"
 do
-    for RC in 0.0 
+    for RC in 0.0
     do
-        #time python ../featurized_fast_align_mp.py -s $SOURCE_FULL -t $TARGET_FULL -a $ALGO  --iw initial.trans --ts $SOURCE_TEST --tt $TARGET_TEST -r $RC
+        time python ${CODE_DIR}/featurized_fast_align.py -s $SOURCE_FULL -t $TARGET_FULL -a $ALGO  --iw initial.trans --ts $SOURCE_TEST --tt $TARGET_TEST -r $RC --df $DICT_PATH
+        time python ${CODE_DIR}/featurized_fast_align_mp.py -s $SOURCE_FULL -t $TARGET_FULL -a $ALGO  --iw initial.trans --ts $SOURCE_TEST --tt $TARGET_TEST -r $RC --df $DICT_PATH
         echo "."
     done
 done
 
 
-time python model1.py -s $SOURCE_FULL -t $TARGET_FULL -i initial.trans -p model1.probs -a model1.alignments --as $SOURCE_TEST --at $TARGET_TEST
+
 echo ""
 echo "********Baseline********"
 echo ""
-python eval_alignment.py $KEY model1.alignments
-for MODEL in "fast-model1"
+python ${TOOLS_DIR}/eval_alignment.py $KEY model1.alignments
+
+for ALGO in "LBFGS" "EM"
 do
-for ALGO in "EM" 
-do
-    for RC in 0.0 
+    for RC in 0.0
     do
         echo ""
-        echo "********* MODEL:"$MODEL" ALGO:"$ALGO " RC:"$RC"********"
+        echo "*********SIMPLE "$ALGO " RC:"$RC"********"
         echo ""
-        python eval_alignment.py $KEY mp.$ALGO.$RC.$MODEL.bin.alignments.col
+        python ${TOOLS_DIR}/eval_alignment.py $KEY sp.$ALGO.$RC.$MODEL.bin.alignments.col
+        python ${TOOLS_DIR}/eval_alignment.py $KEY mp.$ALGO.$RC.$MODEL.bin.alignments.col
     done
 done
-done
+echo "deleting files..."
 rm $SOURCE_FULL
-rm $TARGET_FULL 
+rm $TARGET_FULL
+rm initial.trans
+rm model1.probs
+rm model1.alignments
+rm mp.*
+rm sp.*

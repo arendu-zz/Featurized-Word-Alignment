@@ -1,11 +1,6 @@
 #!/bin/sh
 SOURCE_FULL="source_full.tmp"
 TARGET_FULL="target_full.tmp"
-SOURCE_TRAIN="data/dev.en"
-TARGET_TRAIN="data/dev.es"
-SOURCE_TEST="data/dev.en"
-TARGET_TEST="data/dev.es"
-KEY="data/dev.key"
 MODEL="model1"
 ALGO="EM"
 echo "training files:" $SOURCE_TRAIN ","  $TARGET_TRAIN
