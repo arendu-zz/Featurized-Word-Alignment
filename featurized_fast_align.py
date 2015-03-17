@@ -4,7 +4,6 @@ from optparse import OptionParser
 from math import exp, log
 from scipy.optimize import minimize
 import numpy as np
-import FeatureEng as FE
 import utils
 import copy
 import pdb
@@ -13,15 +12,17 @@ from math import floor
 np.seterr(all='raise')
 
 from const import NULL, BOUNDARY_START, BOUNDARY_END, IBM_MODEL_1, HMM_MODEL, E_TYPE, T_TYPE, EPS, Po
-from common import populate_trellis, populate_features, write_alignments, write_alignments_col, \
-    write_alignments_col_tok, write_probs, write_weights, initialize_theta
+from cyth.cyth_common import populate_trellis, populate_features, write_alignments, write_alignments_col, \
+    write_alignments_col_tok, write_probs, write_weights, initialize_theta, get_wa_features_fired, \
+    load_dictionary_features
 
 
 global cache_normalizing_decision, features_to_events, events_to_features, normalizing_decision_map, num_toks
 global trellis, max_jump_width, number_of_events, EPS, snippet, max_beam_width, rc
 global source, target, data_likelihood, event_grad, feature_index, event_index
-global events_per_trellis, event_to_event_index, has_pos, event_counts, du, itercount, N
+global events_per_trellis, event_to_event_index, has_pos, event_counts, du, itercount, N, dictionary_features
 global diagonal_tension, emp_feat
+dictionary_features = {}
 has_pos = False
 event_grad = {}
 data_likelihood = 0.0
@@ -101,8 +102,9 @@ def h(i, j, m, n):
 
 
 def get_decision_given_context(theta, type, decision, context):
-    global normalizing_decision_map, cache_normalizing_decision, feature_index
-    fired_features = FE.get_wa_features_fired(type=type, context=context, decision=decision)
+    global normalizing_decision_map, cache_normalizing_decision, feature_index, dictionary_features
+    fired_features = get_wa_features_fired(type=type, context=context, decision=decision,
+                                           dictionary_features=dictionary_features)
 
     theta_dot_features = sum([theta[feature_index[f]] * f_wt for f_wt, f in fired_features])
 
@@ -112,7 +114,8 @@ def get_decision_given_context(theta, type, decision, context):
         normalizing_decisions = normalizing_decision_map[type, context]
         theta_dot_normalizing_features = 0
         for d in normalizing_decisions:
-            d_features = FE.get_wa_features_fired(type=type, context=context, decision=d)
+            d_features = get_wa_features_fired(type=type, context=context, decision=d,
+                                               dictionary_features=dictionary_features)
             theta_dot_normalizing_features += exp(sum([theta[feature_index[f]] * f_wt for f_wt, f in d_features]))
 
         theta_dot_normalizing_features = log(theta_dot_normalizing_features)
@@ -247,13 +250,14 @@ def get_likelihood_with_expected_counts(theta):
 
 
 def get_gradient(theta):
-    global fractional_counts, feature_index, event_grad, rc
+    global fractional_counts, feature_index, event_grad, rc, dictionary_features
     assert len(theta) == len(feature_index)
     event_grad = {}
     for event_j in fractional_counts:
         (t, dj, cj) = event_j
         if t == E_TYPE:
-            f_val, f = FE.get_wa_features_fired(type=t, context=cj, decision=dj)[0]
+            f_val, f = get_wa_features_fired(type=t, context=cj, decision=dj, dictionary_features=dictionary_features)[
+                0]
             a_dp_ct = exp(get_decision_given_context(theta, decision=dj, context=cj, type=t)) * f_val
             sum_feature_j = 0.0
             norm_events = [(t, dp, cj) for dp in normalizing_decision_map[t, cj]]
@@ -262,7 +266,9 @@ def get_gradient(theta):
                 # print isinstance(event_j, tuple), isinstance(event_i, tuple)
                 if event_i == event_j:
                     (ti, di, ci) = event_i
-                    fj, f = FE.get_wa_features_fired(type=ti, context=ci, decision=di)[0]
+                    fj, f = \
+                        get_wa_features_fired(type=ti, context=ci, decision=di,
+                                              dictionary_features=dictionary_features)[0]
                 else:
                     fj = 0.0
                 sum_feature_j += A_dct * (fj - a_dp_ct)
@@ -396,10 +402,9 @@ if __name__ == "__main__":
     num_toks = len(open(options.target_corpus, 'r').read().split())
     diagonal_tension = 4.0
     trellis = populate_trellis(source, target, max_jump_width, max_beam_width)
-    FE.load_feature_values(options.feature_values)
-    FE.load_dictionary_features(options.dict_features)
+    dictionary_features = load_dictionary_features(options.dict_features)
     events_to_features, features_to_events, feature_index, feature_counts, event_index, event_to_event_index, event_counts, normalizing_decision_map, du = populate_features(
-        trellis, source, target, IBM_MODEL_1)
+        trellis, source, target, IBM_MODEL_1, dictionary_features)
     snippet = "#" + str(opt.values) + "\n"
 
     if options.algorithm == "LBFGS":
