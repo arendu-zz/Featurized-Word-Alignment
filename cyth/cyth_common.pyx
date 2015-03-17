@@ -1,18 +1,32 @@
 import numpy as np
 
+def load_dictionary_features(dict_features_path=None):
+    dictionary_features = {}
+    if dict_features_path is None:
+        print 'no dictionary features...'
+        return dictionary_features
+    else:
+        df = open(dict_features_path, 'r').readlines()
+        for line in df:
+            line = line.strip()
+            if line is not '':
+                terms, v = line.strip().split('\t')
+                t1, t2 = terms.split('|||')
+                dictionary_features[t1, t2] = v
+        print 'loaded ', len(dictionary_features), ' dictionary features...'
+        return dictionary_features
 
-def get_wa_features_fired(type, decision, context, hybrid=False):
+def get_wa_features_fired(type, decision, context, dictionary_features, hybrid=False):
     fired_features = []
     if type == "EMISSION":
         if not hybrid:
-            val = 1.0
-            fired_features = [(val, ("EMISSION", decision, context))]
+            fired_features = [(1.0, ("EMISSION", decision, context))]
 
         if decision == context:
             fired_features += [(1.0, ("IS_SAME", decision, context))]
 
-        #if (decision, context) in dictionay_features:
-        #    fired_features += [(1.0, ("IN_DICT", decision, context))]
+        if dictionary_features is not None and (decision, context) in dictionary_features:
+            fired_features += [(1.0, ("IN_DICT", decision, context))]
 
         if decision[0:3] == context[0:3] and hybrid:
             fired_features += [(1.0, ("PREFFIX3", decision[0:3], context[0:3]))]
@@ -20,6 +34,20 @@ def get_wa_features_fired(type, decision, context, hybrid=False):
         if decision[-3:] == context[-3:] and hybrid:
             fired_features += [(1.0, ("SUFFIX3", decision[-3:], context[-3:]))]
 
+        # if len(decision) == len(context) and hybrid:
+        # fired_features += [(1.0, ("SAME_LEN", len(decision), len(context)))]
+
+        # if context == "NULL":
+        # fired_features += [(-1.0, ("IS_FROM_NULL", context))]
+
+        # if const.has_pos:
+        # decision_pos = decision.split("_")[1]
+        # context_pos = context.split("_")[1]
+        # if decision_pos == context_pos:
+        # fired_features += [(1.0, ("IS_POS_SAME", decision_pos, context_pos))]
+
+        """if decision[0].isupper() and context[0].isupper() and context != "NULL":
+            fired_features += [("IS_UPPER", decision, context)]"""
     elif type == "TRANSITION":
         p = context
         if decision != "NULL" and p != "NULL":
@@ -86,7 +114,7 @@ def populate_trellis(source_corpus, target_corpus, max_jump_width, max_beam_widt
         trellis.append(trelli)
     return trellis
 
-def populate_features(trellis, source, target, model_type):
+def populate_features(trellis, source, target, model_type, dictionary_features):
     events_to_features = {}
     features_to_events = {}
     feature_index = {}
@@ -116,7 +144,8 @@ def populate_features(trellis, source, target, model_type):
                 event_index.add(emission_event)
                 event_counts[emission_event] = event_counts.get(emission_event, 1.0)
                 ff_e = get_wa_features_fired(type="EMISSION", decision=emission_decision, context=emission_context,
-                                             hybrid=model_type == "hybrid_model1")
+                                             hybrid=model_type == "hybrid_model1",
+                                             dictionary_features=dictionary_features)
                 for f_wt, f in ff_e:
                     feature_index[f] = len(feature_index) if f not in feature_index else feature_index[f]
                     ca2f = events_to_features.get(emission_event, set([]))
@@ -138,7 +167,8 @@ def populate_features(trellis, source, target, model_type):
                         event_index.add(transition_event)
                         event_counts[transition_event] = event_counts.get(transition_event, 1.0)
                         ff_t = get_wa_features_fired(type="TRANSITION", decision=transition_decision,
-                                                     context=transition_context)
+                                                     context=transition_context,
+                                                     dictionary_features=dictionary_features)
 
                         ndm = normalizing_decision_map.get(("TRANSITION", transition_context), set([]))
                         ndm.add(transition_decision)
@@ -162,14 +192,6 @@ def populate_features(trellis, source, target, model_type):
     event_index = sorted(list(event_index))
     for ei, e in enumerate(event_index):
         event_to_event_index[e] = ei
-
-    # LAMBDA FEATURE
-    # if use_lambda_feature:
-    # f = LAMBDA_FEATURE
-    # feature_index[f] = len(feature_index) if f not in feature_index else feature_index[f]
-    # print LAMBDA_FEATURE, 'index', feature_index[LAMBDA_FEATURE]
-    # else:
-    # print 'not using lambda feature'
 
     return events_to_features, \
            features_to_events, \

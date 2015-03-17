@@ -5,11 +5,9 @@ from math import exp, log
 
 from scipy.optimize import minimize
 import numpy as np
-import FeatureEng as FE
+
 import utils
 import copy
-import pdb
-from pprint import pprint
 import traceback
 import random
 import sharedmem
@@ -17,14 +15,16 @@ import multiprocessing
 from multiprocessing import Pool
 
 from const import NULL, BOUNDARY_START, BOUNDARY_END, HYBRID_MODEL_1, E_TYPE, T_TYPE, EPS
-from common import populate_trellis, populate_features, write_alignments, write_alignments_col, \
-    write_alignments_col_tok, write_probs, write_weights, initialize_theta
+from cyth.cyth_common import populate_trellis, populate_features, write_alignments, write_alignments_col, \
+    write_alignments_col_tok, write_probs, write_weights, initialize_theta, get_wa_features_fired, \
+    load_dictionary_features
 
 
 global cache_normalizing_decision, features_to_events, events_to_features, normalizing_decision_map
 global trellis, max_jump_width, number_of_events, EPS, snippet, max_beam_width, rc
 global source, target, data_likelihood, event_grad, feature_index, event_index
-global events_per_trellis, event_to_event_index, has_pos, event_counts, du, itercount, N
+global events_per_trellis, event_to_event_index, has_pos, event_counts, du, itercount, N, dictionary_features, model1_probs
+dictionary_features = {}
 has_pos = False
 event_grad = {}
 data_likelihood = 0.0
@@ -76,7 +76,8 @@ def populate_events_per_trellis():
 def get_decision_given_context(theta, type, decision, context):
     global cache_normalizing_decision, feature_index, source_to_target_firing, model1_probs, ets
     m1_event_prob = model1_probs.get((decision, context), 0.0)
-    fired_features = FE.get_wa_features_fired(type=type, decision=decision, context=context, hybrid=True)
+    fired_features = get_wa_features_fired(type=type, decision=decision, context=context,
+                                           dictionary_features=dictionary_features, hybrid=True)
     theta_dot_features = sum([theta[feature_index[f]] * f_wt for f_wt, f in fired_features])
     numerator = m1_event_prob * exp(theta_dot_features)
     if (type, context) in cache_normalizing_decision:
@@ -86,7 +87,8 @@ def get_decision_given_context(theta, type, decision, context):
         target_firings = source_to_target_firing.get(context, set([]))
         for tf in target_firings:
             m1_tf_event_prob = model1_probs.get((tf, context), 0.0)
-            tf_fired_features = FE.get_wa_features_fired(type=type, decision=tf, context=context, hybrid=True)
+            tf_fired_features = get_wa_features_fired(type=type, decision=tf, context=context,
+                                                      dictionary_features=dictionary_features, hybrid=True)
             tf_theta_dot_features = sum([theta[feature_index[f]] * f_wt for f_wt, f in tf_fired_features])
             denom += m1_tf_event_prob * exp(tf_theta_dot_features)
         cache_normalizing_decision[type, context] = denom
@@ -231,7 +233,8 @@ def batch_gradient(theta, batch_fractional_counts):
         try:
             event_j = tuple(event_j)
             (t, dj, cj) = event_j
-            f_val, f = FE.get_wa_features_fired(type=t, context=cj, decision=dj)[
+            f_val, f = get_wa_features_fired(type=t, context=cj, decision=dj, dictionary_features=dictionary_features,
+                                             hybrid=True)[
                 0]  # TODO: this only works in basic feat
             a_dp_ct = exp(get_decision_given_context(theta, decision=dj, context=cj, type=t)) * f_val
             sum_feature_j = 0.0
@@ -241,8 +244,10 @@ def batch_gradient(theta, batch_fractional_counts):
                 A_dct = exp(fractional_counts.get(event_i, 0.0))
                 if event_i == event_j:
                     (ti, di, ci) = event_i
-                    fj, f = FE.get_wa_features_fired(type=ti, context=ci, decision=di)[
-                        0]  # TODO: this only works in basic
+                    fj, f = \
+                        get_wa_features_fired(type=ti, context=ci, decision=di, dictionary_features=dictionary_features,
+                                              hybrid=True)[
+                            0]  # TODO: this only works in basic
                 else:
                     fj = 0.0
                 sum_feature_j += A_dct * (fj - a_dp_ct)
@@ -388,7 +393,10 @@ def get_source_to_target_firing(eve_to_feat):
 def load_model1_probs(path_model1_probs):
     m1_probs = {}
     for line in open(path_model1_probs, 'r').readlines():
-        prob_type, tar, src, prob = line.strip().split()
+        try:
+            prob_type, tar, src, prob, ex1 = line.strip().split()
+        except ValueError, err:
+            prob_type, tar, src, prob = line.strip().split()
         prob = float(prob)
         m1_probs[tar, src] = prob
     m1_probs[BOUNDARY_END, BOUNDARY_END] = 1.0
@@ -493,11 +501,11 @@ if __name__ == "__main__":
     source_types = set(open(options.source_corpus, 'r').read().split())
     source_types.add(NULL)
     trellis = populate_trellis(source, target, max_jump_width, max_beam_width)
-    FE.load_feature_values(options.feature_values)
-    FE.load_dictionary_features(options.dict_features)
+
+    dictionary_features = load_dictionary_features(options.dict_features)
     model1_probs = load_model1_probs(options.model1_probs)
     events_to_features, features_to_events, feature_index, feature_counts, event_index, event_to_event_index, event_counts, normalizing_decision_map, du = populate_features(
-        trellis, source, target, HYBRID_MODEL_1)
+        trellis, source, target, HYBRID_MODEL_1, dictionary_features)
     source_to_target_firing = get_source_to_target_firing(events_to_features)
     ets = pre_compute_ets(model1_probs, source_to_target_firing, target_types, source_types)
     print len(feature_index), 'features used...'
