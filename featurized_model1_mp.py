@@ -18,7 +18,7 @@ from multiprocessing import Pool
 from const import NULL, BOUNDARY_START, IBM_MODEL_1, HMM_MODEL, E_TYPE, T_TYPE, EPS
 from cyth.cyth_common import populate_trellis, populate_features, write_alignments, write_alignments_col, \
     write_alignments_col_tok, write_probs, write_weights, initialize_theta, get_wa_features_fired, \
-    load_dictionary_features
+    load_dictionary_features, load_corpus_file
 
 
 global cache_normalizing_decision, features_to_events, events_to_features, normalizing_decision_map
@@ -443,8 +443,8 @@ if __name__ == "__main__":
 
     (options, _) = opt.parse_args()
     rc = float(options.regularization_coeff)
-    source = [s.strip().split() for s in open(options.source_corpus, 'r').readlines()]
-    target = [s.strip().split() for s in open(options.target_corpus, 'r').readlines()]
+    source, source_types = load_corpus_file(options.source_corpus)
+    target, target_types = load_corpus_file(options.target_corpus)
     trellis = populate_trellis(source, target, max_jump_width, max_beam_width)
 
     dictionary_features = load_dictionary_features(options.dict_features)

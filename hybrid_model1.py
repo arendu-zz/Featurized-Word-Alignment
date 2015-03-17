@@ -8,10 +8,10 @@ import numpy as np
 import utils
 import copy
 
-from const import NULL, BOUNDARY_START, BOUNDARY_END, HYBRID_MODEL_1, E_TYPE
+from const import NULL, HYBRID_MODEL_1, E_TYPE
 from cyth.cyth_common import populate_trellis, populate_features, write_alignments, write_alignments_col, \
     write_alignments_col_tok, write_probs, write_weights, initialize_theta, get_wa_features_fired, \
-    load_dictionary_features
+    load_dictionary_features, load_model1_probs, get_source_to_target_firing, pre_compute_ets, load_corpus_file
 
 
 global cache_normalizing_decision, features_to_events, events_to_features, normalizing_decision_map
@@ -148,9 +148,10 @@ def reset_fractional_counts():
 
 
 def get_likelihood(theta):
+    global trellis, data_likelihood, rc, fractional_counts
     assert isinstance(theta, np.ndarray)
     assert len(theta) == len(feature_index)
-    global trellis, data_likelihood, rc, fractional_counts
+
     reset_fractional_counts()
     data_likelihood = 0.0
     batch = range(0, len(trellis))
@@ -183,7 +184,7 @@ def get_likelihood_with_expected_counts(theta):
 
 
 def get_gradient(theta):
-    global fractional_counts, feature_index, event_grad, rc
+    global fractional_counts, feature_index, event_grad, rc, dictionary_features
     assert len(theta) == len(feature_index)
     event_grad = {}
     for event_j in events_to_features:
@@ -266,57 +267,6 @@ def gradient_check_lbfgs(init_theta):
         ' sign difference', utils.sign_difference(chk_grad, my_grad)
 
 
-def batch_sgd_accumilate(obs_id):
-    print obs_id
-
-
-def load_model1_probs(path_model1_probs):
-    m1_probs = {}
-    for line in open(path_model1_probs, 'r').readlines():
-        try:
-            prob_type, tar, src, prob, ex1 = line.strip().split()
-        except ValueError, err:
-            prob_type, tar, src, prob = line.strip().split()
-        prob = float(prob)
-        m1_probs[tar, src] = prob
-    m1_probs[BOUNDARY_END, BOUNDARY_END] = 1.0
-    m1_probs[BOUNDARY_START, BOUNDARY_START] = 1.0
-    return m1_probs
-
-
-def pre_compute_ets(m1_probs, src_to_tar, t_types, s_types):
-    _ets = {}
-    c = 0
-    for s in s_types:
-        sum_s = 0.0
-        t1 = t_types - src_to_tar.get(s, set([]))  # TODO: can speed up by only iterating over co-occuring t_types
-        for t in t1:
-            if t is BOUNDARY_START and s is BOUNDARY_START:
-                pass
-            elif t is BOUNDARY_END and s is BOUNDARY_END:
-                pass
-            elif (t, s) in m1_probs:
-                c += 1
-                sum_s += m1_probs[t, s]
-            else:
-                # t,s do not co-occur so we are adding 0.0 to sum_s (or -inf to log sum_s)
-                pass
-        _ets[s] = sum_s
-    _ets[BOUNDARY_START] = 1.0
-    _ets[BOUNDARY_END] = 1.0
-    return _ets
-
-
-def get_source_to_target_firing(eve_to_feat):
-    src_to_tar = {}
-    for e in eve_to_feat:
-        event_type, decision, context = e
-        tar_l = src_to_tar.get(context, set([]))
-        tar_l.add(decision)
-        src_to_tar[context] = tar_l
-    return src_to_tar
-
-
 def write_logs(theta, current_iter):
     global max_beam_width, max_jump_width, trellis, feature_index, fractional_counts
     feature_val_typ = 'bin' if options.feature_values is None else 'real'
@@ -342,10 +292,10 @@ if __name__ == "__main__":
     trellis = []
 
     opt = OptionParser()
-    opt.add_option("-t", dest="target_corpus", default="experiment/data/dev.es")
-    opt.add_option("-s", dest="source_corpus", default="experiment/data/dev.en")
-    opt.add_option("--tt", dest="target_test", default="experiment/data/dev.es")
-    opt.add_option("--ts", dest="source_test", default="experiment/data/dev.en")
+    opt.add_option("-t", dest="target_corpus", default="experiment/data/train.es")
+    opt.add_option("-s", dest="source_corpus", default="experiment/data/train.en")
+    opt.add_option("--tt", dest="target_test", default="experiment/data/train.es")
+    opt.add_option("--ts", dest="source_test", default="experiment/data/train.en")
     opt.add_option("--df", dest="dict_features", default=None)
     opt.add_option("--m1", dest="model1_probs", default="experiment/data/model1.probs")
     opt.add_option("--iw", dest="input_weights", default=None)
@@ -360,10 +310,8 @@ if __name__ == "__main__":
 
     (options, _) = opt.parse_args()
     rc = float(options.regularization_coeff)
-    source = [s.strip().split() for s in open(options.source_corpus, 'r').readlines()]
-    target = [s.strip().split() for s in open(options.target_corpus, 'r').readlines()]
-    target_types = set(open(options.target_corpus, 'r').read().split())
-    source_types = set(open(options.source_corpus, 'r').read().split())
+    source, source_types = load_corpus_file(options.source_corpus)
+    target, target_types = load_corpus_file(options.target_corpus)
     source_types.add(NULL)
     trellis = populate_trellis(source, target, max_jump_width, max_beam_width)
 

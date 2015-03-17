@@ -1,5 +1,58 @@
 import numpy as np
 
+def load_corpus_file(corpus_file):
+    sentences = []
+    types = set([])
+    for l in open(corpus_file, 'r').readlines():
+        sent = l.strip().split()
+        sentences.append(sent)
+        types.update(sent)
+    return sentences, types
+
+def get_source_to_target_firing(eve_to_feat):
+    src_to_tar = {}
+    for e in eve_to_feat:
+        event_type, decision, context = e
+        tar_l = src_to_tar.get(context, set([]))
+        tar_l.add(decision)
+        src_to_tar[context] = tar_l
+    return src_to_tar
+
+def load_model1_probs(path_model1_probs):
+    m1_probs = {}
+    for line in open(path_model1_probs, 'r').readlines():
+        try:
+            prob_type, tar, src, prob, ex1 = line.strip().split()
+        except ValueError, err:
+            prob_type, tar, src, prob = line.strip().split()
+        prob = float(prob)
+        m1_probs[tar, src] = prob
+    m1_probs["#END#", "#END#"] = 1.0
+    m1_probs["#START#", "#START#"] = 1.0
+    return m1_probs
+
+def pre_compute_ets(m1_probs, src_to_tar, t_types, s_types):
+    _ets = {}
+    c = 0
+    for s in s_types:
+        sum_s = 0.0
+        t1 = t_types - src_to_tar.get(s, set([]))  # TODO: can speed up by only iterating over co-occuring t_types
+        for t in t1:
+            if t is "#START#" and s is "#START#":
+                pass
+            elif t is "#END#" and s is "#END#":
+                pass
+            elif (t, s) in m1_probs:
+                c += 1
+                sum_s += m1_probs[t, s]
+            else:
+                # t,s do not co-occur so we are adding 0.0 to sum_s (or -inf to log sum_s)
+                pass
+        _ets[s] = sum_s
+    _ets["#START#"] = 1.0
+    _ets["#END#"] = 1.0
+    return _ets
+
 def load_dictionary_features(dict_features_path=None):
     dictionary_features = {}
     if dict_features_path is None:
