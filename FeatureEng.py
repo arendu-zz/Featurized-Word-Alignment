@@ -1,9 +1,9 @@
 __author__ = 'arenduchintala'
+import const
+import pdb
 
-import featurized_em as fe
-import featurized_em_wa as fe_w
-
-global feature_values
+global feature_values, dictionay_features
+dictionay_features = {}
 feature_values = {}
 
 
@@ -19,42 +19,64 @@ def load_feature_values(valpath=None):
         print 'binary feature values assumed...'
 
 
-def get_wa_features_fired(type, decision, context):
-    global feature_values
+def load_dictionary_features(dict_features_path=None):
+    global dictionay_features
+    if dict_features_path is None:
+        print 'no dictionary features...'
+    else:
+        df = open(dict_features_path, 'r').readlines()
+        for line in df:
+            line = line.strip()
+            if line is not '':
+                terms, v = line.strip().split('\t')
+                t1, t2 = terms.split('|||')
+                dictionay_features[t1, t2] = v
+        print 'loaded ', len(dictionay_features), ' dictionary features...'
+    return True
+
+
+def get_wa_features_fired(type, decision, context, hybrid=False):
+    global feature_values, dictionay_features
     fired_features = []
-    if type == fe_w.E_TYPE:
-        val = feature_values.get((fe_w.E_TYPE, decision, context), 1.0)
-        fired_features = [(val, (fe_w.E_TYPE, decision, context))]
+    if type == const.E_TYPE:
+        if not hybrid:
+            val = feature_values.get((const.E_TYPE, decision, context), 1.0)
+            fired_features = [(val, (const.E_TYPE, decision, context))]
 
-        # if decision == context:
-        # fired_features += [("IS_SAME", decision, context)]
+        if decision == context:
+            fired_features += [(1.0, ("IS_SAME", decision, context))]
 
-        """if decision[0].isupper() and context[0].isupper() and context != fe_w.NULL:
+        if (decision, context) in dictionay_features:
+            fired_features += [(1.0, ("IN_DICT", decision, context))]
+
+        if decision[0:3] == context[0:3] and hybrid:
+            fired_features += [(1.0, ("PREFFIX3", decision[0:3], context[0:3]))]
+
+        if decision[-3:] == context[-3:] and hybrid:
+            fired_features += [(1.0, ("SUFFIX3", decision[-3:], context[-3:]))]
+
+        # if len(decision) == len(context) and hybrid:
+        # fired_features += [(1.0, ("SAME_LEN", len(decision), len(context)))]
+
+        # if context == const.NULL:
+        # fired_features += [(-1.0, ("IS_FROM_NULL", context))]
+
+        # if const.has_pos:
+        # decision_pos = decision.split("_")[1]
+        # context_pos = context.split("_")[1]
+        # if decision_pos == context_pos:
+        # fired_features += [(1.0, ("IS_POS_SAME", decision_pos, context_pos))]
+
+        """if decision[0].isupper() and context[0].isupper() and context != const.NULL:
             fired_features += [("IS_UPPER", decision, context)]"""
-    elif type == fe_w.T_TYPE:
+    elif type == const.T_TYPE:
         p = context
-        if decision != fe_w.NULL and p != fe_w.NULL:
+        if decision != const.NULL and p != const.NULL:
             jump = abs(decision - p)
         else:
-            jump = fe_w.NULL
-        fired_features = [(fe_w.T_TYPE, jump)]
+            jump = const.NULL
+        fired_features = [(1.0, (const.T_TYPE, jump))]
+
     return fired_features
 
 
-def get_pos_features_fired(type, decision, context):
-    if decision is not fe.BOUNDARY_STATE and context is not fe.BOUNDARY_STATE:
-        if type == fe.E_TYPE:
-            # suffix feature, prefix feature
-            fired_features = list(set([(fe.E_TYPE_SUF, str(decision[-3:]).lower(), context),
-                                       (fe.E_TYPE_PRE, str(decision[:2]).lower(), context),
-                                       (fe.E_TYPE_PRE, str(decision[:1]).lower(), context),
-                                       ('IS_CAP', str(decision[0]).isupper(), context),
-                                       ('IS_ALNUM', str(decision).isalnum(), context),
-                                       ('IS_SAME', decision == context, context),
-                                       (fe.E_TYPE, decision, context)]))
-            # fired_features = [(fe.E_TYPE, decision, context)]
-            return fired_features
-        elif type == fe.T_TYPE:
-            return [(fe.T_TYPE, decision, context)]
-    else:
-        return [(type, decision, context)]

@@ -1,0 +1,58 @@
+training files: data/train.en , data/train.es
+testing  files: data/dev.en , data/dev.es
+binary feature values assumed...
+skipping gradient check...
+reading initial weights...
+0 log likelihood: -131404.563168
+1 log likelihood: -131332.06189
+2 log likelihood: -131039.267469
+3 log likelihood: -129801.654903
+4 log likelihood: -121422.406012
+5 log likelihood: -116223.698334
+6 log likelihood: -115142.442773
+wrote weights to: LBFGS.0.0.model1.bin.theta
+wrote probs to: LBFGS.0.0.model1.bin.probs
+wrote alignments to: LBFGS.0.0.model1.bin.alignments
+wrote alignments to: LBFGS.0.0.model1.bin.alignments.col
+wrote alignments to: LBFGS.0.0.model1.bin.alignments.col.tokens
+binary feature values assumed...
+skipping gradient check...
+reading initial weights...
+0 log likelihood: -162030.697504
+1 log likelihood: -161954.100128
+2 log likelihood: -161645.324425
+3 log likelihood: -160354.410476
+4 log likelihood: -151870.583222
+5 log likelihood: -144210.962627
+6 log likelihood: -143993.238177
+wrote weights to: LBFGS.0.005.model1.bin.theta
+wrote probs to: LBFGS.0.005.model1.bin.probs
+wrote alignments to: LBFGS.0.005.model1.bin.alignments
+wrote alignments to: LBFGS.0.005.model1.bin.alignments.col
+wrote alignments to: LBFGS.0.005.model1.bin.alignments.col.tokens
+
+********Baseline********
+
+      Type       Total   Precision      Recall     F1-Score
+===============================================================
+     total        5920     0.371        0.382        0.377
+
+*********LBFGS  RC:0.0********
+
+      Type       Total   Precision      Recall     F1-Score
+===============================================================
+     total        5920     0.232        0.231        0.232
+
+*********LBFGS  RC:0.005********
+
+      Type       Total   Precision      Recall     F1-Score
+===============================================================
+     total        5920     0.231        0.230        0.231
+
+real    17m30.013s
+user    85m41.379s
+sys     4m36.117s
+
+real    17m42.374s
+user    86m52.868s
+sys     4m35.911s

@@ -1,0 +1,207 @@
+LOCAL:/Users/arenduchintala/PycharmProjects/Featurized-EM>cd experiment
+LOCAL:/Users/arenduchintala/PycharmProjects/Featurized-EM/experiment>vi run-fast-experiment.sh 
+LOCAL:/Users/arenduchintala/PycharmProjects/Featurized-EM/experiment>sh run-fast-experiment.sh 
+training files: data/dev.en , data/dev.es
+testing  files: data/dev.en , data/dev.es
+binary feature values assumed...
+skipping gradient check...
+reading initial weights...
+log likelihood: -56679.1360407 p(.|NULL) -7.4927603009 p(.|.) -6.4689231657 lf 4.0
+emp_feat_norm -0.179524052288
+  ec: -48363.6403181
+new_e 56679.1360407
+exp_new_e 48363.6403181
+  ec: -48363.6403181
+  ec: -48311.9269276
+  ec: -48107.7576594
+  ec: -47524.2738113
+  ec: -46302.5193945
+  ec: -45728.8674956
+log likelihood: -47691.2408298 p(.|NULL) -1.9944234902 p(.|.) -0.0071467278 lf 4.0
+emp_feat_norm -0.128355495602
+  ec: -38540.8235348
+  ec: -38449.6363235
+  ec: -38034.5424097
+  ec: -37900.244091
+  ec: -37732.8996295
+  ec: -37615.1138145
+-0.128355495602 -0.161100985927 4.0
+-0.128355495602 -0.158362345673 4.65490980649
+-0.128355495602 -0.140219215449 5.25504680791
+-0.128355495602 -0.136823831119 5.49232120484
+-0.128355495602 -0.133080452397 5.66168791517
+-0.128355495602 -0.109543261564 5.75618705108
+-0.128355495602 -0.145599918411 5.37994237031
+-0.128355495602 -0.141412029518 5.72483082648
+log likelihood: -44925.5347985 p(.|NULL) -3.6365486694 p(.|.) -0.0022655899 lf 5.9859615048
+emp_feat_norm -0.0982085587028
+  ec: -34334.999301
+  ec: -34256.2714621
+  ec: -34060.6054036
+  ec: -33878.9102507
+  ec: -33608.5446734
+  ec: -33520.9263871
+-0.0982085587028 -0.106887089651 5.9859615048
+-0.0982085587028 -0.12219077456 6.15953212376
+-0.0982085587028 -0.13180376938 6.63917644091
+-0.0982085587028 -0.102492661989 7.31108065446
+-0.0982085587028 -0.595468470891 7.39676272018
+-0.0982085587028 -0.0276103179449 14
+-0.0982085587028 0.0455112608574 12.5880351848
+-0.0982085587028 -0.0886324962868 9.71363879364
+log likelihood: -41670.7180936 p(.|NULL) -6.5142245489 p(.|.) -0.0008358892 lf 9.52211754532
+emp_feat_norm -0.0690890069266
+  ec: -29191.1877811
+  ec: -29121.5756184
+  ec: -29026.8387303
+  ec: -28907.5480523
+  ec: -28600.2703942
+  ec: -28249.8571073
+-0.0690890069266 -0.0488593721462 9.52211754532
+-0.0690890069266 -0.0909995422951 9.11752484971
+-0.0690890069266 -0.087957030162 9.55573555708
+-0.0690890069266 -0.0776160392919 9.93309602178
+-0.0690890069266 -0.0878621865525 10.1036366691
+-0.0690890069266 -0.0798626555856 10.4791002616
+-0.0690890069266 -0.100713740108 10.6945732348
+-0.0690890069266 -0.0625633296799 11.3270678984
+log likelihood: -39037.0409839 p(.|NULL) -7.4928574349 p(.|.) -0.0004716662 lf 11.1965543535
+emp_feat_norm -0.0584651187026
+  ec: -24705.4439328
+  ec: -24626.3861364
+  ec: -24590.1293445
+  ec: -24541.0963426
+  ec: -24362.5290198
+  ec: -24121.8596052
+log likelihood: -37516.5615574 p(.|NULL) -8.0262261983 p(.|.) -0.000341052 lf 11.1965543535
+emp_feat_norm -0.0547450789616
+wrote weights to: mp.EM.0.0.fast-model1.bin.theta
+wrote probs to: mp.EM.0.0.fast-model1.bin.probs
+wrote alignments to: mp.EM.0.0.fast-model1.bin.alignments
+wrote alignments to: mp.EM.0.0.fast-model1.bin.alignments.col
+wrote alignments to: mp.EM.0.0.fast-model1.bin.alignments.col.tokens
+
+real  14m5.361s
+user  41m10.427s
+sys 0m37.602s
+.
+
+real  0m15.752s
+user  0m15.570s
+sys 0m0.100s
+
+********Baseline********
+
+      Type       Total   Precision      Recall     F1-Score
+===============================================================
+     total        5920     0.270        0.269        0.270
+
+********* MODEL:fast-model1 ALGO:EM  RC:0.0********
+
+      Type       Total   Precision      Recall     F1-Score
+===============================================================
+     total        5920     0.344        0.350        0.347
+LOCAL:/Users/arenduchintala/PycharmProjects/Featurized-EM/experiment>vi run-fast-experiment.sh 
+LOCAL:/Users/arenduchintala/PycharmProjects/Featurized-EM/experiment>sh run-fast-experiment.sh 
+training files: data/dev.en , data/dev.es
+testing  files: data/dev.en , data/dev.es
+../featurized_fast_align.py:209: SyntaxWarning: name 'feature_index' is used prior to global declaration
+  global trellis, data_likelihood, rc, fractional_counts, feature_index, num_toks, emp_feat, diagonal_tension
+binary feature values assumed...
+skipping gradient check...
+reading initial weights...
+log likelihood: -56679.1360407 p(.|NULL) -7.4927603009 p(.|.) -6.4689231657 lf 4.0
+emp_feat_norm -0.179524052288
+  ec log likelihood: -48363.6403181 181.745938934
+new_e 56679.1360407
+exp_new_e 48363.6403181
+  ec log likelihood: -48363.6403181 181.745938934
+  ec log likelihood: -48311.9269276 184.829492711
+  ec log likelihood: -48107.7576594 217.163707816
+  ec log likelihood: -47524.2738113 666.500568237
+  ec log likelihood: -46302.5193945 3787.73563154
+  ec log likelihood: -45728.8674956 36745.104971
+log likelihood: -47691.2408298 p(.|NULL) -1.9944234902 p(.|.) -0.0071467278 lf 4.0
+emp_feat_norm -0.128355495602
+  ec log likelihood: -38540.8235348 29181.1425672
+  ec log likelihood: -38449.6363235 29282.8209152
+  ec log likelihood: -38034.5424097 30381.3168605
+  ec log likelihood: -37900.244091 31506.2491476
+  ec log likelihood: -37732.8996295 31662.726025
+  ec log likelihood: -37615.1138145 32096.502842
+-0.128355495602 -0.161100985927 4.0
+-0.128355495602 -0.158362345673 4.65490980649
+-0.128355495602 -0.140219215449 5.25504680791
+-0.128355495602 -0.136823831119 5.49232120485
+-0.128355495602 -0.133080452399 5.66168791519
+-0.128355495602 -0.109543262275 5.75618705113
+-0.128355495602 -0.14559992373 5.37994238459
+-0.128355495602 -0.141412059534 5.72483094714
+log likelihood: -44925.5345261 p(.|NULL) -3.6365486694 p(.|.) -0.0022655899 lf 5.98596222579
+emp_feat_norm -0.0982085513958
+  ec log likelihood: -34334.9991464 32746.8029405
+  ec log likelihood: -34256.2713051 32862.2608277
+  ec log likelihood: -34060.6052405 33548.970072
+  ec log likelihood: -33878.9100813 34288.9356064
+  ec log likelihood: -33608.5444793 35972.2956748
+  ec log likelihood: -33520.9261788 40193.0797915
+-0.0982085513958 -0.106891897001 5.98596222579
+-0.0982085513958 -0.12220229495 6.15962913788
+-0.0982085513958 -0.132319969669 6.63950400897
+-0.0982085513958 -0.106584145062 7.32173237444
+-0.0982085513958 -0.134407725274 7.48924424777
+-0.0982085513958 -0.0633757452375 8.21322772534
+-0.0982085513958 -0.0999012260389 7.51657160218
+-0.0982085513958 -0.119059399231 7.55042509504
+log likelihood: -42092.1705879 p(.|NULL) -6.5142248049 p(.|.) -0.0008358891 lf 7.96744205174
+emp_feat_norm -0.0772299025066
+  ec log likelihood: -29342.3694315 40933.4203938
+  ec log likelihood: -29277.5796196 41044.5715416
+  ec log likelihood: -29192.9706664 41395.2663746
+  ec log likelihood: -29076.1798288 42060.6902607
+  ec log likelihood: -28808.1491553 44319.6418009
+  ec log likelihood: -28513.4073722 48131.0959492
+-0.0772299025066 -0.126553419252 7.96744205174
+-0.0772299025066 -0.100138950732 8.95391238665
+-0.0772299025066 -0.0879976442727 9.41209335116
+-0.0772299025066 -0.0843490645093 9.62744818648
+-0.0772299025066 -0.0932876499173 9.76983142653
+-0.0772299025066 -0.0832935359775 10.0909863747
+-0.0772299025066 -0.0766305643204 10.2122590442
+-0.0772299025066 -0.0748492425175 10.2002722804
+log likelihood: -39516.5889266 p(.|NULL) -7.3709581 p(.|.) -0.0004930547 lf 10.1526590807
+emp_feat_norm -0.0627743637133
+  ec log likelihood: -25147.2059446 50994.4062744
+  ec log likelihood: -25076.446509 51091.5811557
+  ec log likelihood: -25039.6344873 51304.7286337
+  ec log likelihood: -24987.6138181 51680.5709736
+  ec log likelihood: -24765.0785974 53910.1203919
+  ec log likelihood: -24521.4431808 58522.5347223
+log likelihood: -37929.4247204 p(.|NULL) -8.03202103 p(.|.) -0.0003410845 lf 10.1526590807
+emp_feat_norm -0.0585873253547
+wrote weights to: sp.EM.0.0.fast-model1.bin.theta
+wrote probs to: sp.EM.0.0.fast-model1.bin.probs
+wrote alignments to: sp.EM.0.0.fast-model1.bin.alignments
+wrote alignments to: sp.EM.0.0.fast-model1.bin.alignments.col
+wrote alignments to: sp.EM.0.0.fast-model1.bin.alignments.col.tokens
+
+real  17m36.633s
+user  17m10.298s
+sys 0m2.176s
+.
+
+real  0m16.803s
+user  0m16.580s
+sys 0m0.144s
+
+********Baseline********
+
+      Type       Total   Precision      Recall     F1-Score
+===============================================================
+     total        5920     0.270        0.269        0.270
+
+********* MODEL:fast-model1 ALGO:EM  RC:0.0********
+
+      Type       Total   Precision      Recall     F1-Score
+===============================================================
+     total        5920     0.344        0.350        0.347
