@@ -409,7 +409,7 @@ def write_logs(theta, current_iter):
     global max_beam_width, max_jump_width, trellis, feature_index, fractional_counts
     feature_val_typ = 'bin' if options.feature_values is None else 'real'
     name_prefix = '.'.join(
-        ['mp', options.algorithm, str(rc), 'hybrid-model1', feature_val_typ])
+        ['mp', options.algorithm, str(rc), HYBRID_MODEL_1, feature_val_typ])
     if current_iter is not None:
         name_prefix += '.' + str(current_iter)
     write_weights(theta, name_prefix + '.' + options.output_weights, feature_index)
