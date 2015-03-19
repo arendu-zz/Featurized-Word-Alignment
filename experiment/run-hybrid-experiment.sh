@@ -47,10 +47,10 @@ do
     done
 done
 echo "deleting files..."
-#rm $SOURCE_FULL
-#rm $TARGET_FULL
-#rm initial.trans
-#rm model1.probs
-#rm model1.alignments
-#rm mp.*
-#rm sp.*
+rm $SOURCE_FULL
+rm $TARGET_FULL
+rm initial.trans
+rm model1.probs
+rm model1.alignments
+rm mp.*
+rm sp.*

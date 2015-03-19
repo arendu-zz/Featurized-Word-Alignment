@@ -45,7 +45,8 @@ if __name__ == '__main__':
     # cProfile.runctx("hm1.get_gradient(theta)", globals(), locals(), "Profile2.prof")
 
     # s = pstats.Stats("Profile2.prof")
-    #s.strip_dirs().sort_stats("time").print_stats()
+    # s.strip_dirs().sort_stats("time").print_stats()
+
     """
     t1 = minimize(hm1.get_likelihood, theta, method='L-BFGS-B', jac=hm1.get_gradient, tol=1e-3,
                   options={'maxiter': 20})
