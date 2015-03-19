@@ -26,9 +26,6 @@ if __name__ == '__main__':
     (options, _) = opt.parse_args()
     rc = float(options.regularization_coeff)
     rc = 0.0
-    target, target_types = load_corpus_file(options.target_test)
-    source, source_types = load_corpus_file(options.source_test)
-    print 'outside everything', len(source), len(target)
     hm1 = HybridModel1.HybridModel1(options.source_corpus,
                                     options.source_test,
                                     options.target_corpus,

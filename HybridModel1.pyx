@@ -42,9 +42,7 @@ cdef class HybridModel1(object):
         self.source_types.add(_NULL_)
         self.max_jump_width = 10
         self.max_beam_width = 20
-        print 'inside constructor', len(self.source), len(self.target)
         self.trellis = populate_trellis(self.source, self.target, self.max_jump_width, self.max_beam_width)
-        print len(self.trellis)
         self.dictionary_features = load_dictionary_features(dictionary_feature_file)
         self.model1_probs = load_model1_probs(model1_probs_file)
 
@@ -217,9 +215,7 @@ cdef class HybridModel1(object):
         write_weights(theta, name_prefix + '.' + out_weights_file, self.findex)
         write_probs(theta, name_prefix + '.' + out_probs_file, self.fcounts, self.get_decision_given_context)
         if self.source_test is not None and self.target_test is not None:
-            print 'inside here', len(self.source_test), len(self.target_test)
             self.trellis = populate_trellis(self.source_test, self.target_test, self.max_jump_width, self.max_beam_width)
-            print 'ok now?', len(self.trellis)
 
 
         write_alignments(theta, name_prefix + '.' + out_alignments, self.trellis, self.get_best_seq)
