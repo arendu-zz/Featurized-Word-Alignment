@@ -4,6 +4,7 @@ __author__ = 'arenduchintala'
 import utils
 
 import numpy as np  #THIS SHOULD BE HERE.. PYCHARM NOT SMART ENOUGH TO KNOW CYTHON NEEDS IT
+from pprint import pprint
 
 cimport numpy as np
 from const import E_TYPE, HYBRID_MODEL_1
@@ -25,9 +26,9 @@ cdef class HybridModel1(object):
     cdef dict normalizing_decision_map
     cdef dict s2t_firing, ets, cache_normalizing_decision
 
-    def __init__(self, 
-            char *source_corpus_file,
-            char *source_test_file,
+    def __init__(self,
+                 char *source_corpus_file,
+                 char *source_test_file,
                  char *target_corpus_file,
                  char *target_test_file,
                  char *model1_probs_file,
@@ -51,8 +52,9 @@ cdef class HybridModel1(object):
             source=self.source,
             target=self.target,
             model_type=HYBRID_MODEL_1,
-            dictionary_features=self.dictionary_features)
+            dictionary_features=self.dictionary_features, hybrid=True)
         print 'number of features used', len(self.findex)
+        pprint(self.findex)
         self.s2t_firing = get_source_to_target_firing(self.e2f)
         self.ets = pre_compute_ets(self.model1_probs, self.s2t_firing, self.target_types, self.source_types)
         self.cache_normalizing_decision = {}
@@ -66,7 +68,7 @@ cdef class HybridModel1(object):
         else:
             m1_event_prob = self.model1_probs.get((decision, context), 0.0)
             fired_features = get_wa_features_fired(type=type, decision=decision, context=context,
-                                                   dictionary_features=self.dictionary_features, hybrid=True)
+                                                   dictionary_features=self.dictionary_features, ishybrid=True)
             theta_dot_features = sum([theta[self.findex[f]] * f_wt for f_wt, f in fired_features])
             numerator = m1_event_prob * exp(theta_dot_features)
             denom = self.ets[context]
@@ -74,7 +76,7 @@ cdef class HybridModel1(object):
             for tf in target_firings:
                 m1_tf_event_prob = self.model1_probs.get((tf, context), 0.0)
                 tf_fired_features = get_wa_features_fired(type=type, decision=tf, context=context,
-                                                          dictionary_features=self.dictionary_features, hybrid=True)
+                                                          dictionary_features=self.dictionary_features, ishybrid=True)
                 tf_theta_dot_features = sum([theta[self.findex[f]] * f_wt for f_wt, f in tf_fired_features])
                 denom += m1_tf_event_prob * exp(tf_theta_dot_features)
 
@@ -153,7 +155,7 @@ cdef class HybridModel1(object):
             (t, dj, cj) = event_j
             f_val, f = \
                 get_wa_features_fired(type=t, context=cj, decision=dj, dictionary_features=self.dictionary_features,
-                                      hybrid=True)[0]
+                                      ishybrid=True)[0]
             a_dp_ct = exp(self._get_decision_given_context(theta, decision=dj, context=cj, type=t)) * f_val
             sum_feature_j = 0.0
             norm_events = [(t, dp, cj) for dp in self.normalizing_decision_map[t, cj]]
@@ -164,7 +166,7 @@ cdef class HybridModel1(object):
                     fj, f = \
                         get_wa_features_fired(type=ti, context=ci, decision=di,
                                               dictionary_features=self.dictionary_features,
-                                              hybrid=True)[0]
+                                              ishybrid=True)[0]
                 else:
                     fj = 0.0
                 sum_feature_j += A_dct * (fj - a_dp_ct)
@@ -209,7 +211,7 @@ cdef class HybridModel1(object):
             p_st += sum_sj
         return max_bt[:-1], p_st
 
-    def write_logs_hm(self, theta, out_weights_file, out_probs_file, out_alignments):
+    def write_logs(self, theta, out_weights_file, out_probs_file, out_alignments):
         return self._write_logs(theta, out_weights_file, out_probs_file, out_alignments)
 
     cdef  _write_logs(self, theta, char *out_weights_file, char *out_probs_file, char *out_alignments):
@@ -218,8 +220,8 @@ cdef class HybridModel1(object):
         write_weights(theta, name_prefix + '.' + out_weights_file, self.findex)
         write_probs(theta, name_prefix + '.' + out_probs_file, self.fcounts, self.get_decision_given_context)
         if self.source_test is not None and self.target_test is not None:
-            self.trellis = populate_trellis(self.source_test, self.target_test, self.max_jump_width, self.max_beam_width)
-
+            self.trellis = populate_trellis(self.source_test, self.target_test, self.max_jump_width,
+                                            self.max_beam_width)
 
         write_alignments(theta, name_prefix + '.' + out_alignments, self.trellis, self.get_best_seq)
         write_alignments_col(theta, name_prefix + '.' + out_alignments, self.trellis, self.get_best_seq)

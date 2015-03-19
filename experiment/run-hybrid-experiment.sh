@@ -4,7 +4,7 @@ source ./config.cfg
 SOURCE_FULL="source_full.tmp"
 TARGET_FULL="target_full.tmp"
 DICT_PATH="data/dictionary_features.es-en"
-MODEL="hybrid_model1"
+MODEL="hybrid-model1"
 echo "training files:" $SOURCE_TRAIN ","  $TARGET_TRAIN
 echo "testing  files:" $SOURCE_TEST "," $TARGET_TEST
 touch $SOURCE_FULL

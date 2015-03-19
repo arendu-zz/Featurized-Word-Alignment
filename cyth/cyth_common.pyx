@@ -69,10 +69,10 @@ def load_dictionary_features(dict_features_path=None):
         print 'loaded ', len(dictionary_features), ' dictionary features...'
         return dictionary_features
 
-def get_wa_features_fired(type, decision, context, dictionary_features, hybrid=False):
+def get_wa_features_fired(type, decision, context, dictionary_features, ishybrid):
     fired_features = []
     if type == "EMISSION":
-        if not hybrid:
+        if not ishybrid:
             fired_features = [(1.0, ("EMISSION", decision, context))]
 
         if decision == context:
@@ -81,10 +81,10 @@ def get_wa_features_fired(type, decision, context, dictionary_features, hybrid=F
         if dictionary_features is not None and (decision, context) in dictionary_features:
             fired_features += [(1.0, ("IN_DICT", decision, context))]
 
-        if decision[0:3] == context[0:3] and hybrid:
+        if decision[0:3] == context[0:3] and ishybrid:
             fired_features += [(1.0, ("PREFFIX3", decision[0:3], context[0:3]))]
 
-        if decision[-3:] == context[-3:] and hybrid:
+        if decision[-3:] == context[-3:] and ishybrid:
             fired_features += [(1.0, ("SUFFIX3", decision[-3:], context[-3:]))]
 
         # if len(decision) == len(context) and hybrid:
@@ -167,7 +167,7 @@ def populate_trellis(source_corpus, target_corpus, max_jump_width, max_beam_widt
         trellis.append(trelli)
     return trellis
 
-def populate_features(trellis, source, target, model_type, dictionary_features):
+def populate_features(trellis, source, target, model_type, dictionary_features, hybrid=False):
     events_to_features = {}
     features_to_events = {}
     feature_index = {}
@@ -197,8 +197,7 @@ def populate_features(trellis, source, target, model_type, dictionary_features):
                 event_index.add(emission_event)
                 event_counts[emission_event] = event_counts.get(emission_event, 1.0)
                 ff_e = get_wa_features_fired(type="EMISSION", decision=emission_decision, context=emission_context,
-                                             hybrid=model_type == "hybrid_model1",
-                                             dictionary_features=dictionary_features)
+                                             dictionary_features=dictionary_features, ishybrid=hybrid)
                 for f_wt, f in ff_e:
                     feature_index[f] = len(feature_index) if f not in feature_index else feature_index[f]
                     ca2f = events_to_features.get(emission_event, set([]))
@@ -221,7 +220,7 @@ def populate_features(trellis, source, target, model_type, dictionary_features):
                         event_counts[transition_event] = event_counts.get(transition_event, 1.0)
                         ff_t = get_wa_features_fired(type="TRANSITION", decision=transition_decision,
                                                      context=transition_context,
-                                                     dictionary_features=dictionary_features)
+                                                     dictionary_features=dictionary_features, ishybrid=hybrid)
 
                         ndm = normalizing_decision_map.get(("TRANSITION", transition_context), set([]))
                         ndm.add(transition_decision)
