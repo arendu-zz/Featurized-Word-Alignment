@@ -20,8 +20,8 @@ for ALGO in "LBFGS"
 do
     for RC in 0.0
     do
-        #time python ${CODE_DIR}/hybrid_model1.py -s $SOURCE_FULL -t $TARGET_FULL -a $ALGO  --m1 model1.probs --ts $SOURCE_TEST --tt $TARGET_TEST -r $RC --df $DICT_PATH
-        time python ${CODE_DIR}/use_hm1.py -s $SOURCE_FULL -t $TARGET_FULL -a $ALGO  --m1 model1.probs --ts $SOURCE_TEST --tt $TARGET_TEST -r $RC --df $DICT_PATH
+        time python ${CODE_DIR}/use_hm1.py -s $SOURCE_FULL -t $TARGET_FULL -a $ALGO  --m1 model1.probs --ts $SOURCE_TEST --tt $TARGET_TEST -r $RC --df $DICT_PATH --oa use
+        time python ${CODE_DIR}/hybrid_model1.py -s $SOURCE_FULL -t $TARGET_FULL -a $ALGO  --m1 model1.probs --ts $SOURCE_TEST --tt $TARGET_TEST -r $RC --df $DICT_PATH
         time python ${CODE_DIR}/hybrid_model1_mp.py -s $SOURCE_FULL -t $TARGET_FULL -a $ALGO  --m1 model1.probs --ts $SOURCE_TEST --tt $TARGET_TEST -r $RC --df $DICT_PATH
         echo "."
     done
@@ -41,6 +41,7 @@ do
         echo ""
         echo "*********SIMPLE "$ALGO " RC:"$RC"********"
         echo ""
+        python ${TOOLS_DIR}/eval_alignment.py $KEY sp.$ALGO.$RC.$MODEL.bin.use.col
         python ${TOOLS_DIR}/eval_alignment.py $KEY sp.$ALGO.$RC.$MODEL.bin.alignments.col
         python ${TOOLS_DIR}/eval_alignment.py $KEY mp.$ALGO.$RC.$MODEL.bin.alignments.col
     done
