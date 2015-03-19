@@ -59,19 +59,6 @@ cdef class HybridModel1(object):
         self.ets = pre_compute_ets(self.model1_probs, self.s2t_firing, self.target_types, self.source_types)
         self.cache_normalizing_decision = {}
 
-    cdef get_numerator(self, type, theta, decision, context):
-        if (type, decision, context) in self.cache_normalizing_decision:
-            return self.cache_normalizing_decision[type, decision, context]
-        else:
-            m1_event_prob = self.model1_probs.get((decision, context), 0.0)
-            fired_features = get_wa_features_fired(type=type, decision=decision, context=context,
-                                                   dictionary_features=self.dictionary_features, ishybrid=True)
-            theta_dot_features = sum((theta[self.findex[f]] * f_wt for f_wt, f in fired_features))
-            numerator = m1_event_prob * exp(theta_dot_features)
-            ln = log(numerator)
-            self.cache_normalizing_decision[type, decision, context] = ln
-            return ln
-
     cdef get_denom(self, type, theta, context):
         if (type, context) in self.cache_normalizing_decision:
             denom = self.cache_normalizing_decision[type, context]
@@ -95,36 +82,19 @@ cdef class HybridModel1(object):
         return self._get_decision_given_context(theta, type, decision, context)
 
     cdef _get_decision_given_context(self, np.ndarray theta, char *type, char *decision, char *context):
-        n = self.get_numerator(type, theta, decision, context)
-        d = self.get_denom(type, theta, context)
-        log_prob = n - d
-        #self.cache_normalizing_decision[type, decision, context] = log_prob
-        return log_prob
-    """
-    cdef _fget_decision_given_context(self, np.ndarray theta, char *type, char *decision, char *context):
         if (type, decision, context) in self.cache_normalizing_decision:
             return self.cache_normalizing_decision[type, decision, context]
-        elif (type, context) in self.cache_normalizing_decision:
-            denom = self.cache_normalizing_decision[type, context]
-            numerator = self.get_numerator(theta, decision, context)
+        else:
+            m1_event_prob = self.model1_probs.get((decision, context), 0.0)
+            fired_features = get_wa_features_fired(type=type, decision=decision, context=context,
+                                                   dictionary_features=self.dictionary_features, ishybrid=True)
+            theta_dot_features = sum([theta[self.findex[f]] * f_wt for f_wt, f in fired_features])
+            numerator = m1_event_prob * exp(theta_dot_features)
+            denom = self.get_denom(type, theta, context)
+
             log_prob = log(numerator) - denom
             self.cache_normalizing_decision[type, decision, context] = log_prob
             return log_prob
-        else:
-            numerator = self.get_numerator(theta, decision, context)
-            denom = self.ets[context]
-            for tf in self.s2t_firing.get(context, []):
-                m1_tf_event_prob = self.model1_probs.get((tf, context), 0.0)
-                tf_fired_features = get_wa_features_fired(type=type, decision=tf, context=context,
-                                                          dictionary_features=self.dictionary_features, ishybrid=True)
-                tf_theta_dot_features = sum([theta[self.findex[f]] * f_wt for f_wt, f in tf_fired_features])
-                denom += m1_tf_event_prob * exp(tf_theta_dot_features)
-
-            self.cache_normalizing_decision[type, context] = denom
-            log_prob = log(numerator) - log(denom)
-            self.cache_normalizing_decision[type, decision, context] = log_prob
-            return log_prob
-    """
 
     cdef reset_fractional_counts(self):
         self.fcounts = {}
