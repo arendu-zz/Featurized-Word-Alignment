@@ -1,20 +1,52 @@
 __author__ = 'arenduchintala'
 
 import HybridModel1
-from cyth.cyth_common import initialize_theta
+from cyth.cyth_common import initialize_theta, load_corpus_file
 from scipy.optimize import minimize
+from optparse import OptionParser
 
 if __name__ == '__main__':
-    rc = 0.0
-    target_file = "experiment/data/train.es"
-    source_file = "experiment/data/train.en"
-    m1_probs = "experiment/data/model1.probs"
-    df_file = "experiment/data/dictionary_features.es-en"
-    hm1 = HybridModel1.HybridModel1(source_file, target_file, m1_probs, rc, df_file)
+    opt = OptionParser()
+    opt.add_option("-t", dest="target_corpus", default="experiment/data/train.es")
+    opt.add_option("-s", dest="source_corpus", default="experiment/data/train.en")
+    opt.add_option("--tt", dest="target_test", default="experiment/data/train.es")
+    opt.add_option("--ts", dest="source_test", default="experiment/data/train.en")
+    opt.add_option("--df", dest="dict_features", default="experiment/data/dictionary_features.es-en")
+    opt.add_option("--m1", dest="model1_probs", default="experiment/data/model1.probs")
+    opt.add_option("--iw", dest="input_weights", default=None)
+    opt.add_option("--fv", dest="feature_values", default=None)
+    opt.add_option("--ow", dest="output_weights", default="theta", help="extention of trained weights file")
+    opt.add_option("--oa", dest="output_alignments", default="alignments", help="extension of alignments files")
+    opt.add_option("--op", dest="output_probs", default="probs", help="extension of probabilities")
+    opt.add_option("-g", dest="test_gradient", action="store_true", default=False)
+    opt.add_option("-r", dest="regularization_coeff", default="0.0")
+    opt.add_option("-a", dest="algorithm", default="LBFGS",
+                   help="use 'EM' 'LBFGS' 'SGD'")
+    (options, _) = opt.parse_args()
+    rc = float(options.regularization_coeff)
+    target, target_types = load_corpus_file(target_corpus_file)
+    source, source_types = load_corpus_file(source_corpus_file)
+    hm1 = HybridModel1.HybridModel1(options.source_corpus, options.target_corpus, options.model1_probs, rc,
+                                    options.dict_features)
     theta = initialize_theta(None, hm1.findex)
+
+    import pstats, cProfile
+
+    cProfile.runctx("hm1.get_likelihood(theta)", globals(), locals(), "Profile1.prof")
+
+    s = pstats.Stats("Profile1.prof")
+    s.strip_dirs().sort_stats("time").print_stats()
+
+    # cProfile.runctx("hm1.get_gradient(theta)", globals(), locals(), "Profile2.prof")
+
+    # s = pstats.Stats("Profile2.prof")
+    #s.strip_dirs().sort_stats("time").print_stats()
+    """
     t1 = minimize(hm1.get_likelihood, theta, method='L-BFGS-B', jac=hm1.get_gradient, tol=1e-3,
                   options={'maxiter': 20})
 
     theta = t1.x
-    theta = hm1.train(theta, 1e-3, 20)
-    hm1.write_logs(theta, 'cyth_out_weights', 'cyth_out_probs', 'cyth_out_align')
+
+    hm1.write_logs(theta, options.output_weights, options.output_probs, options.output_alignments)
+
+    """

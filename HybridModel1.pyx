@@ -1,13 +1,13 @@
+# cython: profile=True
 __author__ = 'arenduchintala'
 
-from math import log, exp
 import utils
 
 import numpy as np  #THIS SHOULD BE HERE.. PYCHARM NOT SMART ENOUGH TO KNOW CYTHON NEEDS IT
 
 cimport numpy as np
 from const import E_TYPE, HYBRID_MODEL_1
-
+from math import log, exp
 from const import NULL as _NULL_
 from cyth.cyth_common import populate_trellis, load_model1_probs, load_dictionary_features, populate_features, \
     get_source_to_target_firing, pre_compute_ets, load_corpus_file, get_wa_features_fired, write_probs, write_weights, \
@@ -55,14 +55,15 @@ cdef class HybridModel1(object):
         return self._get_decision_given_context(theta, type, decision, context)
 
     cdef _get_decision_given_context(self, np.ndarray theta, char *type, char *decision, char *context):
-        m1_event_prob = self.model1_probs.get((decision, context), 0.0)
-        fired_features = get_wa_features_fired(type=type, decision=decision, context=context,
-                                               dictionary_features=self.dictionary_features, hybrid=True)
-        theta_dot_features = sum([theta[self.findex[f]] * f_wt for f_wt, f in fired_features])
-        numerator = m1_event_prob * exp(theta_dot_features)
-        if (type, context) in self.cache_normalizing_decision:
-            denom = self.cache_normalizing_decision[type, context]
+
+        if (type, decision, context) in self.cache_normalizing_decision:
+            return self.cache_normalizing_decision[type, decision, context]
         else:
+            m1_event_prob = self.model1_probs.get((decision, context), 0.0)
+            fired_features = get_wa_features_fired(type=type, decision=decision, context=context,
+                                                   dictionary_features=self.dictionary_features, hybrid=True)
+            theta_dot_features = sum([theta[self.findex[f]] * f_wt for f_wt, f in fired_features])
+            numerator = m1_event_prob * exp(theta_dot_features)
             denom = self.ets[context]
             target_firings = self.s2t_firing.get(context, set([]))
             for tf in target_firings:
@@ -71,9 +72,10 @@ cdef class HybridModel1(object):
                                                           dictionary_features=self.dictionary_features, hybrid=True)
                 tf_theta_dot_features = sum([theta[self.findex[f]] * f_wt for f_wt, f in tf_fired_features])
                 denom += m1_tf_event_prob * exp(tf_theta_dot_features)
-            self.cache_normalizing_decision[type, context] = denom
+
         try:
             log_prob = log(numerator) - log(denom)
+            self.cache_normalizing_decision[type, decision, context] = log_prob
         except ValueError:
             print numerator, denom, decision, context, m1_event_prob, theta_dot_features
             raise BaseException
@@ -98,7 +100,8 @@ cdef class HybridModel1(object):
                 s_tok = self.source[obs_id][s_idx] if s_idx is not _NULL_ else _NULL_
                 e = self._get_decision_given_context(theta, E_TYPE, decision=t_tok, context=s_tok)
                 sum_e = utils.logadd(sum_e, e)
-                q = log(1.0 / len(obs[t_idx]))
+                #q = log(1.0 / len(obs[t_idx]))
+                q = -log(len(obs[t_idx]))
                 sum_sj = utils.logadd(sum_sj, e + q)
                 if e > max_e:
                     max_e = e
