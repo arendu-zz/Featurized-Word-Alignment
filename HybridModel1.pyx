@@ -8,7 +8,8 @@ from pprint import pprint
 
 cimport numpy as np
 from const import E_TYPE, HYBRID_MODEL_1
-from math import log, exp
+
+from libc.math cimport exp, log
 from const import NULL as _NULL_
 from cyth.cyth_common import populate_trellis, load_model1_probs, load_dictionary_features, populate_features, \
     get_source_to_target_firing, pre_compute_ets, load_corpus_file, get_wa_features_fired, write_probs, write_weights, \
@@ -54,10 +55,18 @@ cdef class HybridModel1(object):
             model_type=HYBRID_MODEL_1,
             dictionary_features=self.dictionary_features, hybrid=True)
         print 'number of features used', len(self.findex)
-        pprint(self.findex)
         self.s2t_firing = get_source_to_target_firing(self.e2f)
         self.ets = pre_compute_ets(self.model1_probs, self.s2t_firing, self.target_types, self.source_types)
         self.cache_normalizing_decision = {}
+
+    cdef get_numerator(self, theta, decision, context):
+        m1_event_prob = self.model1_probs.get((decision, context), 0.0)
+        fired_features = get_wa_features_fired(type=type, decision=decision, context=context,
+                                               dictionary_features=self.dictionary_features, ishybrid=True)
+        theta_dot_features = sum([theta[self.findex[f]] * f_wt for f_wt, f in fired_features])
+        numerator = m1_event_prob * exp(theta_dot_features)
+        return numerator
+
     def get_decision_given_context(self, theta, type, decision, context):
         return self._get_decision_given_context(theta, type, decision, context)
 
@@ -65,28 +74,26 @@ cdef class HybridModel1(object):
 
         if (type, decision, context) in self.cache_normalizing_decision:
             return self.cache_normalizing_decision[type, decision, context]
+        elif (type, context) in self.cache_normalizing_decision:
+            denom = self.cache_normalizing_decision[type, context]
+            numerator = self.get_numerator(theta, decision, context)
+            log_prob = log(numerator) - log(denom)
+            self.cache_normalizing_decision[type, decision, context] = log_prob
+            return log_prob
         else:
-            m1_event_prob = self.model1_probs.get((decision, context), 0.0)
-            fired_features = get_wa_features_fired(type=type, decision=decision, context=context,
-                                                   dictionary_features=self.dictionary_features, ishybrid=True)
-            theta_dot_features = sum([theta[self.findex[f]] * f_wt for f_wt, f in fired_features])
-            numerator = m1_event_prob * exp(theta_dot_features)
+            numerator = self.get_numerator(theta, decision, context)
             denom = self.ets[context]
-            target_firings = self.s2t_firing.get(context, set([]))
-            for tf in target_firings:
+            for tf in self.s2t_firing.get(context, []):
                 m1_tf_event_prob = self.model1_probs.get((tf, context), 0.0)
                 tf_fired_features = get_wa_features_fired(type=type, decision=tf, context=context,
                                                           dictionary_features=self.dictionary_features, ishybrid=True)
                 tf_theta_dot_features = sum([theta[self.findex[f]] * f_wt for f_wt, f in tf_fired_features])
                 denom += m1_tf_event_prob * exp(tf_theta_dot_features)
 
-        try:
+            self.cache_normalizing_decision[type, context] = denom
             log_prob = log(numerator) - log(denom)
             self.cache_normalizing_decision[type, decision, context] = log_prob
-        except ValueError:
-            print numerator, denom, decision, context, m1_event_prob, theta_dot_features
-            raise BaseException
-        return log_prob
+            return log_prob
 
     cdef reset_fractional_counts(self):
         self.fcounts = {}
@@ -106,10 +113,10 @@ cdef class HybridModel1(object):
             for _, s_idx in obs[t_idx]:
                 s_tok = self.source[obs_id][s_idx] if s_idx is not _NULL_ else _NULL_
                 e = self._get_decision_given_context(theta, E_TYPE, decision=t_tok, context=s_tok)
-                sum_e = utils.logadd(sum_e, e)
+                sum_e = self.logadd(sum_e, e)
                 #q = log(1.0 / len(obs[t_idx]))
                 q = -log(len(obs[t_idx]))
-                sum_sj = utils.logadd(sum_sj, e + q)
+                sum_sj = self.logadd(sum_sj, e + q)
                 if e > max_e:
                     max_e = e
                     max_s_idx = s_idx
@@ -122,7 +129,7 @@ cdef class HybridModel1(object):
                 e = self._get_decision_given_context(theta, E_TYPE, decision=t_tok, context=s_tok)
                 delta = e - sum_e
                 event = (E_TYPE, t_tok, s_tok)
-                self.fcounts[event] = utils.logadd(delta, self.fcounts.get(event, float('-inf')))
+                self.fcounts[event] = self.logadd(delta, self.fcounts.get(event, float('-inf')))
 
         return max_bt[:-1], p_st
 
@@ -130,8 +137,6 @@ cdef class HybridModel1(object):
         return self._get_likelihood(theta)
 
     cdef  double _get_likelihood(self, theta):
-        assert isinstance(theta, np.ndarray)
-        assert len(theta) == len(self.findex)
         self.reset_fractional_counts()
         data_likelihood = 0.0
         batch = range(0, len(self.trellis))
@@ -149,7 +154,6 @@ cdef class HybridModel1(object):
         return self._get_gradient(theta)
 
     cdef  np.ndarray _get_gradient(self, theta):
-        assert len(theta) == len(self.findex)
         event_grad = {}
         for event_j in self.e2f:
             (t, dj, cj) = event_j
@@ -201,9 +205,9 @@ cdef class HybridModel1(object):
             for _, s_idx in obs[t_idx]:
                 s_tok = self.source[obs_id][s_idx] if s_idx is not _NULL_ else _NULL_
                 e = self._get_decision_given_context(theta, E_TYPE, decision=t_tok, context=s_tok)
-                sum_e = utils.logadd(sum_e, e)
+                sum_e = self.logadd(sum_e, e)
                 q = log(1.0 / len(obs[t_idx]))
-                sum_sj = utils.logadd(sum_sj, e + q)
+                sum_sj = self.logadd(sum_sj, e + q)
                 if e > max_e:
                     max_e = e
                     max_s_idx = s_idx
@@ -229,3 +233,14 @@ cdef class HybridModel1(object):
                                  self.target, self.get_best_seq)
         return True
 
+    cdef double logadd(self, double x, double y):
+        """
+        trick to add probabilities in logspace
+        without underflow
+        """
+        if x == 0.0 and y == 0.0:
+            return log(exp(x) + exp(y))  # log(2)
+        elif x >= y:
+            return x + log(1 + exp(y - x))
+        else:
+            return y + log(1 + exp(x - y))
