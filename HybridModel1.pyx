@@ -18,26 +18,33 @@ cdef class HybridModel1(object):
     cdef public np.ndarray du_count
     cdef public double rc
     cdef int max_beam_width, max_jump_width
-    cdef public list target, source, trellis, eindex
-    cdef set target_types, source_types
+    cdef public list target, source, trellis, eindex, target_test, source_test
+    cdef set target_types, source_types, target_types_test, source_types_test
     cdef public dict  dictionary_features, findex
     cdef dict model1_probs, e2f, f2e, fcounts, ecounts, e2eindex
     cdef dict normalizing_decision_map
     cdef dict s2t_firing, ets, cache_normalizing_decision
 
-    def __init__(self, char *source_corpus_file,
+    def __init__(self, 
+            char *source_corpus_file,
+            char *source_test_file,
                  char *target_corpus_file,
+                 char *target_test_file,
                  char *model1_probs_file,
                  double rc,
                  char *dictionary_feature_file):
 
         self.rc = rc
         self.target, self.target_types = load_corpus_file(target_corpus_file)
+        self.target_test, self.target_types_test = load_corpus_file(target_test_file)
         self.source, self.source_types = load_corpus_file(source_corpus_file)
+        self.source_test, self.source_types_test = load_corpus_file(source_test_file)
         self.source_types.add(_NULL_)
         self.max_jump_width = 10
         self.max_beam_width = 20
+        print 'inside constructor', len(self.source), len(self.target)
         self.trellis = populate_trellis(self.source, self.target, self.max_jump_width, self.max_beam_width)
+        print len(self.trellis)
         self.dictionary_features = load_dictionary_features(dictionary_feature_file)
         self.model1_probs = load_model1_probs(model1_probs_file)
 
@@ -201,7 +208,7 @@ cdef class HybridModel1(object):
             p_st += sum_sj
         return max_bt[:-1], p_st
 
-    def write_logs(self, theta, out_weights_file, out_probs_file, out_alignments):
+    def write_logs_hm(self, theta, out_weights_file, out_probs_file, out_alignments):
         return self._write_logs(theta, out_weights_file, out_probs_file, out_alignments)
 
     cdef  _write_logs(self, theta, char *out_weights_file, char *out_probs_file, char *out_alignments):
@@ -209,6 +216,11 @@ cdef class HybridModel1(object):
         name_prefix = '.'.join(['sp', 'LBFGS', str(self.rc), HYBRID_MODEL_1, feature_val_typ])
         write_weights(theta, name_prefix + '.' + out_weights_file, self.findex)
         write_probs(theta, name_prefix + '.' + out_probs_file, self.fcounts, self.get_decision_given_context)
+        if self.source_test is not None and self.target_test is not None:
+            print 'inside here', len(self.source_test), len(self.target_test)
+            self.trellis = populate_trellis(self.source_test, self.target_test, self.max_jump_width, self.max_beam_width)
+            print 'ok now?', len(self.trellis)
+
 
         write_alignments(theta, name_prefix + '.' + out_alignments, self.trellis, self.get_best_seq)
         write_alignments_col(theta, name_prefix + '.' + out_alignments, self.trellis, self.get_best_seq)
@@ -216,11 +228,3 @@ cdef class HybridModel1(object):
                                  self.target, self.get_best_seq)
         return True
 
-    def train(self, theta, threshold, maxiter):
-        return self._train(theta, threshold, maxiter)
-
-    cdef _train(self, theta, double threshold, int maxiter):
-        #t1 = minimize(self._get_likelihood, theta, method='L-BFGS-B', jac=self._get_gradient, tol=threshold,
-        #              options={'maxiter': maxiter})
-        #theta = t1.x
-        return theta
