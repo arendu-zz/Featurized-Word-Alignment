@@ -34,6 +34,7 @@ if __name__ == '__main__':
                                     options.model1_probs, rc,
                                     options.dict_features)
     theta = initialize_theta(None, hm1.findex)
+    print hm1.get_likelihood(theta)
     """
     import pstats, cProfile
 
@@ -48,10 +49,12 @@ if __name__ == '__main__':
     # s.strip_dirs().sort_stats("time").print_stats()
 
     """
+    """
     t1 = minimize(hm1.get_likelihood, theta, method='L-BFGS-B', jac=hm1.get_gradient, tol=1e-3,
                   options={'maxiter': 20})
 
     theta = t1.x
 
     hm1.write_logs(theta, options.output_weights, options.output_probs, options.output_alignments)
+    """
 
