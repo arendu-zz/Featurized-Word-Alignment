@@ -14,7 +14,7 @@ from const import NULL as _NULL_
 from cyth.cyth_common import populate_trellis, load_model1_probs, load_dictionary_features, populate_features, \
     get_source_to_target_firing, pre_compute_ets, load_corpus_file, get_wa_features_fired, write_probs, write_weights, \
     write_alignments, write_alignments_col, write_alignments_col_tok
-
+import time
 
 cdef class HybridModel1(object):
     cdef public np.ndarray du_count
@@ -143,6 +143,7 @@ cdef class HybridModel1(object):
         batch = range(0, len(self.trellis))
         for idx in batch:
             max_bt, S = self.get_model1_forward(theta, idx)
+            #S = self.do_func(idx, data_likelihood)
             data_likelihood += S
         reg = np.sum(theta ** 2)
         ll = data_likelihood - (self.rc * reg)
@@ -245,3 +246,10 @@ cdef class HybridModel1(object):
             return x + log(1 + exp(y - x))
         else:
             return y + log(1 + exp(x - y))
+
+    cdef double do_func(self, int idx, double x) nogil:
+       with gil:
+          print 'doing function', idx
+          time.sleep(0.1)
+       return x + 1.9
+
