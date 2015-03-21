@@ -4,6 +4,7 @@ from Cython.Distutils import build_ext
 import numpy as np  # <---- New line
 
 ext_modules = [Extension("HybridModel1", ["HybridModel1.pyx"])]
+#ext_modules = [Extension("HybridModel1MP", ["HybridModel1MP.pyx"])]
 
 setup(
     name='hybridmodel1',
