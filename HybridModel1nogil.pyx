@@ -9,14 +9,18 @@ from pprint import pprint
 cimport numpy as np
 from const import E_TYPE, HYBRID_MODEL_1
 
+cimport cython
+from cython.parallel import prange
+from cython.parallel import threadid
 from libc.math cimport exp, log
 from const import NULL as _NULL_
 from cyth.cyth_common import populate_trellis, load_model1_probs, load_dictionary_features, populate_features, \
     get_source_to_target_firing, pre_compute_ets, load_corpus_file, get_wa_features_fired, write_probs, write_weights, \
     write_alignments, write_alignments_col, write_alignments_col_tok
 import time
-
-cdef class HybridModel1(object):
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef class HybridModel1nogil(object):
     cdef public np.ndarray du_count
     cdef public double rc
     cdef int max_beam_width, max_jump_width
@@ -26,7 +30,6 @@ cdef class HybridModel1(object):
     cdef dict model1_probs, e2f, f2e, fcounts, ecounts, e2eindex
     cdef dict normalizing_decision_map
     cdef dict s2t_firing, ets, cache_normalizing_decision
-
     def __init__(self,
                  char *source_corpus_file,
                  char *source_test_file,
@@ -59,98 +62,105 @@ cdef class HybridModel1(object):
         self.ets = pre_compute_ets(self.model1_probs, self.s2t_firing, self.target_types, self.source_types)
         self.cache_normalizing_decision = {}
 
-    cdef get_denom(self, type, theta, context):
-        if (type, context) in self.cache_normalizing_decision:
-            denom = self.cache_normalizing_decision[type, context]
-            return denom
-        else:
-            denom = self.ets[context]
-            for tf in self.s2t_firing.get(context, []):
-                m1_tf_event_prob = self.model1_probs.get((tf, context), 0.0)
-                tf_fired_features = get_wa_features_fired(type=type,
-                                                          decision=tf,
-                                                          context=context,
-                                                          dictionary_features=self.dictionary_features,
-                                                          ishybrid=True)
-                tf_theta_dot_features = sum([theta[self.findex[f]] * f_wt for f_wt, f in tf_fired_features])
-                denom += m1_tf_event_prob * exp(tf_theta_dot_features)
-            ld = log(denom)
-            self.cache_normalizing_decision[type, context] = ld
-        return ld
+    cdef double  get_denom(self, type, theta, context) nogil: 
+        cdef double denom = 0.0
+        with gil:
+            if (type, context) in self.cache_normalizing_decision:
+                    denom = self.cache_normalizing_decision[type, context]
+            else:
+                de = self.ets[context]
+                for tf in self.s2t_firing.get(context, []):
+                    m1_tf_event_prob = self.model1_probs.get((tf, context), 0.0)
+                    tf_fired_features = get_wa_features_fired(type=type,
+                                                              decision=tf,
+                                                              context=context,
+                                                              dictionary_features=self.dictionary_features,
+                                                              ishybrid=True)
+                    tf_theta_dot_features = sum([theta[self.findex[f]] * f_wt for f_wt, f in tf_fired_features])
+                    de += m1_tf_event_prob * exp(tf_theta_dot_features)
+                denom = log(de)
+            self.cache_normalizing_decision[type, context] = denom
+        return denom
 
-    def get_decision_given_context(self, theta, type, decision, context):
-        return self._get_decision_given_context(theta, type, decision, context)
+    #def get_decision_given_context(self, theta, type, decision, context):
+    #    return self._get_decision_given_context(theta, type, decision, context)
 
-    cdef _get_decision_given_context(self, np.ndarray theta, char *type, char *decision, char *context):
-        if (type, decision, context) in self.cache_normalizing_decision:
-            return self.cache_normalizing_decision[type, decision, context]
-        else:
-            m1_event_prob = self.model1_probs.get((decision, context), 0.0)
-            fired_features = get_wa_features_fired(type=type, decision=decision, context=context,
-                                                   dictionary_features=self.dictionary_features, ishybrid=True)
-            theta_dot_features = sum([theta[self.findex[f]] * f_wt for f_wt, f in fired_features])
-            numerator = m1_event_prob * exp(theta_dot_features)
-            denom = self.get_denom(type, theta, context)
+    cdef double _get_decision_given_context(self, np.ndarray theta, char *type, char *decision, char *context) nogil:
+        cdef double log_prob = 0.0
+        cdef double numerator = 0.0
+        cdef double denom = 0.0
+        with gil:
+            if (type, decision, context) in self.cache_normalizing_decision:
+                log_prob = self.cache_normalizing_decision[type, decision, context]
+            else:
 
-            log_prob = log(numerator) - denom
-            self.cache_normalizing_decision[type, decision, context] = log_prob
-            return log_prob
+                denom = self.get_denom(type, theta, context)
+                m1_event_prob = self.model1_probs.get((decision, context), 0.0)
+                fired_features = get_wa_features_fired(type=type, decision=decision, context=context,
+                                                       dictionary_features=self.dictionary_features, ishybrid=True)
+                theta_dot_features = sum([theta[self.findex[f]] * f_wt for f_wt, f in fired_features])
+                numerator = m1_event_prob * exp(theta_dot_features)
+                log_prob = log(numerator) - denom
+                self.cache_normalizing_decision[type, decision, context] = log_prob
+
+        return log_prob
 
     cdef reset_fractional_counts(self):
         self.fcounts = {}
         self.cache_normalizing_decision = {}
         return True
 
-    cdef get_model1_forward(self, theta, int obs_id):
-        obs = self.trellis[obs_id]
-        max_bt = [-1] * len(obs)
-        p_st = 0.0
-        for t_idx in obs:
-            t_tok = self.target[obs_id][t_idx]
-            sum_e = float('-inf')
-            max_e = float('-inf')
-            max_s_idx = None
-            sum_sj = float('-inf')
-            for _, s_idx in obs[t_idx]:
-                s_tok = self.source[obs_id][s_idx] if s_idx is not _NULL_ else _NULL_
-                e = self._get_decision_given_context(theta, E_TYPE, decision=t_tok, context=s_tok)
-                sum_e = self.logadd(sum_e, e)
-                #q = log(1.0 / len(obs[t_idx]))
-                q = -log(len(obs[t_idx]))
-                sum_sj = self.logadd(sum_sj, e + q)
-                if e > max_e:
-                    max_e = e
-                    max_s_idx = s_idx
-            max_bt[t_idx] = (t_idx, max_s_idx)
-            p_st += sum_sj
+    cdef double get_model1_forward(self, theta, int obs_id) nogil:
+        
+        cdef double p_st = 0.0
+        with gil:
+            obs = self.trellis[obs_id]
+            for t_idx in obs:
+                t_tok = self.target[obs_id][t_idx]
+                sum_e = float('-inf')
+                max_e = float('-inf')
+                max_s_idx = None
+                sum_sj = float('-inf')
+                for _, s_idx in obs[t_idx]:
+                    s_tok = self.source[obs_id][s_idx] if s_idx is not _NULL_ else _NULL_
+                    e = self._get_decision_given_context(theta, E_TYPE, decision=t_tok, context=s_tok)
+                    sum_e = self.logadd(sum_e, e)
+                    #q = log(1.0 / len(obs[t_idx]))
+                    q = -log(len(obs[t_idx]))
+                    sum_sj = self.logadd(sum_sj, e + q)
+                    if e > max_e:
+                        max_e = e
+                        max_s_idx = s_idx
+                p_st += sum_sj
 
-            # update fractional counts
-            for _, s_idx in obs[t_idx]:
-                s_tok = self.source[obs_id][s_idx] if s_idx is not _NULL_ else _NULL_
-                e = self._get_decision_given_context(theta, E_TYPE, decision=t_tok, context=s_tok)
-                delta = e - sum_e
-                event = (E_TYPE, t_tok, s_tok)
-                self.fcounts[event] = self.logadd(delta, self.fcounts.get(event, float('-inf')))
+                # update fractional counts
+                for _, s_idx in obs[t_idx]:
+                    s_tok = self.source[obs_id][s_idx] if s_idx is not _NULL_ else _NULL_
+                    e = self._get_decision_given_context(theta, E_TYPE, decision=t_tok, context=s_tok)
+                    delta = e - sum_e
+                    event = (E_TYPE, t_tok, s_tok)
+                    self.fcounts[event] = self.logadd(delta, self.fcounts.get(event, float('-inf')))
+        return p_st
 
-        return max_bt[:-1], p_st
+    def get_likelihood(self, theta, num_threads=20):
+        return self._get_likelihood(theta, num_threads)
 
-    def get_likelihood(self, theta):
-        return self._get_likelihood(theta)
-
-    cdef  double _get_likelihood(self, theta):
+    cdef  double _get_likelihood(self, theta, int nt):
+        cdef double data_likelihood = 0.0
+        cdef int idx = 0
+        cdef int n =0 
+        cdef double dl = 0.0
         self.reset_fractional_counts()
-        data_likelihood = 0.0
-        batch = range(0, len(self.trellis))
-        for idx in batch:
-            max_bt, S = self.get_model1_forward(theta, idx)
-            #S = self.do_func(idx, data_likelihood)
-            data_likelihood += S
+        n = len(self.trellis)
+        for idx in prange(n ,nogil=True, num_threads=nt):
+            #data_likelihood += self.get_model1_forward(theta, idx)
+            data_likelihood += self.dummy_func(idx, dl) #self.get_model1_forward(theta, idx)
         reg = np.sum(theta ** 2)
-        ll = data_likelihood - (self.rc * reg)
-        e1 = self._get_decision_given_context(theta, E_TYPE, decision='.', context=_NULL_)
-        e2 = self._get_decision_given_context(theta, E_TYPE, decision='.', context='.')
-        print 'log likelihood:', ll, 'p(.|NULL)', e1, 'p(.|.)', e2
-        return -ll
+        data_likelihood = data_likelihood - (self.rc * reg)
+        #e1 = self._get_decision_given_context(theta, E_TYPE, decision='.', context=_NULL_)
+        #e2 = self._get_decision_given_context(theta, E_TYPE, decision='.', context='.')
+        #print 'log likelihood:', data_likelihood, 'p(.|NULL)', e1, 'p(.|.)', e2
+        return -data_likelihood
 
     def get_gradient(self, theta):
         return self._get_gradient(theta)
@@ -215,7 +225,7 @@ cdef class HybridModel1(object):
                     max_s_idx = s_idx
             max_bt[t_idx] = (t_idx, max_s_idx)
             p_st += sum_sj
-        return max_bt[:-1], p_st
+        return max_bt[:-1]
 
     def write_logs(self, theta, out_weights_file, out_probs_file, out_alignments):
         return self._write_logs(theta, out_weights_file, out_probs_file, out_alignments)
@@ -235,7 +245,7 @@ cdef class HybridModel1(object):
                                  self.target, self.get_best_seq)
         return True
 
-    cdef double logadd(self, double x, double y):
+    cdef double logadd(self, double x, double y) nogil:
         """
         trick to add probabilities in logspace
         without underflow
@@ -247,9 +257,9 @@ cdef class HybridModel1(object):
         else:
             return y + log(1 + exp(x - y))
 
-    cdef double do_func(self, int idx, double x) nogil:
-       with gil:
-          print 'doing function', idx
-          time.sleep(0.1)
-       return x + 1.9
+    cdef double dummy_func(self,int idx, double x) nogil:
+        with gil:
+            print 'doing function', idx
+            time.sleep(0.1)
+        return x + 1.9
 

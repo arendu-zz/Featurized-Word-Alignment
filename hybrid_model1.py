@@ -51,12 +51,15 @@ normalizing_decision_map = {}
 itercount = 0
 pause_on_tie = False
 
+import pdb
+
 
 def get_decision_given_context(theta, type, decision, context):
     global cache_normalizing_decision, feature_index, source_to_target_firing, model1_probs, ets
     m1_event_prob = model1_probs.get((decision, context), 0.0)
     fired_features = get_wa_features_fired(type=type, decision=decision, context=context,
-                                           dictionary_features=dictionary_features, hybrid=True)
+                                           dictionary_features=dictionary_features, ishybrid=True)
+
     theta_dot_features = sum([theta[feature_index[f]] * f_wt for f_wt, f in fired_features])
     numerator = m1_event_prob * exp(theta_dot_features)
     if (type, context) in cache_normalizing_decision:
@@ -67,7 +70,7 @@ def get_decision_given_context(theta, type, decision, context):
         for tf in target_firings:
             m1_tf_event_prob = model1_probs.get((tf, context), 0.0)
             tf_fired_features = get_wa_features_fired(type=type, decision=tf, context=context,
-                                                      dictionary_features=dictionary_features, hybrid=True)
+                                                      dictionary_features=dictionary_features, ishybrid=True)
             tf_theta_dot_features = sum([theta[feature_index[f]] * f_wt for f_wt, f in tf_fired_features])
             denom += m1_tf_event_prob * exp(tf_theta_dot_features)
         cache_normalizing_decision[type, context] = denom
@@ -191,7 +194,7 @@ def get_gradient(theta):
         (t, dj, cj) = event_j
         f_val, f = \
             get_wa_features_fired(type=t, context=cj, decision=dj, dictionary_features=dictionary_features,
-                                  hybrid=True)[0]
+                                  ishybrid=True)[0]
         a_dp_ct = exp(get_decision_given_context(theta, decision=dj, context=cj, type=t)) * f_val
         sum_feature_j = 0.0
         norm_events = [(t, dp, cj) for dp in normalizing_decision_map[t, cj]]
@@ -200,7 +203,7 @@ def get_gradient(theta):
             if event_i == event_j:
                 (ti, di, ci) = event_i
                 fj, f = get_wa_features_fired(type=ti, context=ci, decision=di, dictionary_features=dictionary_features,
-                                              hybrid=True)[0]
+                                              ishybrid=True)[0]
             else:
                 fj = 0.0
             sum_feature_j += A_dct * (fj - a_dp_ct)
@@ -271,7 +274,7 @@ def write_logs(theta, current_iter):
     global max_beam_width, max_jump_width, trellis, feature_index, fractional_counts
     feature_val_typ = 'bin' if options.feature_values is None else 'real'
     name_prefix = '.'.join(
-        ['sp', options.algorithm, str(rc), 'hybrid-model1', feature_val_typ])
+        ['sp', options.algorithm, str(rc), HYBRID_MODEL_1, feature_val_typ])
     if current_iter is not None:
         name_prefix += '.' + str(current_iter)
     write_weights(theta, name_prefix + '.' + options.output_weights, feature_index)
@@ -292,10 +295,10 @@ if __name__ == "__main__":
     trellis = []
 
     opt = OptionParser()
-    opt.add_option("-t", dest="target_corpus", default="experiment/data/train.es")
-    opt.add_option("-s", dest="source_corpus", default="experiment/data/train.en")
-    opt.add_option("--tt", dest="target_test", default="experiment/data/train.es")
-    opt.add_option("--ts", dest="source_test", default="experiment/data/train.en")
+    opt.add_option("-t", dest="target_corpus", default="experiment/data/dev.small.es")
+    opt.add_option("-s", dest="source_corpus", default="experiment/data/dev.small.en")
+    opt.add_option("--tt", dest="target_test", default="experiment/data/dev.small.es")
+    opt.add_option("--ts", dest="source_test", default="experiment/data/dev.small.en")
     opt.add_option("--df", dest="dict_features", default=None)
     opt.add_option("--m1", dest="model1_probs", default="experiment/data/model1.probs")
     opt.add_option("--iw", dest="input_weights", default=None)
@@ -309,6 +312,7 @@ if __name__ == "__main__":
                    help="use 'EM' 'LBFGS' 'SGD'")
 
     (options, _) = opt.parse_args()
+    print options
     rc = float(options.regularization_coeff)
     source, source_types = load_corpus_file(options.source_corpus)
     target, target_types = load_corpus_file(options.target_corpus)
@@ -318,7 +322,7 @@ if __name__ == "__main__":
     dictionary_features = load_dictionary_features(options.dict_features)
     model1_probs = load_model1_probs(options.model1_probs)
     events_to_features, features_to_events, feature_index, feature_counts, event_index, event_to_event_index, event_counts, normalizing_decision_map, du = populate_features(
-        trellis, source, target, HYBRID_MODEL_1, dictionary_features=dictionary_features)
+        trellis, source, target, HYBRID_MODEL_1, dictionary_features=dictionary_features, hybrid=True)
     source_to_target_firing = get_source_to_target_firing(events_to_features)
     ets = pre_compute_ets(model1_probs, source_to_target_firing, target_types, source_types)
     print len(feature_index), 'features used...'

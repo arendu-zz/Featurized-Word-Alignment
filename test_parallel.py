@@ -35,9 +35,38 @@ if __name__ == '__main__':
                                     options.model1_probs, rc,
                                     options.dict_features)
     theta = initialize_theta(None, hm1.findex)
+    hm1nogil = HybridModel1nogil.HybridModel1nogil(options.source_corpus,
+                                    options.source_test,
+                                    options.target_corpus,
+                                    options.target_test,
+                                    options.model1_probs, rc,
+                                    options.dict_features)
+    thetanogil = initialize_theta(None, hm1nogil.findex)
+    t1 = time.time()
+    hm1.get_likelihood(theta)
+    print time.time() - t1
+    t2 = time.time()
+    hm1nogil.get_likelihood(thetanogil)
+    print time.time() -t2
+    """
+    import pstats, cProfile
+
+    cProfile.runctx("hm1.get_likelihood(theta)", globals(), locals(), "Profile1.prof")
+
+    s = pstats.Stats("Profile1.prof")
+    s.strip_dirs().sort_stats("time").print_stats()
+
+    # cProfile.runctx("hm1.get_gradient(theta)", globals(), locals(), "Profile2.prof")
+
+    # s = pstats.Stats("Profile2.prof")
+    # s.strip_dirs().sort_stats("time").print_stats()
+
+    """
+    """
     t1 = minimize(hm1.get_likelihood, theta, method='L-BFGS-B', jac=hm1.get_gradient, tol=1e-3,
                   options={'maxiter': 20})
 
     theta = t1.x
 
     hm1.write_logs(theta, options.output_weights, options.output_probs, options.output_alignments)
+    """

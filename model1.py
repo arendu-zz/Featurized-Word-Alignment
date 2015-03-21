@@ -31,8 +31,8 @@ np.set_printoptions(precision=4, linewidth=180)
 
 def write_align(ali_out, ali_source, ali_target, translations):
     writer = open(ali_out, 'w')
-    test_source = open(ali_source, 'r').readlines()
-    test_target = open(ali_target, 'r').readlines()
+    test_source = open(ali_source, 'r').read().strip().splitlines()
+    test_target = open(ali_target, 'r').read().strip().splitlines()
     for dk in range(len(test_source)):
         source_tokens = test_source[dk].split()
         source_tokens.insert(0, 'NULL')
