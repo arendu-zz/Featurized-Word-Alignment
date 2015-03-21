@@ -24,14 +24,16 @@ def model1(iterations, translations, source_sentences, target_sentences):
     :return: translations
 
     """
-    for iter in range(iterations):
+    for i in range(iterations):
+        print 'iter',i
         delta = {}
         counts = {}
         """
         accumilate fractional counts, E-Step
         """
         for k, (source_tokens, target_tokens) in enumerate(zip(source_sentences, target_sentences)):
-            assert source_tokens[0] == 'NULL'
+            if k % 1000 == 0:
+                print k
             t_mat = np.zeros((len(target_tokens), len(source_tokens)))
             for j in range(0, len(source_tokens)):
                 for i in range(0, len(target_tokens)):
